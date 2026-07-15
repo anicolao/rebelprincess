@@ -1,6 +1,7 @@
 # Rebel Princess rules summary
 
-This is an implementation-oriented summary of the second-edition base rules,
+This is an implementation-oriented summary using the Deluxe Edition setup and
+round-lead rules,
 not a replacement for the published rulebook. Round cards and Princess powers
 override the base rules and need their own precise specifications before the
 game is implemented.
@@ -20,8 +21,10 @@ numbered 1–12. Pet 8 is the Frog.
 - 4 or 5 players: remove ranks 11 and 12 from every suit (40 cards).
 - 6 players: use all ranks (48 cards).
 
-Shuffle and deal the entire deck equally. Each player selects a distinct
-Princess with a once-per-round power. Choose five Round cards and order them;
+Shuffle and deal the entire deck equally. At the start of the game, deal two
+Princesses to each player; each player chooses one and keeps it for all five
+rounds. Princess powers refresh between rounds, but Princesses are not chosen
+again. Choose five Round cards and order them;
 each supplies the special rule and card-pass instruction for one round.
 
 ## A round
@@ -32,8 +35,9 @@ each supplies the special rule and card-pass instruction for one round.
 3. Play tricks until all hands are empty.
 4. Score captured proposal cards.
 5. Shuffle and redeal for the next round, refresh exhausted Princess powers,
-   and reveal the next Round card. The winner of the previous round's final
-   trick leads the new round.
+   and reveal the next Round card. The player with the lowest cumulative score
+   leads. If several players tie for lowest, start immediately clockwise after
+   the previous round's leader and take the first tied player encountered.
 
 ## Playing a trick
 
@@ -72,12 +76,11 @@ which they scored zero proposals; if still tied, share the victory.
 
 ## Edition note
 
-The Deluxe Edition changes and expands content, including additional Princesses
-and Round cards and a “Rebel of the Ball” catch-up rule. The first implementation
-must choose and version one edition explicitly instead of mixing content from
-different rulebooks. This summary starts from the earlier second-edition rules.
+The implementation follows the Deluxe Edition rules where explicitly recorded
+above. Additional Deluxe content, including more Princesses, Round cards and the
+“Rebel of the Ball” catch-up rule, remains future work.
 
 ## Source
 
-Published second-edition English rulebook:
-https://zombipaella.com/wp-content/uploads/2024/02/rebelprincess-ed02_rulebook_en.pdf
+Published Deluxe Edition English rulebook:
+https://cdn.shopify.com/s/files/1/0740/4855/files/RPDX_Online_Rules_Preview.pdf

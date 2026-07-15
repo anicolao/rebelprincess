@@ -9,8 +9,8 @@ async function join(page: Page, gameId: string, uid: string, name: string) {
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
 }
 
-async function ready(page: Page, princess: string) {
-  await page.getByRole('button', { name: princess, exact: true }).click();
+async function ready(page: Page, _princess?: string) {
+  await page.getByLabel('Choose one of your two Princesses').getByRole('button').first().click();
   await page.getByRole('button', { name: 'Ready for the ball' }).click();
 }
 

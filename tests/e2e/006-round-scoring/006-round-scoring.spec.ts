@@ -9,9 +9,9 @@ async function join(page: Page, gameId: string, uid: string, name: string) {
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
 }
 
-async function ready(page: Page, princess: string) {
-  await page.getByRole('button', { name: princess, exact: true }).click();
-  await page.getByRole('button', { name: /Ready (for the ball|for round)/ }).click();
+async function ready(page: Page, _princess?: string) {
+  await page.getByLabel('Choose one of your two Princesses').getByRole('button').first().click();
+  await page.getByRole('button', { name: 'Ready for the ball' }).click();
 }
 
 async function passCards(page: Page, cards: string[], direction: 'left' | 'right') {
@@ -45,7 +45,7 @@ async function playNextCards(pages: Page[], observer: Page, startingCount: numbe
 
 test('the final trick reveals scoring and advances to a refreshed second round', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
-  steps.setMetadata('Round scoring and transition', 'The final live trick reveals Prince and Frog proposals, preserves cumulative totals, refreshes Princesses, redeals, and gives the previous last-trick winner the next lead.');
+  steps.setMetadata('Round scoring and transition', 'The final live trick reveals Prince and Frog proposals, preserves cumulative totals and Princesses, then redeals with the lowest cumulative scorer leading.');
   const suffix = testInfo.project.name;
   const gameId = suffix === 'phone' ? 'SCORE06P' : 'SCORE06D';
   const options = { viewport: page.viewportSize() ?? undefined, reducedMotion: 'reduce' as const, serviceWorkers: 'block' as const, deviceScaleFactor: 1 };
@@ -83,7 +83,7 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   await playNextCards(players, page, 3, 3);
   const scoring = page.getByLabel('Round 1 scoring');
   await expect(scoring).toBeVisible();
-  const nextLead = (await scoring.locator('.next-lead').textContent())?.replace('Next lead: ', '').trim() ?? '';
+  const nextLead = (await scoring.locator('.next-lead').textContent())?.replace('Lowest total leads next: ', '').trim() ?? '';
   await steps.step('score-round', {
     description: 'The completed round reveals proposal sources and cumulative totals',
     verifications: [
@@ -93,14 +93,14 @@ test('the final trick reveals scoring and advances to a refreshed second round',
         await expect(scoring).toContainText('Frog');
       } },
       { spec: 'The deck’s nine Princes and five-point Frog account for fourteen proposals', check: async () => expect(await scoring.locator('li span').evaluateAll((rows) => rows.reduce((sum, row) => sum + Number(row.textContent?.match(/= (\d+)/)?.[1] ?? 0), 0))).toBe(14) },
-      { spec: 'The winner of the final trick is named as the next leader', check: async () => expect(nextLead).toMatch(/Alex|Jo|Sam/) },
-      { spec: 'All players must refresh their Princess choice', check: async () => expect(page.getByRole('button', { name: 'Ready for round 2' })).toBeVisible() }
+      { spec: 'The unique lowest cumulative scorer is named as the next leader', check: async () => expect(nextLead).toBe('Jo') },
+      { spec: 'Princesses stay fixed and only their powers refresh', check: async () => {
+        await expect(scoring).toContainText('Princesses stay with their players');
+        await expect(page.getByRole('button', { name: 'Ready for round 2' })).toHaveCount(0);
+      } }
     ]
   });
 
-  await ready(page, 'Snow White');
-  await ready(jo, 'The Little Mermaid');
-  await ready(sam, 'Cinderella');
   const deal = page.getByRole('button', { name: 'Deal round 2' });
   await expect(deal).toBeEnabled();
   await deal.click();
@@ -110,7 +110,7 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   for (const client of players) await expect(client.getByRole('alert')).toContainText('Passing complete');
 
   await steps.step('next-round-playable', {
-    description: 'Fresh hands and Princesses begin round two under the previous winner’s lead',
+    description: 'Fresh hands begin round two under the lowest scorer’s lead',
     verifications: [
       { spec: 'The next Round card and round count are revealed', check: async () => {
         await expect(page.getByLabel('Current Round card')).toContainText('Invitation');
@@ -119,7 +119,7 @@ test('the final trick reveals scoring and advances to a refreshed second round',
       { spec: 'Every client has a fresh twelve-card hand after the right pass', check: async () => {
         for (const client of players) await expect(client.getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(12);
       } },
-      { spec: 'The prior final-trick winner visibly leads the new round', check: async () => {
+      { spec: 'The lowest cumulative scorer visibly leads the new round', check: async () => {
         const leaderPage = nextLead === 'Alex' ? page : nextLead === 'Jo' ? jo : sam;
         await expect(leaderPage.getByText('You lead', { exact: true })).toBeVisible();
       } },

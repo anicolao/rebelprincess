@@ -9,17 +9,21 @@ async function join(page: Page, gameId: string, uid: string, name: string) {
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
 }
 
-async function choose(page: Page, princess: string) {
-  await page.getByRole('button', { name: princess, exact: true }).click();
+async function choose(page: Page) {
+  const options = page.getByLabel('Choose one of your two Princesses').getByRole('button');
+  await expect(options).toHaveCount(2);
+  const princess = (await options.first().textContent()) ?? '';
+  await options.first().click();
   await page.getByRole('button', { name: 'Ready for the ball' }).click();
   await expect(page.getByRole('list', { name: 'Players' })).toContainText('Ready');
+  return princess;
 }
 
 test('three clients choose setup and receive a deterministic selective deal', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata(
     'Princess setup and deterministic deal',
-    'Three players choose distinct Princesses, ready themselves, and receive a complete seeded deal while each client renders only its own hand.'
+    'Three players choose from two deterministically dealt Princesses, ready themselves, and receive a complete seeded deal while each client renders only its own hand.'
   );
   const suffix = testInfo.project.name;
   const gameId = suffix === 'phone' ? 'SET003P' : 'SET003D';
@@ -36,12 +40,23 @@ test('three clients choose setup and receive a deterministic selective deal', as
   await join(guest, gameId, `setup-guest-${suffix}`, 'Jo');
   await join(third, gameId, `setup-third-${suffix}`, 'Sam');
 
-  await choose(page, 'Snow White');
-  await choose(guest, 'The Little Mermaid');
-  await choose(third, 'Cinderella');
-  await expect(page.getByRole('list', { name: 'Players' })).toContainText('Alex · Snow White');
-  await expect(page.getByRole('list', { name: 'Players' })).toContainText('Jo · The Little Mermaid');
-  await expect(page.getByRole('list', { name: 'Players' })).toContainText('Sam · Cinderella');
+  const offered = page.getByLabel('Choose one of your two Princesses').getByRole('button');
+  const offeredNames = await offered.allTextContents();
+  await page.reload();
+  await steps.step('two-dealt-princesses', {
+    description: 'Each player receives two stable Princess options for the whole game',
+    verifications: [
+      { spec: 'The host may choose from exactly two Princesses rather than the full roster', check: async () => expect(page.getByLabel('Choose one of your two Princesses').getByRole('button')).toHaveCount(2) },
+      { spec: 'The dealt options survive a complete replay unchanged', check: async () => expect(await page.getByLabel('Choose one of your two Princesses').getByRole('button').allTextContents()).toEqual(offeredNames) }
+    ]
+  });
+
+  const hostPrincess = await choose(page);
+  const guestPrincess = await choose(guest);
+  const thirdPrincess = await choose(third);
+  await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Alex · ${hostPrincess}`);
+  await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Jo · ${guestPrincess}`);
+  await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Sam · ${thirdPrincess}`);
 
   for (const round of ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) {
     await page.getByRole('button', { name: round, exact: true }).click();

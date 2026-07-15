@@ -110,7 +110,7 @@
   }
 
   async function becomeReady() {
-    if (!selectedPrincess || !game || game.players.some((player) => player.uid !== currentUid && player.princessId === selectedPrincess)) return;
+    if (!selectedPrincess || !game || !game.princessOptions[currentUid]?.includes(selectedPrincess)) return;
     connection = 'checking';
     connectionLabel = 'Saving your Princess…';
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/configured', {
@@ -355,24 +355,17 @@
             {#if game.roundComplete}
               <section class="round-results" aria-label={`Round ${game.roundIndex + 1} scoring`}>
                 <h2>Proposals received</h2>
-                <p class="next-lead">Next lead: {nextLeaderName()}</p>
+                <p class="next-lead">Lowest total leads next: {nextLeaderName()}</p>
                 <ul>
                   {#each game.players as player}
                     <li><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog = {game.roundScores[player.uid].total}</span><b>{game.totalScores[player.uid]} total</b></li>
                   {/each}
                 </ul>
-                {#if !game.players.find((player) => player.uid === currentUid)?.ready}
-                  <fieldset class="choice-grid results-princesses">
-                    <legend>Choose your Princess for round {game.roundIndex + 2}</legend>
-                    {#each PRINCESSES as princess}
-                      <button type="button" class:chosen={selectedPrincess === princess[0]} disabled={game.players.some((player) => player.uid !== currentUid && player.princessId === princess[0])} on:click={() => selectedPrincess = princess[0]}>{princess[1]}</button>
-                    {/each}
-                  </fieldset>
-                  <button class="results-ready" type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for round {game.roundIndex + 2}</button>
-                {:else if game.players[0]?.uid === currentUid}
-                  <button class="results-ready" type="button" disabled={!game.players.every((player) => player.ready)} on:click={dealNextRound}>Deal round {game.roundIndex + 2}</button>
+                <p class="princess-kept">Princesses stay with their players and refresh their powers.</p>
+                {#if game.players[0]?.uid === currentUid}
+                  <button class="results-ready" type="button" on:click={dealNextRound}>Deal round {game.roundIndex + 2}</button>
                 {:else}
-                  <p>Ready · waiting for the host to deal</p>
+                  <p>Waiting for the host to deal round {game.roundIndex + 2}</p>
                 {/if}
               </section>
             {/if}
@@ -390,10 +383,11 @@
             {/each}
           </ul>
           {#if !game?.players.find((player) => player.uid === currentUid)?.ready}
-            <fieldset class="choice-grid">
-              <legend>Choose your Princess</legend>
-              {#each PRINCESSES as princess}
-                <button type="button" class:chosen={selectedPrincess === princess[0]} disabled={game?.players.some((player) => player.uid !== currentUid && player.princessId === princess[0])} on:click={() => selectedPrincess = princess[0]}>{princess[1]}</button>
+            <fieldset class="choice-grid" aria-label="Choose one of your two Princesses">
+              <legend>Choose one of your two dealt Princesses</legend>
+              {#each game?.princessOptions[currentUid] ?? [] as princessId}
+                {@const princess = PRINCESSES.find(([id]) => id === princessId)}
+                <button type="button" class:chosen={selectedPrincess === princessId} on:click={() => selectedPrincess = princessId}>{princess?.[1] ?? princessId}</button>
               {/each}
             </fieldset>
             <button type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for the ball</button>
@@ -711,7 +705,6 @@
   .round-results li { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255, 226, 163, .15); font-size: 12px; }
   .round-results li span { color: #d8c8dc; }
   .round-results li b { color: #ffc75f; }
-  .results-princesses { width: min(100%, 520px); margin: 10px 0 6px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .results-ready { min-height: 34px; margin-top: 5px; padding: 0 16px; font-size: 12px; }
 
   main.gameplay { width: calc(100% - 24px); height: 100dvh; min-height: 0; overflow: hidden; }
@@ -884,7 +877,6 @@
     main.gameplay .local-seat { bottom: 2px; }
     main.gameplay .round-center { top: 43%; }
     main.gameplay .round-results { inset: 8% 5%; }
-    main.gameplay .results-princesses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     button {
       min-height: 44px;
