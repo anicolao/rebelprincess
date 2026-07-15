@@ -18,7 +18,7 @@ async function join(page: Page, gameId: string, uid: string, name: string) {
 }
 
 async function ready(page: Page) {
-  await page.getByLabel('Choose one of your two Princesses').getByRole('button').first().click();
+  await page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first().click();
   await page.getByRole('button', { name: 'Ready for the ball' }).click();
 }
 

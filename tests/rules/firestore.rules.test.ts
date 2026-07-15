@@ -80,6 +80,12 @@ describe('append-only game event rules', () => {
     await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-rematch'), {
       ...validEvent(), type: 'game/rematched', payload: { gameId: 'MOON42' }
     }));
+    await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-power'), {
+      ...validEvent(), type: 'power/activated', payload: { gameId: 'MOON42', powerId: 'pocahontas', targetUid: 'guest' }
+    }));
+    await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-decline'), {
+      ...validEvent(), type: 'power/declined', payload: { gameId: 'MOON42', powerId: 'mulan' }
+    }));
   });
 
   it('never permits mutation or deletion of an existing event', async () => {

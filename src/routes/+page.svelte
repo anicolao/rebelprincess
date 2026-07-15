@@ -7,6 +7,8 @@
   import { replaceState } from '$app/navigation';
   import suitAtlas from '../../assets/generated/suited-card-families.png';
   import roundAtlas from '../../assets/generated/round-rule-vignettes.png';
+  import princessAtlas from '../../assets/generated/princess-portraits.png';
+  import deluxePrincessAtlas from '../../assets/generated/princess-portraits-deluxe.png';
   import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
   import {
     appendGameEvent,
@@ -17,7 +19,7 @@
   } from '$lib/game-events';
   import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, ROUND_RULE_TEXT, SUITS, type Card } from '$lib/setup';
   import { passInstruction } from '$lib/passing';
-  import { canPlay } from '$lib/trick-taking';
+  import { legalCardsWithPeaPower, mulanReplacements, PRINCESS_POWER_TEXT, snowWhiteCanZero } from '$lib/princess-powers';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -32,6 +34,8 @@
   let selectedRounds: string[] = [];
   let selectedPassCards: Array<string | null> = [];
   let observedRoundIndex = -1;
+  let snowWhiteArmed = false;
+  let openPrincessPower = '';
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
 
@@ -136,6 +140,13 @@
   }
 
   function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
+  function princessStyle(id?: string) {
+    const index = PRINCESSES.findIndex(([key]) => key === id);
+    if (index >= 10) return `--princess-x: ${(index - 10) * 100}%; --princess-y: 0%; --princess-size: 200% 100%; background-image: url(${deluxePrincessAtlas})`;
+    return `--princess-x: ${(Math.max(0, index) % 5) * 25}%; --princess-y: ${Math.floor(Math.max(0, index) / 5) * 100}%; --princess-size: 500% 200%; background-image: url(${princessAtlas})`;
+  }
+  function localPlayer() { return game?.players.find((player) => player.uid === currentUid); }
+  function powerAvailable(id?: string) { return Boolean(id && game?.passComplete && !game.roundComplete && !game.exhaustedPrincessUids.includes(currentUid)); }
   function roundName(id: string) { return ROUND_RULES.find(([key]) => key === id)?.[1] ?? id; }
   function roundRule(id: string) { return ROUND_RULE_TEXT[id] ?? 'Follow the rule printed on this round card.'; }
   function activeRoundId() { return game?.roundIds[game.roundIndex] ?? ''; }
@@ -220,14 +231,44 @@
   }
 
   function playable(card: Card): boolean {
-    return Boolean(game?.hands && game.trick && game.currentTurnUid === currentUid && canPlay(game.hands[currentUid], game.trick, game.princesBroken, card));
+    return Boolean(game?.hands && game.trick && game.currentTurnUid === currentUid && legalCardsWithPeaPower(game.hands[currentUid], game.trick, game.princesBroken, game.powerIdsThisTrick.includes('pea-princess')).some((candidate) => cardLabel(candidate) === cardLabel(card)));
   }
 
   async function playCard(card: Card) {
     if (!game?.passComplete || !playable(card)) return;
     connection = 'checking';
     connectionLabel = `Playing ${cardLabel(card)}…`;
+    if (snowWhiteArmed && localPlayer()?.princessId === 'snow-white' && snowWhiteCanZero(card)) {
+      await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activated', { powerId: 'snow-white', card });
+      snowWhiteArmed = false;
+    }
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'card/played', { card });
+  }
+
+  async function activatePower(powerId: string, targetUid?: string, card?: Card) {
+    const resolvingMulan = powerId === 'mulan' && game?.pendingMulanUid === currentUid;
+    if ((!resolvingMulan && !powerAvailable(powerId)) || localPlayer()?.princessId !== powerId) return;
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activated', { powerId, ...(targetUid ? { targetUid } : {}), ...(card ? { card } : {}) });
+  }
+
+  async function usePrincessCard() {
+    const powerId = localPlayer()?.princessId;
+    if (!powerId || !powerAvailable(powerId)) return;
+    if (powerId === 'snow-white') {
+      if (game?.currentTurnUid === currentUid && game.hands?.[currentUid]?.some((card) => playable(card) && snowWhiteCanZero(card))) snowWhiteArmed = !snowWhiteArmed;
+      return;
+    }
+    if (powerId === 'cinderella' || powerId === 'pea-princess') {
+      if (game?.trick?.plays.length === 0) await activatePower(powerId);
+      return;
+    }
+    if (powerId === 'pocahontas' && game?.trick?.plays.length === 0) openPrincessPower = openPrincessPower === powerId ? '' : powerId;
+    if (powerId === 'mulan' && game?.pendingMulanUid === currentUid) openPrincessPower = openPrincessPower === powerId ? '' : powerId;
+  }
+
+  async function declineMulan() {
+    if (game?.pendingMulanUid !== currentUid) return;
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/declined', { powerId: 'mulan' });
   }
 
   async function dealNextRound() {
@@ -285,6 +326,11 @@
               {#each game.players.filter((player) => player.uid !== currentUid) as player, index}
                 <section class="opponent-seat" class:seat-0={index === 0} class:seat-1={index === 1} class:seat-2={index === 2} class:seat-3={index === 3} class:seat-4={index === 4} aria-label={`${player.displayName}'s hand`}>
                   <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0} {#if game.trick?.leaderUid === player.uid}<span class="lead-marker">Leads</span>{/if}</strong>
+                  <div class="seat-princess" class:exhausted={game.exhaustedPrincessUids.includes(player.uid)} aria-label={`${player.displayName}'s Princess: ${princessName(player.princessId)}`}>
+                    <div class="princess-card" style={princessStyle(player.princessId)}></div>
+                    <strong>{princessName(player.princessId)}</strong>
+                    <span>{PRINCESS_POWER_TEXT[player.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
+                  </div>
                   <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
                   {#if game.passComplete}<details class="trick-counter">
                     <summary aria-label={`${player.displayName} tricks`}>{game.capturedTricks[player.uid]?.length ?? 0}</summary>
@@ -310,6 +356,7 @@
                 {#if passInstruction(activeRoundId()).direction === 'right' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
               </div>
               <p class="round-count">Round {game.roundIndex + 1} of 5</p>
+              {#if game.powerIdsThisTrick.length}<p class="active-power" role="status">Princess power: {game.powerIdsThisTrick.map(princessName).join(', ')}</p>{/if}
             </article>
 
             {#if game.passComplete}
@@ -321,6 +368,7 @@
                     <span>{game.players.find((player) => player.uid === play.uid)?.displayName}</span>
                     <div class="trick-card" style={`${playOrigin(play.uid)}; --suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}>
                       <strong>{play.card.rank}</strong><small>{play.card.suit}</small>
+                      {#if play.effectiveRank === 0}<em>Counts as 0</em>{/if}
                     </div>
                   </article>
                 {/each}
@@ -332,6 +380,25 @@
 
             <section class="local-seat" aria-label="Your seat">
               <div class="local-heading" class:local-leader={game.trick?.leaderUid === currentUid}><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You {#if game.trick?.leaderUid === currentUid}<span class="lead-marker">You lead</span>{/if}</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
+              {#if game.passComplete && localPlayer()?.princessId}
+                <div class="seat-princess local-princess" class:exhausted={game.exhaustedPrincessUids.includes(currentUid)} class:armed={snowWhiteArmed}>
+                  <button type="button" class="princess-card" style={princessStyle(localPlayer()?.princessId)} aria-label={`Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={snowWhiteArmed || openPrincessPower === localPlayer()?.princessId} disabled={!powerAvailable(localPlayer()?.princessId) && game.pendingMulanUid !== currentUid} on:click={usePrincessCard}></button>
+                  <strong>{princessName(localPlayer()?.princessId)}</strong>
+                  <span>{PRINCESS_POWER_TEXT[localPlayer()?.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
+                </div>
+              {/if}
+              {#if game.pendingMulanUid === currentUid && game.trick}
+                {@const mulanPlay = game.trick.plays.find((play) => play.uid === currentUid)}
+                {#if mulanPlay && openPrincessPower === 'mulan'}<div class="power-controls" role="group" aria-label="Mulan power">
+                  <strong>Swap {cardLabel(mulanPlay.card)}?</strong>
+                  {#each mulanReplacements(game.hands[currentUid] ?? [], mulanPlay) as replacement}
+                    <button type="button" on:click={() => activatePower('mulan', undefined, replacement)}>Swap for {cardLabel(replacement)}</button>
+                  {/each}
+                  <button class="secondary" type="button" on:click={declineMulan}>Keep played card</button>
+                </div>{/if}
+              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && openPrincessPower === 'pocahontas'}
+                <div class="power-controls" role="group" aria-label="Pocahontas power"><strong>Choose the leader</strong>{#each game.players as player}<button type="button" on:click={() => activatePower('pocahontas', player.uid)}>{player.displayName} leads</button>{/each}</div>
+              {/if}
               {#if game.passComplete}<details class="trick-counter local-counter">
                 <summary aria-label={`${game.players.find((player) => player.uid === currentUid)?.displayName} tricks`}>{game.capturedTricks[currentUid]?.length ?? 0}</summary>
                 {#if lastCaptured(currentUid).length}
@@ -673,6 +740,17 @@
   .round-center .round-count { margin-top: 4px; }
   .opponent-seat { position: absolute; z-index: 2; min-width: 105px; color: #e9deeb; text-align: center; }
   .opponent-seat > strong { display: block; margin-bottom: 4px; font-size: 12px; }
+  .seat-princess { position: absolute; top: 18px; left: -52px; display: grid; justify-items: center; width: 50px; color: #e9deeb; font-size: 7px; line-height: 1.05; }
+  .seat-princess .princess-card { width: 38px; aspect-ratio: 3 / 5; min-height: 0; padding: 0; border: 1px solid rgba(255, 226, 163, .65); border-radius: 4px; background-color: #150d1d; background-position: var(--princess-x) var(--princess-y); background-size: var(--princess-size); box-shadow: 0 5px 12px rgba(0, 0, 0, .45); transform-origin: bottom center; transition: filter .2s ease, transform .2s ease; }
+  .seat-princess > strong { max-width: 58px; margin-top: 2px; color: #ffc75f; font-size: 8px; }
+  .seat-princess > span { display: block; width: 64px; margin-top: 1px; color: #d9cedd; text-align: center; }
+  .seat-princess.exhausted .princess-card { filter: grayscale(1) saturate(0); transform: rotate(-12deg); }
+  .seat-princess.exhausted > strong, .seat-princess.exhausted > span { color: #776f7b; }
+  .local-princess { top: auto; bottom: 4px; left: 4px; z-index: 7; width: 76px; }
+  .local-princess .princess-card { width: clamp(48px, 7vh, 66px); cursor: pointer; }
+  .local-princess > span { width: 78px; font-size: 8px; }
+  .local-princess.armed .princess-card { border-color: #7de2a7; box-shadow: 0 0 0 2px #7de2a7, 0 5px 12px rgba(0, 0, 0, .45); }
+  .local-princess .princess-card:disabled { cursor: default; opacity: 1; }
   .lead-marker { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 999px; color: #211329; background: #ffc75f; font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 9px; text-transform: uppercase; }
   .seat-0 { top: 12px; left: 18%; }
   .seat-1 { top: 12px; right: 18%; }
@@ -696,6 +774,8 @@
   .local-heading span { color: #b88cdf; }
   .local-heading.local-leader { width: max-content; margin-right: auto; margin-left: auto; padding: 4px 9px; border: 1px solid #ffc75f; border-radius: 999px; color: #ffc75f; box-shadow: 0 0 14px rgba(255, 199, 95, .3); }
   .local-heading.local-leader .lead-marker { color: #211329; }
+  .power-controls { display: flex; justify-content: center; align-items: center; gap: 4px; margin-bottom: 2px; color: #fff4d0; font-size: 10px; }
+  .power-controls button { min-height: 28px; padding: 0 8px; font-size: 10px; }
   .hand { display: flex; justify-content: center; align-items: flex-end; min-height: clamp(78px, 15vh, 145px); padding-top: 8px; }
   .playing-card { position: relative; width: clamp(50px, 6.3vw, 78px); height: auto; min-height: 0; aspect-ratio: 1717 / 3664; padding: 0; overflow: hidden; flex: 0 0 auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; transition: transform .15s ease; }
   .playing-card + .playing-card { margin-left: clamp(-27px, -1.8vw, -12px); }
@@ -712,11 +792,12 @@
   .pass-submit { min-height: 32px; padding: 0 15px; font-size: 12px; }
   .pass-waiting, .pass-complete { margin: 0; color: #d9cedd; font-size: 11px; text-align: center; }
   .pass-complete { color: #7de2a7; font-weight: 700; }
-  .live-trick { position: absolute; z-index: 4; top: 61%; left: 50%; display: flex; justify-content: center; align-items: flex-end; gap: 8px; width: min(90%, 440px); color: #fff4d0; font-size: 10px; transform: translateX(-50%); }
+  .live-trick { position: absolute; z-index: 4; top: 61%; left: 50%; display: flex; justify-content: center; align-items: flex-end; gap: 8px; width: min(90%, 440px); color: #fff4d0; font-size: 10px; pointer-events: none; transform: translateX(-50%); }
   .trick-play { display: grid; justify-items: center; gap: 2px; }
   .trick-card { position: relative; width: clamp(42px, 5vw, 62px); aspect-ratio: 1717 / 3664; overflow: hidden; border: 1px solid rgba(255, 226, 163, .7); border-radius: 4px; background-color: #150d1d; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; box-shadow: 0 8px 18px rgba(0, 0, 0, .5); animation: play-to-table .35s ease-out both; }
   .trick-card strong { position: absolute; top: 2px; left: 5px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 20px; text-shadow: 0 1px 3px #000; }
   .trick-card small { position: absolute; inset: auto 3px 3px; color: #fff4d0; font-size: 7px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
+  .trick-card em { position: absolute; inset: auto 0 14px; color: #211329; background: #ffc75f; font-size: 8px; font-style: normal; font-weight: 700; text-align: center; }
   .live-trick.collecting .trick-play { animation: collect-trick 3s ease-in-out forwards; }
   @keyframes play-to-table { from { opacity: .3; transform: translate(var(--play-x), var(--play-y)) scale(1.15); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
   @keyframes collect-trick {
@@ -903,6 +984,7 @@
     main.gameplay .playing-card { height: auto; min-height: 0; }
     main.gameplay .playing-card { width: 44px; }
     main.gameplay .playing-card + .playing-card { margin-left: -15px; }
+    main.gameplay .local-princess { bottom: 118px; }
     main.gameplay .local-seat { bottom: 2px; }
     main.gameplay .round-center { top: 43%; }
     main.gameplay .round-results { inset: 8% 5%; }
