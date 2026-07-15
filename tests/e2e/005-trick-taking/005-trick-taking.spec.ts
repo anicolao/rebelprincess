@@ -84,6 +84,30 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
 
   await play(jo, 'Fairies 3');
   await play(sam, 'Fairies 8');
+  const completedTrick = page.getByLabel('Completed trick');
+  await expect(completedTrick).toHaveClass(/collecting/);
+  await expect(page.getByLabel('Sam played Fairies 8')).toBeVisible();
+
+  await page.getByLabel('Sam tricks').click();
+  await steps.step('winner-collects-and-reviews-trick', {
+    description: 'The completed trick pauses on the table, sweeps toward its winner, and remains available for review',
+    verifications: [
+      { spec: 'Sam’s trick counter records the captured trick', check: async () => expect(page.getByLabel('Sam tricks')).toHaveText('1') },
+      { spec: 'Tapping the counter reveals the most recently captured cards', check: async () => {
+        const review = page.getByLabel('Sam last trick');
+        await expect(review).toBeVisible();
+        await expect(review.getByLabel('Fairies 4')).toBeVisible();
+        await expect(review.getByLabel('Fairies 3')).toBeVisible();
+        await expect(review.getByLabel('Fairies 8')).toBeVisible();
+      } },
+      { spec: 'The collection uses the requested three-second ease-in-out motion', check: async () => {
+        const completedPlay = page.getByLabel('Sam played Fairies 8');
+        await expect(completedPlay).toHaveCSS('animation-duration', '3s');
+        await expect(completedPlay).toHaveCSS('animation-timing-function', 'ease-in-out');
+        await expect(completedPlay.locator('.trick-card')).toHaveCSS('background-image', /suited-card-families/);
+      } }
+    ]
+  });
   await expect(sam.getByRole('alert')).toContainText('Your turn');
   await play(sam, 'Queens 3');
   await play(page, 'Queens 7');

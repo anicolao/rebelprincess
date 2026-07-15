@@ -143,6 +143,13 @@
     const index = game.players.filter((player) => player.uid !== currentUid).findIndex((player) => player.uid === uid);
     return `--play-x: ${index % 2 === 0 ? '-24vw' : '24vw'}; --play-y: -32vh`;
   }
+  function collectDestination(uid: string) {
+    const origin = playOrigin(uid);
+    return origin.replaceAll('--play-x', '--collect-x').replaceAll('--play-y', '--collect-y');
+  }
+  function lastCaptured(uid: string) {
+    return game?.capturedTricks[uid]?.at(-1) ?? [];
+  }
 
   function passRecipient(): string {
     if (!game) return '';
@@ -235,6 +242,16 @@
                 <section class="opponent-seat" class:seat-0={index === 0} class:seat-1={index === 1} class:seat-2={index === 2} class:seat-3={index === 3} class:seat-4={index === 4} aria-label={`${player.displayName}'s hand`}>
                   <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0} {#if game.trick?.leaderUid === player.uid}<span class="lead-marker">Leads</span>{/if}</strong>
                   <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                  {#if game.passComplete}<details class="trick-counter">
+                    <summary aria-label={`${player.displayName} tricks`}>{game.capturedTricks[player.uid]?.length ?? 0}</summary>
+                    {#if lastCaptured(player.uid).length}
+                      <div class="trick-review" aria-label={`${player.displayName} last trick`}>
+                        {#each lastCaptured(player.uid) as play}
+                          <span class="review-card" aria-label={cardLabel(play.card)} style={`--suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}><strong>{play.card.rank}</strong></span>
+                        {/each}
+                      </div>
+                    {/if}
+                  </details>{/if}
                 </section>
               {/each}
             </div>
@@ -252,9 +269,11 @@
             </article>
 
             {#if game.passComplete}
-              <section class="live-trick" aria-label="Current trick">
-                {#each game.trick?.plays ?? [] as play}
-                  <article class="trick-play" aria-label={`${game.players.find((player) => player.uid === play.uid)?.displayName} played ${cardLabel(play.card)}`}>
+              {@const collecting = !game.trick?.plays.length && Boolean(game.lastCompletedTrick)}
+              {@const visiblePlays = collecting ? game.lastCompletedTrick?.plays ?? [] : game.trick?.plays ?? []}
+              <section class="live-trick" class:collecting aria-label={collecting ? 'Completed trick' : 'Current trick'}>
+                {#each visiblePlays as play}
+                  <article class="trick-play" style={collectDestination(game.lastCompletedTrick?.winnerUid ?? play.uid)} aria-label={`${game.players.find((player) => player.uid === play.uid)?.displayName} played ${cardLabel(play.card)}`}>
                     <span>{game.players.find((player) => player.uid === play.uid)?.displayName}</span>
                     <div class="trick-card" style={`${playOrigin(play.uid)}; --suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}>
                       <strong>{play.card.rank}</strong><small>{play.card.suit}</small>
@@ -269,6 +288,16 @@
 
             <section class="local-seat" aria-label="Your seat">
               <div class="local-heading" class:local-leader={game.trick?.leaderUid === currentUid}><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You {#if game.trick?.leaderUid === currentUid}<span class="lead-marker">You lead</span>{/if}</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
+              {#if game.passComplete}<details class="trick-counter local-counter">
+                <summary aria-label={`${game.players.find((player) => player.uid === currentUid)?.displayName} tricks`}>{game.capturedTricks[currentUid]?.length ?? 0}</summary>
+                {#if lastCaptured(currentUid).length}
+                  <div class="trick-review" aria-label={`${game.players.find((player) => player.uid === currentUid)?.displayName} last trick`}>
+                    {#each lastCaptured(currentUid) as play}
+                      <span class="review-card" aria-label={cardLabel(play.card)} style={`--suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}><strong>{play.card.rank}</strong></span>
+                    {/each}
+                  </div>
+                {/if}
+              </details>{/if}
               <div class="hand" role="region" aria-label="Your hand">
                 {#each game.hands[currentUid] ?? [] as card}
                   {@const committed = game.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card))}
@@ -577,7 +606,16 @@
   .card-backs { display: flex; justify-content: center; height: 46px; }
   .card-backs i { width: 30px; height: 44px; margin-left: -18px; border: 1px solid #b88cdf; border-radius: 3px; background: repeating-linear-gradient(135deg, #251638 0 4px, #604077 4px 6px); box-shadow: 0 3px 7px rgba(0, 0, 0, .35); }
   .card-backs i:first-child { margin-left: 0; }
+  .trick-counter { position: absolute; z-index: 8; top: 18px; right: -5px; }
+  .trick-counter summary { display: grid; place-items: center; width: 23px; height: 23px; border: 1px solid #ffc75f; border-radius: 50%; color: #211329; background: #ffc75f; box-shadow: 0 3px 9px rgba(0, 0, 0, .45); cursor: pointer; font-size: 11px; font-weight: 700; list-style: none; }
+  .trick-counter summary::-webkit-details-marker { display: none; }
+  .trick-review { position: absolute; z-index: 9; top: 27px; left: 50%; display: none; gap: 3px; padding: 5px; border: 1px solid rgba(255, 226, 163, .6); border-radius: 6px; background: rgba(20, 13, 30, .96); box-shadow: 0 8px 24px rgba(0, 0, 0, .6); transform: translateX(-50%); }
+  .trick-counter[open] .trick-review, .trick-counter:hover .trick-review, .trick-counter:focus-within .trick-review { display: flex; }
+  .review-card { position: relative; display: block; width: 32px; aspect-ratio: 1717 / 3664; flex: 0 0 auto; overflow: hidden; border: 1px solid rgba(255, 226, 163, .6); border-radius: 3px; background-color: #150d1d; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; }
+  .review-card strong { position: absolute; top: 1px; left: 3px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 13px; text-shadow: 0 1px 2px #000; }
   .local-seat { position: absolute; z-index: 3; inset: auto 8px 8px; }
+  .local-counter { top: 0; right: 8px; }
+  .local-counter .trick-review { top: auto; bottom: 27px; }
   .local-heading { display: flex; justify-content: center; gap: 12px; margin-bottom: 5px; color: #fff4d0; font-size: 12px; }
   .local-heading span { color: #b88cdf; }
   .local-heading.local-leader { width: max-content; margin-right: auto; margin-left: auto; padding: 4px 9px; border: 1px solid #ffc75f; border-radius: 999px; color: #ffc75f; box-shadow: 0 0 14px rgba(255, 199, 95, .3); }
@@ -603,7 +641,12 @@
   .trick-card { position: relative; width: clamp(42px, 5vw, 62px); aspect-ratio: 1717 / 3664; overflow: hidden; border: 1px solid rgba(255, 226, 163, .7); border-radius: 4px; background-color: #150d1d; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; box-shadow: 0 8px 18px rgba(0, 0, 0, .5); animation: play-to-table .35s ease-out both; }
   .trick-card strong { position: absolute; top: 2px; left: 5px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 20px; text-shadow: 0 1px 3px #000; }
   .trick-card small { position: absolute; inset: auto 3px 3px; color: #fff4d0; font-size: 7px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
+  .live-trick.collecting .trick-play { animation: collect-trick 3s ease-in-out forwards; }
   @keyframes play-to-table { from { opacity: .3; transform: translate(var(--play-x), var(--play-y)) scale(1.15); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
+  @keyframes collect-trick {
+    0%, 62% { opacity: 1; transform: translate(0, 0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--collect-x), var(--collect-y)) scale(.65); }
+  }
 
   main.gameplay { width: calc(100% - 24px); height: 100dvh; min-height: 0; overflow: hidden; }
   main.gameplay .masthead { min-height: 54px; height: 54px; }

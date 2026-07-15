@@ -28,9 +28,20 @@ Three trustworthy clients play complete synchronized tricks through follow-suit,
 
 ---
 
+## The completed trick pauses on the table, sweeps toward its winner, and remains available for review
+
+![The completed trick pauses on the table, sweeps toward its winner, and remains available for review](./screenshots/002-winner-collects-and-reviews-trick-desktop.png)
+
+**Verifications:**
+- [x] Sam’s trick counter records the captured trick
+- [x] Tapping the counter reveals the most recently captured cards
+- [x] The collection uses the requested three-second ease-in-out motion
+
+---
+
 ## A void player may discard a Prince and break the suit
 
-![A void player may discard a Prince and break the suit](./screenshots/002-void-breaks-princes-desktop.png)
+![A void player may discard a Prince and break the suit](./screenshots/003-void-breaks-princes-desktop.png)
 
 **Verifications:**
 - [x] Jo has no Fairies remaining and may play a Prince
@@ -40,7 +51,7 @@ Three trustworthy clients play complete synchronized tricks through follow-suit,
 
 ## The trick winner leads again and may now lead Princes
 
-![The trick winner leads again and may now lead Princes](./screenshots/003-winner-leads-broken-prince-desktop.png)
+![The trick winner leads again and may now lead Princes](./screenshots/004-winner-leads-broken-prince-desktop.png)
 
 **Verifications:**
 - [x] Alex has captured two complete tricks
