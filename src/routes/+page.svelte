@@ -151,13 +151,17 @@
     return game?.capturedTricks[uid]?.at(-1) ?? [];
   }
 
-  function passRecipient(): string {
+  function passRecipient(card?: Card): string {
     if (!game) return '';
     const instruction = passInstruction(game.roundIds[0]);
     const index = game.players.findIndex((player) => player.uid === currentUid);
     const left = game.players[(index + 1) % game.players.length].displayName;
     const right = game.players[(index - 1 + game.players.length) % game.players.length].displayName;
-    return instruction.direction === 'left' ? left : instruction.direction === 'right' ? right : `${left} and ${right}`;
+    if (instruction.direction === 'left') return left;
+    if (instruction.direction === 'right') return right;
+    if (!card) return `${left} and ${right}`;
+    const submittedIndex = game.passSubmissions[currentUid]?.findIndex((entry) => cardLabel(entry) === cardLabel(card)) ?? -1;
+    return submittedIndex >= 0 && submittedIndex < Math.ceil(instruction.count / 2) ? left : right;
   }
   function waitingForPasses(): string {
     const count = game?.players.filter((player) => !game?.passSubmissions[player.uid]).length ?? 0;
@@ -304,7 +308,7 @@
                   <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} class:committed class:playable={game.passComplete && playable(card)} disabled={game.passComplete ? !playable(card) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => handleHandCard(card)}>
                     <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
                     <strong>{card.rank}</strong><small>{card.suit}</small>
-                    {#if committed}<em>To {passRecipient()}</em>{/if}
+                    {#if committed}<em>To {passRecipient(card)}</em>{/if}
                   </button>
                 {/each}
               </div>

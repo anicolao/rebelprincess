@@ -2,14 +2,14 @@
 
 Early submissions reveal no incoming cards; the final submission deterministically resolves all three exact hands without losing or duplicating a card.
 
-## The host is prompted to choose two cards for Jo
+## The host is prompted to choose one card for each neighbor
 
-![The host is prompted to choose two cards for Jo](./screenshots/000-choose-two-cards-prompt-desktop.png)
+![The host is prompted to choose one card for each neighbor](./screenshots/000-choose-two-cards-prompt-desktop.png)
 
 **Verifications:**
-- [x] The pass action names Jo as the recipient and is disabled until two cards are chosen
+- [x] The pass action names Jo and Sam and is disabled until two cards are chosen
 - [x] The center card states the round rule in text
-- [x] The center card shows a clockwise arrow before the pass count
+- [x] The center card places one arrow on each side of the single-card count
 
 ---
 
@@ -40,7 +40,7 @@ Early submissions reveal no incoming cards; the final submission deterministical
 
 **Verifications:**
 - [x] Both selected cards are visibly raised
-- [x] The pass to Jo is now enabled
+- [x] The split pass to Jo and Sam is now enabled
 
 ---
 
@@ -49,8 +49,8 @@ Early submissions reveal no incoming cards; the final submission deterministical
 ![Committed cards remain visible while the host waits](./screenshots/004-commit-pass-desktop.png)
 
 **Verifications:**
-- [x] The waiting message identifies Jo and the two-card left pass
-- [x] The committed cards identify their destination
+- [x] The waiting message identifies both recipients and the split pass
+- [x] Each committed card identifies its specific destination
 - [x] Destination ribbons are left-aligned to remain readable under overlap
 
 ---
@@ -65,19 +65,19 @@ Early submissions reveal no incoming cards; the final submission deterministical
 
 ---
 
-## The revised pair is committed for Jo
+## The revised pair is committed to its individual recipients
 
-![The revised pair is committed for Jo](./screenshots/006-commit-revised-pass-desktop.png)
+![The revised pair is committed to its individual recipients](./screenshots/006-commit-revised-pass-desktop.png)
 
 **Verifications:**
-- [x] Fairies 4 and Fairies 5 are now headed to Jo
+- [x] Fairies 4 heads to Jo while Fairies 5 heads to Sam
 - [x] The host waits for both other players
 
 ---
 
 ## All exact hands resolve after the final hidden submission
 
-![All exact hands resolve after the final hidden submission](./screenshots/007-resolved-left-pass-desktop.png)
+![All exact hands resolve after the final hidden submission](./screenshots/007-resolved-split-pass-desktop.png)
 
 **Verifications:**
 - [x] The UI reports that simultaneous passing is complete
