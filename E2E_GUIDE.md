@@ -17,7 +17,10 @@ package scripts must enforce it rather than merely relying on convention.
   or implement a sleep or manual polling loop.
 - **No explicit timeout overrides.** Actions and assertions rely on Playwright
   auto-waiting and observable state. Do not add `{ timeout: ... }` to make a test
-  pass. Configure a global action and expectation ceiling of 2,000 ms.
+  pass. Configure a global action and expectation ceiling of 2,000 ms. The
+  suite-wide test execution budget is only a runaway-process guard and may be
+  long enough for a complete production-size game; it is never a synchronization
+  mechanism or permission to wait for elapsed time.
 - **No retries.** Configure `retries: 0`; every scenario passes on its first run.
 - **No screenshot masking.** Never use `mask`, nonzero pixel tolerances, or
   ignored regions to conceal nondeterminism.

@@ -64,7 +64,10 @@ export default defineConfig({
       VITE_GIT_HASH: 'e2e-test-commit'
     }
   },
-  timeout: 30000,
+  // A production-size five-round game performs 180 observable Firestore-backed
+  // card plays. This is only the runner's whole-test safety ceiling; actions
+  // and assertions retain the strict two-second synchronization ceiling below.
+  timeout: 90000,
   expect: {
     timeout: 2000,
     toHaveScreenshot: {
