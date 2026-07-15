@@ -32,6 +32,7 @@ test('three clients choose setup and receive a deterministic selective deal', as
   await page.goto(`/?gameId=${gameId}&seed=fixed-003&e2eUid=setup-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
   await page.getByRole('button', { name: 'Create a game' }).click();
+  await expect(page.getByTestId('invite-code')).toHaveText(gameId);
   await join(guest, gameId, `setup-guest-${suffix}`, 'Jo');
   await join(third, gameId, `setup-third-${suffix}`, 'Sam');
 
@@ -46,7 +47,8 @@ test('three clients choose setup and receive a deterministic selective deal', as
     await page.getByRole('button', { name: round, exact: true }).click();
   }
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
-  await expect(guest.getByRole('heading', { name: 'Round 1 · Once Upon a Time…' })).toBeVisible();
+  await expect(guest.getByLabel('Current Round card')).toContainText('Round 1 of 5');
+  await expect(guest.getByLabel('Current Round card')).toContainText('Once Upon a Time…');
   await page.reload();
   await page.evaluate(() => scrollTo(0, 0));
 
@@ -57,7 +59,10 @@ test('three clients choose setup and receive a deterministic selective deal', as
   await steps.step('fixed-three-player-deal', {
     description: 'The first round is ready with the host’s exact twelve-card hand',
     verifications: [
-      { spec: 'The selected first Round card is revealed', check: async () => expect(page.getByRole('heading', { name: 'Round 1 · Once Upon a Time…' })).toBeVisible() },
+      { spec: 'The selected first Round card is illustrated at the center of Round 1 of 5', check: async () => {
+        await expect(page.getByLabel('Current Round card')).toContainText('Round 1 of 5');
+        await expect(page.getByLabel('Current Round card')).toContainText('Once Upon a Time…');
+      } },
       { spec: 'All 36 cards exist in the trusted shared stream', check: async () => expect(page.getByTestId('stream-card-count')).toHaveText('Shared stream contains 36 cards') },
       { spec: 'Only the local player’s exact seeded hand is rendered face-up', check: async () => {
         await expect(page.getByRole('region', { name: 'Your hand' }).locator('[aria-label]')).toHaveCount(12);

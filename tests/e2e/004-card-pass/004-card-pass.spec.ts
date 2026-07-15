@@ -16,7 +16,7 @@ async function ready(page: Page, princess: string) {
 
 async function submitFirstTwo(page: Page, labels: [string, string]) {
   for (const label of labels) await page.getByRole('button', { name: label, exact: true }).click();
-  await page.getByRole('button', { name: 'Pass 2 left' }).click();
+  await page.getByRole('button', { name: /Pass 2 left to/ }).click();
 }
 
 async function expectExactHand(page: Page, expected: string[]) {
@@ -52,14 +52,18 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
 
   await submitFirstTwo(page, ['Fairies 3', 'Fairies 4']);
-  await expect(page.getByRole('alert')).toContainText('Incoming cards stay hidden');
-  await expect(page.getByRole('region', { name: 'Your hand' })).toHaveCount(0);
+  await expect(page.getByRole('alert')).toContainText('Passing 2 left to Jo');
+  await expect(page.getByRole('button', { name: 'Fairies 3' })).toContainText('To Jo');
+  await page.getByRole('button', { name: 'Fairies 3' }).click();
+  await expect(page.getByRole('button', { name: /Pass 2 left to Jo/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Fairies 5' }).click();
+  await page.getByRole('button', { name: /Pass 2 left to Jo/ }).click();
   await submitFirstTwo(guest, ['Fairies 2', 'Fairies 8']);
-  await expect(page.getByRole('alert')).toContainText('Waiting for 1 player');
+  await expect(page.getByRole('alert')).toContainText('Waiting for 1 other player');
   await submitFirstTwo(third, ['Fairies 10', 'Queens 2']);
 
-  const hostHand = ['Fairies 5', 'Fairies 6', 'Fairies 7', 'Fairies 9', 'Fairies 10', 'Queens 2', 'Queens 7', 'Princes 2', 'Princes 4', 'Pets 4', 'Pets 6', 'Pets 8'];
-  const guestHand = ['Fairies 3', 'Fairies 4', 'Queens 4', 'Queens 9', 'Queens 10', 'Princes 3', 'Princes 5', 'Princes 6', 'Princes 7', 'Princes 10', 'Pets 2', 'Pets 5'];
+  const hostHand = ['Fairies 3', 'Fairies 6', 'Fairies 7', 'Fairies 9', 'Fairies 10', 'Queens 2', 'Queens 7', 'Princes 2', 'Princes 4', 'Pets 4', 'Pets 6', 'Pets 8'];
+  const guestHand = ['Fairies 4', 'Fairies 5', 'Queens 4', 'Queens 9', 'Queens 10', 'Princes 3', 'Princes 5', 'Princes 6', 'Princes 7', 'Princes 10', 'Pets 2', 'Pets 5'];
   const thirdHand = ['Fairies 2', 'Fairies 8', 'Queens 3', 'Queens 5', 'Queens 6', 'Queens 8', 'Princes 8', 'Princes 9', 'Pets 3', 'Pets 7', 'Pets 9', 'Pets 10'];
   await expectExactHand(page, hostHand);
   await expectExactHand(guest, guestHand);
@@ -70,8 +74,9 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
     description: 'All exact hands resolve after the final hidden submission',
     verifications: [
       { spec: 'The UI reports that simultaneous passing is complete', check: async () => expect(page.getByRole('alert')).toContainText('Passing complete') },
-      { spec: 'The host receives the exact two cards from the player on the right', check: async () => expectExactHand(page, hostHand) },
+      { spec: 'The host’s revised pass and exact incoming cards survive reload', check: async () => expectExactHand(page, hostHand) },
       { spec: 'All 36 cards remain accounted for after resolution', check: async () => expect(page.getByTestId('stream-card-count')).toHaveText('Shared stream contains 36 cards') },
+      { spec: 'The gameplay table has no horizontal or vertical scrolling', check: async () => expect(await page.evaluate(() => ({ width: document.documentElement.scrollWidth === innerWidth, height: document.documentElement.scrollHeight === innerHeight }))).toEqual({ width: true, height: true }) },
       { spec: 'Opponent hand counts remain twelve without revealing their faces', check: async () => {
         await expect(page.getByLabel('Opponents')).toContainText('Jo · 12');
         await expect(page.getByLabel('Opponents')).toContainText('Sam · 12');

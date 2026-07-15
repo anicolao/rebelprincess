@@ -57,4 +57,11 @@ describe('append-only game events', () => {
   it('versions the replay cache with the reducer', () => {
     expect(replayCacheKey('MOON42')).toBe('rebel-princess:game:MOON42:reducer:1');
   });
+
+  it('accepts an append-only pass retraction envelope', () => {
+    expect(isGameEvent({
+      type: 'pass/retracted', payload: { gameId: 'MOON42' }, actorUid: 'host',
+      clientSeq: 4, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    })).toBe(true);
+  });
 });
