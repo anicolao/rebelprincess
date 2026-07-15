@@ -30,7 +30,7 @@
   let currentUid = '';
   let selectedPrincess = '';
   let selectedRounds: string[] = [];
-  let selectedPassCards: string[] = [];
+  let selectedPassCards: Array<string | null> = [];
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
 
@@ -172,15 +172,24 @@
     if (!game || game.passComplete || game.passSubmissions[currentUid]) return;
     const label = cardLabel(card);
     const required = passInstruction(game.roundIds[0]).count;
-    selectedPassCards = selectedPassCards.includes(label)
-      ? selectedPassCards.filter((entry) => entry !== label)
-      : selectedPassCards.length < required ? [...selectedPassCards, label] : selectedPassCards;
+    const existing = selectedPassCards.indexOf(label);
+    if (existing >= 0) {
+      selectedPassCards = selectedPassCards.map((entry, index) => index === existing ? null : entry);
+      return;
+    }
+    const openSlot = selectedPassCards.findIndex((entry) => entry === null);
+    if (openSlot >= 0) selectedPassCards = selectedPassCards.map((entry, index) => index === openSlot ? label : entry);
+    else if (selectedPassCards.length < required) selectedPassCards = [...selectedPassCards, label];
   }
 
   async function submitPass() {
     if (!game?.hands || game.passComplete || game.passSubmissions[currentUid]) return;
     const instruction = passInstruction(game.roundIds[0]);
-    const cards = game.hands[currentUid].filter((card) => selectedPassCards.includes(cardLabel(card)));
+    const hand = game.hands[currentUid];
+    const cards = selectedPassCards.flatMap((label) => {
+      const card = hand.find((held) => cardLabel(held) === label);
+      return card ? [card] : [];
+    });
     if (cards.length !== instruction.count) return;
     connection = 'checking';
     connectionLabel = 'Submitting cards…';
@@ -190,7 +199,7 @@
   async function reclaimPassCard(card: Card) {
     const committed = game?.passSubmissions[currentUid];
     if (!committed || game?.passComplete || !committed.some((entry) => cardLabel(entry) === cardLabel(card))) return;
-    selectedPassCards = committed.map(cardLabel).filter((label) => label !== cardLabel(card));
+    selectedPassCards = committed.map((entry) => cardLabel(entry) === cardLabel(card) ? null : cardLabel(entry));
     connection = 'checking';
     connectionLabel = 'Reclaiming cards…';
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'pass/retracted', {});
@@ -319,7 +328,7 @@
                   <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(game.roundIds[0]).direction} to {passRecipient()} · {waitingForPasses()} Select a raised card to take it back.</p>
                 {:else}
                   {@const instruction = passInstruction(game.roundIds[0])}
-                  <button class="pass-submit" type="button" disabled={selectedPassCards.length !== instruction.count} on:click={submitPass}>Pass {instruction.count} {instruction.direction} to {passRecipient()}</button>
+                  <button class="pass-submit" type="button" disabled={selectedPassCards.filter(Boolean).length !== instruction.count} on:click={submitPass}>Pass {instruction.count} {instruction.direction} to {passRecipient()}</button>
                 {/if}
               </div>
             </section>

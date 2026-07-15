@@ -70,14 +70,33 @@ Early submissions reveal no incoming cards; the final submission deterministical
 ![The revised pair is committed to its individual recipients](./screenshots/006-commit-revised-pass-desktop.png)
 
 **Verifications:**
-- [x] Fairies 4 heads to Jo while Fairies 5 heads to Sam
+- [x] The retained Fairies 4 still heads right to Sam while its replacement heads left to Jo
 - [x] The host waits for both other players
+
+---
+
+## Releasing both cards resets the left and right destination slots
+
+![Releasing both cards resets the left and right destination slots](./screenshots/007-clear-split-pass-desktop.png)
+
+**Verifications:**
+- [x] Neither previously committed card remains selected
+- [x] A fresh pair is required before passing again
+
+---
+
+## After a full reset, selection order assigns left and then right again
+
+![After a full reset, selection order assigns left and then right again](./screenshots/008-recommit-reset-pass-desktop.png)
+
+**Verifications:**
+- [x] The first new selection heads left to Jo and the second heads right to Sam
 
 ---
 
 ## All exact hands resolve after the final hidden submission
 
-![All exact hands resolve after the final hidden submission](./screenshots/007-resolved-split-pass-desktop.png)
+![All exact hands resolve after the final hidden submission](./screenshots/009-resolved-split-pass-desktop.png)
 
 **Verifications:**
 - [x] The UI reports that simultaneous passing is complete
