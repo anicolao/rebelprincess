@@ -16,7 +16,7 @@ async function ready(page: Page, princess: string) {
 
 async function submitFirstTwo(page: Page, labels: [string, string]) {
   for (const label of labels) await page.getByRole('button', { name: label, exact: true }).click();
-  await page.getByRole('button', { name: /Pass 2 left to/ }).click();
+  await page.getByRole('button', { name: /Pass 2 split to/ }).click();
 }
 
 async function expectExactHand(page: Page, expected: string[]) {
@@ -25,7 +25,7 @@ async function expectExactHand(page: Page, expected: string[]) {
   for (const label of expected) await expect(hand.getByRole('button', { name: label, exact: true })).toBeVisible();
 }
 
-test('three clients submit simultaneously and resolve a conserved left pass', async ({ page, browser }, testInfo) => {
+test('three clients submit simultaneously and resolve a conserved split pass', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata(
     'Simultaneous card passing',
@@ -48,16 +48,16 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
   await ready(page, 'Snow White');
   await ready(guest, 'The Little Mermaid');
   await ready(third, 'Cinderella');
-  for (const round of ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
+  for (const round of ['Masquerade Ball', 'Once Upon a Time…', 'Invitation', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
 
-  const passButton = page.getByRole('button', { name: 'Pass 2 left to Jo' });
+  const passButton = page.getByRole('button', { name: 'Pass 2 split to Jo and Sam' });
   await steps.step('choose-two-cards-prompt', {
-    description: 'The host is prompted to choose two cards for Jo',
+    description: 'The host is prompted to choose one card for each neighbor',
     verifications: [
-      { spec: 'The pass action names Jo as the recipient and is disabled until two cards are chosen', check: async () => expect(passButton).toBeDisabled() },
-      { spec: 'The center card states the round rule in text', check: async () => expect(page.getByLabel('Current Round card')).toContainText('No additional rule.') },
-      { spec: 'The center card shows a clockwise arrow before the pass count', check: async () => expect(page.getByLabel('Pass 2 left')).toHaveText(/↻\s*2/) }
+      { spec: 'The pass action names Jo and Sam and is disabled until two cards are chosen', check: async () => expect(passButton).toBeDisabled() },
+      { spec: 'The center card states the round rule in text', check: async () => expect(page.getByLabel('Current Round card')).toContainText('Except for the lead, play cards face down.') },
+      { spec: 'The center card places one arrow on each side of the single-card count', check: async () => expect(page.getByLabel('Pass 2 split')).toHaveText(/↻\s*1\s*↺/) }
     ]
   });
 
@@ -93,7 +93,7 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
         await expect(page.getByRole('button', { name: 'Fairies 3', exact: true })).toHaveClass(/selected/);
         await expect(page.getByRole('button', { name: 'Fairies 4', exact: true })).toHaveClass(/selected/);
       } },
-      { spec: 'The pass to Jo is now enabled', check: async () => expect(passButton).toBeEnabled() }
+      { spec: 'The split pass to Jo and Sam is now enabled', check: async () => expect(passButton).toBeEnabled() }
     ]
   });
 
@@ -101,10 +101,10 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
   await steps.step('commit-pass', {
     description: 'Committed cards remain visible while the host waits',
     verifications: [
-      { spec: 'The waiting message identifies Jo and the two-card left pass', check: async () => expect(page.getByRole('alert')).toContainText('Passing 2 left to Jo') },
-      { spec: 'The committed cards identify their destination', check: async () => {
+      { spec: 'The waiting message identifies both recipients and the split pass', check: async () => expect(page.getByRole('alert')).toContainText('Passing 2 split to Jo and Sam') },
+      { spec: 'Each committed card identifies its specific destination', check: async () => {
         await expect(page.getByRole('button', { name: 'Fairies 3' })).toContainText('To Jo');
-        await expect(page.getByRole('button', { name: 'Fairies 4' })).toContainText('To Jo');
+        await expect(page.getByRole('button', { name: 'Fairies 4' })).toContainText('To Sam');
       } },
       { spec: 'Destination ribbons are left-aligned to remain readable under overlap', check: async () => expect(page.getByRole('button', { name: 'Fairies 3' }).locator('em')).toHaveCSS('text-align', 'left') }
     ]
@@ -122,11 +122,11 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
   await page.getByRole('button', { name: 'Fairies 5' }).click();
   await passButton.click();
   await steps.step('commit-revised-pass', {
-    description: 'The revised pair is committed for Jo',
+    description: 'The revised pair is committed to its individual recipients',
     verifications: [
-      { spec: 'Fairies 4 and Fairies 5 are now headed to Jo', check: async () => {
+      { spec: 'Fairies 4 heads to Jo while Fairies 5 heads to Sam', check: async () => {
         await expect(page.getByRole('button', { name: 'Fairies 4' })).toContainText('To Jo');
-        await expect(page.getByRole('button', { name: 'Fairies 5' })).toContainText('To Jo');
+        await expect(page.getByRole('button', { name: 'Fairies 5' })).toContainText('To Sam');
       } },
       { spec: 'The host waits for both other players', check: async () => expect(page.getByRole('alert')).toContainText('Waiting for 2 other players') }
     ]
@@ -136,15 +136,15 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
   await expect(page.getByRole('alert')).toContainText('Waiting for 1 other player');
   await submitFirstTwo(third, ['Fairies 10', 'Queens 2']);
 
-  const hostHand = ['Fairies 3', 'Fairies 6', 'Fairies 7', 'Fairies 9', 'Fairies 10', 'Queens 2', 'Queens 7', 'Princes 2', 'Princes 4', 'Pets 4', 'Pets 6', 'Pets 8'];
-  const guestHand = ['Fairies 4', 'Fairies 5', 'Queens 4', 'Queens 9', 'Queens 10', 'Princes 3', 'Princes 5', 'Princes 6', 'Princes 7', 'Princes 10', 'Pets 2', 'Pets 5'];
-  const thirdHand = ['Fairies 2', 'Fairies 8', 'Queens 3', 'Queens 5', 'Queens 6', 'Queens 8', 'Princes 8', 'Princes 9', 'Pets 3', 'Pets 7', 'Pets 9', 'Pets 10'];
+  const hostHand = ['Fairies 3', 'Fairies 6', 'Fairies 7', 'Fairies 8', 'Fairies 9', 'Fairies 10', 'Queens 7', 'Princes 2', 'Princes 4', 'Pets 4', 'Pets 6', 'Pets 8'];
+  const guestHand = ['Fairies 4', 'Queens 2', 'Queens 4', 'Queens 9', 'Queens 10', 'Princes 3', 'Princes 5', 'Princes 6', 'Princes 7', 'Princes 10', 'Pets 2', 'Pets 5'];
+  const thirdHand = ['Fairies 2', 'Fairies 5', 'Queens 3', 'Queens 5', 'Queens 6', 'Queens 8', 'Princes 8', 'Princes 9', 'Pets 3', 'Pets 7', 'Pets 9', 'Pets 10'];
   await expectExactHand(page, hostHand);
   await expectExactHand(guest, guestHand);
   await expectExactHand(third, thirdHand);
   await page.reload();
 
-  await steps.step('resolved-left-pass', {
+  await steps.step('resolved-split-pass', {
     description: 'All exact hands resolve after the final hidden submission',
     verifications: [
       { spec: 'The UI reports that simultaneous passing is complete', check: async () => expect(page.getByRole('alert')).toContainText('Passing complete') },
