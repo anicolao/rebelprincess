@@ -50,12 +50,19 @@ service cloud.firestore {
         && request.resource.data.payload.card is map;
     }
 
+    function validPowerPayload(gameId) {
+      return request.resource.data.payload.keys().hasOnly(['gameId', 'powerId', 'targetUid', 'card'])
+        && request.resource.data.payload.keys().hasAll(['gameId', 'powerId'])
+        && request.resource.data.payload.gameId == gameId
+        && request.resource.data.payload.powerId is string;
+    }
+
     function validEvent(gameId) {
       return request.resource.data.keys().hasOnly([
           'type', 'payload', 'actorUid', 'clientSeq', 'createdAt',
           'schemaVersion', 'reducerVersion'
         ])
-        && request.resource.data.type in ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played']
+        && request.resource.data.type in ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/activated', 'power/declined']
         && request.resource.data.actorUid == request.auth.uid
         && request.resource.data.clientSeq is int
         && request.resource.data.clientSeq > 0
@@ -70,6 +77,7 @@ service cloud.firestore {
           || (request.resource.data.type == 'pass/submitted' && validPassPayload(gameId))
           || (request.resource.data.type == 'pass/retracted' && validRetractionPayload(gameId))
           || (request.resource.data.type == 'card/played' && validPlayPayload(gameId))
+          || (request.resource.data.type in ['power/activated', 'power/declined'] && validPowerPayload(gameId))
         );
     }
 

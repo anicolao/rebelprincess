@@ -25,4 +25,14 @@ describe('base trick taking', () => {
     expect(breaksPrinces({ leaderUid: 'a', plays: trick.plays.slice(0, 1) }, card('princes', 10))).toBe(true);
     expect(breaksPrinces({ leaderUid: 'a', plays: [] }, card('princes', 10))).toBe(false);
   });
+
+  it('uses effective ranks and Cinderella reversal when resolving a trick', () => {
+    const plays = [
+      { uid: 'a', card: card('fairies', 7), effectiveRank: 0 },
+      { uid: 'b', card: card('fairies', 2) },
+      { uid: 'c', card: card('fairies', 6) }
+    ];
+    expect(trickWinner({ leaderUid: 'a', plays })).toBe('c');
+    expect(trickWinner({ leaderUid: 'a', plays, reversed: true })).toBe('a');
+  });
 });

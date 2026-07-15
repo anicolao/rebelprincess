@@ -62,6 +62,23 @@ Precedence for resolving conflicts should be specified as Princess power, then
 Round card, then base rules. Individual powers and Round cards require an edge-
 case specification before coding.
 
+The first implemented direct powers follow the Deluxe rules:
+
+- **Snow White — Seven Dwarfs:** when playing, she may exhaust her power to
+  treat a card numbered 7 or lower as having value 0. Its printed suit and
+  number do not change for following-suit requirements.
+- **Cinderella — Everything Changes at Midnight:** before a trick, she may
+  reverse its rank hierarchy so the lowest card of the led suit wins.
+- **Pocahontas — Wilderness Guide:** before a trick, she may choose any player
+  to lead that trick.
+- **Mulan — Camouflage:** after a trick's last card is played, she may exchange
+  her played card for a card of
+  the same suit from her hand; the Frog cannot be exchanged. Resolve the trick
+  using the replacement.
+- **The Pea Princess — Five More Minutes!:** before a trick, she may require
+  every player to play a card above 5 whenever one is available among that
+  player's otherwise legal choices. Following suit still takes precedence.
+
 ## Scoring and winning
 
 At the end of each round:

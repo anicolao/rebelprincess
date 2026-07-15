@@ -1,7 +1,7 @@
 import { cardLabel, type Card } from './setup';
 
-export interface TrickPlay { uid: string; card: Card }
-export interface TrickState { leaderUid: string; plays: TrickPlay[] }
+export interface TrickPlay { uid: string; card: Card; effectiveRank?: number }
+export interface TrickState { leaderUid: string; plays: TrickPlay[]; reversed?: boolean }
 
 export function legalCards(hand: Card[], trick: TrickState, princesBroken: boolean): Card[] {
   if (trick.plays.length === 0) {
@@ -20,7 +20,11 @@ export function canPlay(hand: Card[], trick: TrickState, princesBroken: boolean,
 export function trickWinner(trick: TrickState): string {
   const ledSuit = trick.plays[0].card.suit;
   return trick.plays.filter((play) => play.card.suit === ledSuit)
-    .reduce((winner, play) => play.card.rank > winner.card.rank ? play : winner).uid;
+    .reduce((winner, play) => {
+      const rank = play.effectiveRank ?? play.card.rank;
+      const winnerRank = winner.effectiveRank ?? winner.card.rank;
+      return trick.reversed ? rank < winnerRank ? play : winner : rank > winnerRank ? play : winner;
+    }).uid;
 }
 
 export function breaksPrinces(trick: TrickState, card: Card): boolean {

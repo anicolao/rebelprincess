@@ -73,6 +73,15 @@ fresh setup epoch in the same stream: membership persists, while Princess
 choices, readiness, deals, scores, and Round cards replay only from after that
 marker. Earlier game events remain immutable and fully replayable.
 
+Increment 8 adds `power/activated` and `power/declined` decisions. The reducer
+derives per-round exhaustion and per-trick modifiers without mutable Princess
+documents. Snow White records an effective rank alongside the printed card;
+Cinderella reverses winner comparison; Pocahontas changes the empty trick's
+leader; the Pea Princess filters the base legal-card set; and an available
+Mulan holds a filled trick at an observable decision point until she swaps a
+valid same-suit card or declines. Princess precedence is applied after base legality
+is established and before winner resolution.
+
 Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt` (server
 timestamp), `schemaVersion`, and `reducerVersion`. Event documents are immutable.
 Increment 2 uses `{actorUid}-{zero-padded clientSeq}` as the stable event ID and

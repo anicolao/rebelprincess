@@ -50,7 +50,10 @@ describe('append-only game events', () => {
       gameNumber: 0,
       gameComplete: false,
       zeroRounds: { host: 0, guest: 0 },
-      winnerUids: []
+      winnerUids: [],
+      exhaustedPrincessUids: [],
+      powerIdsThisTrick: [],
+      pendingMulanUid: null
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
@@ -87,6 +90,17 @@ describe('append-only game events', () => {
     expect(isGameEvent({
       type: 'card/played', payload: { gameId: 'MOON42', card: { suit: 'pets', rank: 8 } }, actorUid: 'host',
       clientSeq: 5, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    })).toBe(true);
+  });
+
+  it('accepts append-only Princess activation and decline envelopes', () => {
+    expect(isGameEvent({
+      type: 'power/activated', payload: { gameId: 'MOON42', powerId: 'pocahontas', targetUid: 'guest' }, actorUid: 'host',
+      clientSeq: 6, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    })).toBe(true);
+    expect(isGameEvent({
+      type: 'power/declined', payload: { gameId: 'MOON42', powerId: 'mulan' }, actorUid: 'host',
+      clientSeq: 7, createdAt: null, schemaVersion: 1, reducerVersion: 1
     })).toBe(true);
   });
 
