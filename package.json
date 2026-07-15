@@ -2,11 +2,15 @@
   "name": "rebel-princess",
   "private": true,
   "scripts": {
+    "prepare": "husky",
     "firebase": "firebase",
     "emulators": "firebase emulators:start",
-    "rules:test": "firebase emulators:exec --only firestore 'true'"
+    "rules:test": "firebase emulators:exec --only firestore 'true'",
+    "test:rules": "bun run rules:test",
+    "verify:change": "bash scripts/verify-change.sh"
   },
   "devDependencies": {
-    "firebase-tools": "latest"
+    "firebase-tools": "latest",
+    "husky": "^9.1.7"
   }
 }
