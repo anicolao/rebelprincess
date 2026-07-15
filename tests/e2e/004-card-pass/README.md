@@ -10,6 +10,7 @@ Early submissions reveal no incoming cards; the final submission deterministical
 - [x] The UI reports that simultaneous passing is complete
 - [x] The host’s revised pass and exact incoming cards survive reload
 - [x] All 36 cards remain accounted for after resolution
+- [x] Every card preserves the source atlas cell aspect ratio
 - [x] The gameplay table has no horizontal or vertical scrolling
 - [x] Opponent hand counts remain twelve without revealing their faces
 

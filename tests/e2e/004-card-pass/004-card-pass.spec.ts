@@ -76,6 +76,11 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
       { spec: 'The UI reports that simultaneous passing is complete', check: async () => expect(page.getByRole('alert')).toContainText('Passing complete') },
       { spec: 'The host’s revised pass and exact incoming cards survive reload', check: async () => expectExactHand(page, hostHand) },
       { spec: 'All 36 cards remain accounted for after resolution', check: async () => expect(page.getByTestId('stream-card-count')).toHaveText('Shared stream contains 36 cards') },
+      { spec: 'Every card preserves the source atlas cell aspect ratio', check: async () => {
+        const box = await page.getByRole('region', { name: 'Your hand' }).getByRole('button').first().boundingBox();
+        expect(box).not.toBeNull();
+        expect(Math.abs((box!.width / box!.height) - (1717 / 3664))).toBeLessThan(0.01);
+      } },
       { spec: 'The gameplay table has no horizontal or vertical scrolling', check: async () => expect(await page.evaluate(() => ({ width: document.documentElement.scrollWidth === innerWidth, height: document.documentElement.scrollHeight === innerHeight }))).toEqual({ width: true, height: true }) },
       { spec: 'Opponent hand counts remain twelve without revealing their faces', check: async () => {
         await expect(page.getByLabel('Opponents')).toContainText('Jo · 12');

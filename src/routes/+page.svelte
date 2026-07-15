@@ -535,7 +535,7 @@
   .local-heading { display: flex; justify-content: center; gap: 12px; margin-bottom: 5px; color: #fff4d0; font-size: 12px; }
   .local-heading span { color: #b88cdf; }
   .hand { display: flex; justify-content: center; align-items: flex-end; min-height: clamp(78px, 15vh, 145px); padding-top: 8px; }
-  .playing-card { position: relative; width: clamp(50px, 6.3vw, 78px); height: clamp(76px, 14vh, 120px); min-height: 0; padding: 0; overflow: hidden; flex: 0 0 auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; transition: transform .15s ease; }
+  .playing-card { position: relative; width: clamp(50px, 6.3vw, 78px); height: auto; min-height: 0; aspect-ratio: 1717 / 3664; padding: 0; overflow: hidden; flex: 0 0 auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; transition: transform .15s ease; }
   .playing-card + .playing-card { margin-left: clamp(-27px, -1.8vw, -12px); }
   .playing-card:not(:disabled) { cursor: pointer; }
   .playing-card.selected, .playing-card.committed { z-index: 2; border: 3px solid #ffc75f; transform: translateY(-9px); box-shadow: 0 7px 18px rgba(0, 0, 0, .45); }
@@ -544,7 +544,7 @@
   .playing-card strong { position: absolute; top: 4px; left: 7px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 25px; text-shadow: 0 1px 3px #000; }
   .playing-card small { position: absolute; inset: auto 4px 4px; color: #fff4d0; font-size: 9px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
   .playing-card em { position: absolute; z-index: 2; inset: auto 0 0; padding: 3px 1px; color: #102019; background: #7de2a7; font-size: 8px; font-style: normal; }
-  .card-art { position: absolute; inset: 0; opacity: .72; background-size: 400% 100%; background-position: calc(var(--suit-index) * -100% / 3) center; }
+  .card-art { position: absolute; inset: 0; opacity: .72; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; }
   .pass-controls { min-height: 37px; display: flex; justify-content: center; align-items: center; }
   .pass-submit { min-height: 32px; padding: 0 15px; font-size: 12px; }
   .pass-waiting, .pass-complete { margin: 0; color: #d9cedd; font-size: 11px; text-align: center; }
@@ -714,7 +714,7 @@
     .hand { grid-template-columns: repeat(4, minmax(44px, 1fr)); }
     .playing-card { min-height: 92px; }
     main.gameplay .hand { min-height: 82px; }
-    main.gameplay .playing-card { height: 76px; min-height: 0; }
+    main.gameplay .playing-card { height: auto; min-height: 0; }
     main.gameplay .playing-card { width: 44px; }
     main.gameplay .playing-card + .playing-card { margin-left: -15px; }
     main.gameplay .local-seat { bottom: 2px; }
