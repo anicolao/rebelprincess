@@ -15,7 +15,7 @@
     subscribeToGame,
     type GameProjection
   } from '$lib/game-events';
-  import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, SUITS, type Card } from '$lib/setup';
+  import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, ROUND_RULE_TEXT, SUITS, type Card } from '$lib/setup';
   import { passInstruction } from '$lib/passing';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
@@ -131,6 +131,7 @@
 
   function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
   function roundName(id: string) { return ROUND_RULES.find(([key]) => key === id)?.[1] ?? id; }
+  function roundRule(id: string) { return ROUND_RULE_TEXT[id] ?? 'Follow the rule printed on this round card.'; }
   function suitIndex(card: Card) { return SUITS.indexOf(card.suit); }
   function roundStyle(id: string) {
     const index = Math.max(0, ROUND_RULES.findIndex(([key]) => key === id));
@@ -224,6 +225,13 @@
               <div class="round-art" style={roundStyle(game.roundIds[0])}></div>
               <p>Round 1 of 5</p>
               <h2>{roundName(game.roundIds[0])}</h2>
+              <p class="round-rule">{roundRule(game.roundIds[0])}</p>
+              <div class="pass-icon" aria-label={`Pass ${passInstruction(game.roundIds[0]).count} ${passInstruction(game.roundIds[0]).direction}`}>
+                {#if passInstruction(game.roundIds[0]).direction === 'left' || passInstruction(game.roundIds[0]).direction === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
+                <strong>{passInstruction(game.roundIds[0]).direction === 'split' ? passInstruction(game.roundIds[0]).count / 2 : passInstruction(game.roundIds[0]).count}</strong>
+                {#if passInstruction(game.roundIds[0]).direction === 'split'}<strong>{passInstruction(game.roundIds[0]).count / 2}</strong>{/if}
+                {#if passInstruction(game.roundIds[0]).direction === 'right' || passInstruction(game.roundIds[0]).direction === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
+              </div>
             </article>
 
             <section class="local-seat" aria-label="Your seat">
@@ -521,6 +529,9 @@
   .round-art { width: 72%; aspect-ratio: .855; margin: 0 auto 5px; border: 1px solid rgba(255, 226, 163, .5); border-radius: 7px; background-size: 700% 300%; background-position: var(--round-x) var(--round-y); box-shadow: 0 10px 25px rgba(0, 0, 0, .45); }
   .round-center p { margin: 0; color: #b88cdf; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
   .round-center h2 { margin: 2px 0 0; font-size: clamp(15px, 2.3vh, 22px); line-height: 1; }
+  .round-center .round-rule { margin: 5px auto 0; max-width: 190px; color: #eee4f0; font-size: clamp(9px, 1.25vh, 12px); font-weight: 400; line-height: 1.15; letter-spacing: 0; text-transform: none; }
+  .pass-icon { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 4px; color: #ffc75f; font-size: clamp(17px, 2.5vh, 24px); line-height: 1; }
+  .pass-icon strong { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: .72em; }
   .opponent-seat { position: absolute; z-index: 2; min-width: 105px; color: #e9deeb; text-align: center; }
   .opponent-seat > strong { display: block; margin-bottom: 4px; font-size: 12px; }
   .seat-0 { top: 12px; left: 18%; }

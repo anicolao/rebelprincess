@@ -51,13 +51,81 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
   for (const round of ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
 
-  await submitFirstTwo(page, ['Fairies 3', 'Fairies 4']);
-  await expect(page.getByRole('alert')).toContainText('Passing 2 left to Jo');
-  await expect(page.getByRole('button', { name: 'Fairies 3' })).toContainText('To Jo');
+  const passButton = page.getByRole('button', { name: 'Pass 2 left to Jo' });
+  await steps.step('choose-two-cards-prompt', {
+    description: 'The host is prompted to choose two cards for Jo',
+    verifications: [
+      { spec: 'The pass action names Jo as the recipient and is disabled until two cards are chosen', check: async () => expect(passButton).toBeDisabled() },
+      { spec: 'The center card states the round rule in text', check: async () => expect(page.getByLabel('Current Round card')).toContainText('No additional rule.') },
+      { spec: 'The center card shows a clockwise arrow before the pass count', check: async () => expect(page.getByLabel('Pass 2 left')).toHaveText(/↻\s*2/) }
+    ]
+  });
+
+  await page.getByRole('button', { name: 'Fairies 3', exact: true }).click();
+  await steps.step('select-first-card', {
+    description: 'The first chosen card rises from the hand',
+    verifications: [
+      { spec: 'Fairies 3 is visibly selected', check: async () => expect(page.getByRole('button', { name: 'Fairies 3', exact: true })).toHaveClass(/selected/) },
+      { spec: 'One card is not enough to pass', check: async () => expect(passButton).toBeDisabled() }
+    ]
+  });
+
+  await page.getByRole('button', { name: 'Fairies 3', exact: true }).click();
+  await steps.step('unselect-first-card', {
+    description: 'A selected card can be returned to the hand',
+    verifications: [
+      { spec: 'Fairies 3 is no longer selected', check: async () => expect(page.getByRole('button', { name: 'Fairies 3', exact: true })).not.toHaveClass(/selected/) },
+      { spec: 'The pass action remains disabled', check: async () => expect(passButton).toBeDisabled() }
+    ]
+  });
+
+  await page.getByRole('button', { name: 'Fairies 3', exact: true }).click();
+  await page.getByRole('button', { name: 'Fairies 4', exact: true }).click();
+  await steps.step('select-required-cards', {
+    description: 'Two selected cards enable the named pass',
+    verifications: [
+      { spec: 'Both selected cards are visibly raised', check: async () => {
+        await expect(page.getByRole('button', { name: 'Fairies 3', exact: true })).toHaveClass(/selected/);
+        await expect(page.getByRole('button', { name: 'Fairies 4', exact: true })).toHaveClass(/selected/);
+      } },
+      { spec: 'The pass to Jo is now enabled', check: async () => expect(passButton).toBeEnabled() }
+    ]
+  });
+
+  await passButton.click();
+  await steps.step('commit-pass', {
+    description: 'Committed cards remain visible while the host waits',
+    verifications: [
+      { spec: 'The waiting message identifies Jo and the two-card left pass', check: async () => expect(page.getByRole('alert')).toContainText('Passing 2 left to Jo') },
+      { spec: 'The committed cards identify their destination', check: async () => {
+        await expect(page.getByRole('button', { name: 'Fairies 3' })).toContainText('To Jo');
+        await expect(page.getByRole('button', { name: 'Fairies 4' })).toContainText('To Jo');
+      } }
+    ]
+  });
+
   await page.getByRole('button', { name: 'Fairies 3' }).click();
-  await expect(page.getByRole('button', { name: /Pass 2 left to Jo/ })).toBeVisible();
+  await steps.step('reclaim-committed-card', {
+    description: 'Taking back one committed card reopens the choice',
+    verifications: [
+      { spec: 'Fairies 4 remains selected after the pass is retracted', check: async () => expect(page.getByRole('button', { name: 'Fairies 4', exact: true })).toHaveClass(/selected/) },
+      { spec: 'The host must again choose a second card', check: async () => expect(passButton).toBeDisabled() }
+    ]
+  });
+
   await page.getByRole('button', { name: 'Fairies 5' }).click();
-  await page.getByRole('button', { name: /Pass 2 left to Jo/ }).click();
+  await passButton.click();
+  await steps.step('commit-revised-pass', {
+    description: 'The revised pair is committed for Jo',
+    verifications: [
+      { spec: 'Fairies 4 and Fairies 5 are now headed to Jo', check: async () => {
+        await expect(page.getByRole('button', { name: 'Fairies 4' })).toContainText('To Jo');
+        await expect(page.getByRole('button', { name: 'Fairies 5' })).toContainText('To Jo');
+      } },
+      { spec: 'The host waits for both other players', check: async () => expect(page.getByRole('alert')).toContainText('Waiting for 2 other players') }
+    ]
+  });
+
   await submitFirstTwo(guest, ['Fairies 2', 'Fairies 8']);
   await expect(page.getByRole('alert')).toContainText('Waiting for 1 other player');
   await submitFirstTwo(third, ['Fairies 10', 'Queens 2']);
