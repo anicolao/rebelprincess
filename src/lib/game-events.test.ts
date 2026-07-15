@@ -30,7 +30,9 @@ describe('append-only game events', () => {
       ],
       roundIds: [],
       hands: null,
-      seed: null
+      seed: null,
+      passSubmissions: {},
+      passComplete: false
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });

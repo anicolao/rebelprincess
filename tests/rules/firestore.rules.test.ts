@@ -66,6 +66,11 @@ describe('append-only game event rules', () => {
         hands: { host: [{ suit: 'fairies', rank: 2 }] }
       }
     }));
+    await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-pass'), {
+      ...validEvent(), type: 'pass/submitted', payload: {
+        gameId: 'MOON42', cards: [{ suit: 'fairies', rank: 2 }, { suit: 'princes', rank: 4 }]
+      }
+    }));
   });
 
   it('never permits mutation or deletion of an existing event', async () => {
