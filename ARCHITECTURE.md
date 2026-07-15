@@ -49,6 +49,19 @@ instruction in seat order, sorts each resulting hand, and verifies every
 submitted card came from its actor's dealt hand. No mutable coordination or
 resolution document is required.
 
+Increment 5 adds `card/played` events. The reducer validates clockwise turns,
+follow-suit choices, Prince breaking, trick winners, captured piles, and the
+winner's next lead entirely from the active deal segment.
+
+Increment 6 treats each `game/dealt` event as a round boundary. It replays each
+deal with only the passes and plays that follow it, scores captured Princes at
+one proposal and Pet 8/Frog at five, and carries cumulative totals plus the last
+trick winner forward. After a completed round, new `player/configured` events
+refresh Princess choices; the next host-authored `game/dealt` uses the original
+ordered Round IDs, a new seed and fresh hands. Reusing these existing immutable
+event types keeps round transition append-only without adding a mutable score or
+round document.
+
 Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt` (server
 timestamp), `schemaVersion`, and `reducerVersion`. Event documents are immutable.
 Increment 2 uses `{actorUid}-{zero-padded clientSeq}` as the stable event ID and
