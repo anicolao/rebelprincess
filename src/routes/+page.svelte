@@ -17,6 +17,7 @@
   } from '$lib/game-events';
   import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, ROUND_RULE_TEXT, SUITS, type Card } from '$lib/setup';
   import { passInstruction } from '$lib/passing';
+  import { canPlay } from '$lib/trick-taking';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -180,8 +181,20 @@
   }
 
   function handleHandCard(card: Card) {
-    if (game?.passSubmissions[currentUid]) void reclaimPassCard(card);
+    if (game?.passComplete) void playCard(card);
+    else if (game?.passSubmissions[currentUid]) void reclaimPassCard(card);
     else togglePassCard(card);
+  }
+
+  function playable(card: Card): boolean {
+    return Boolean(game?.hands && game.trick && game.currentTurnUid === currentUid && canPlay(game.hands[currentUid], game.trick, game.princesBroken, card));
+  }
+
+  async function playCard(card: Card) {
+    if (!game?.passComplete || !playable(card)) return;
+    connection = 'checking';
+    connectionLabel = `Playing ${cardLabel(card)}…`;
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'card/played', { card });
   }
 </script>
 
@@ -234,12 +247,23 @@
               <p class="round-count">Round 1 of 5</p>
             </article>
 
+            {#if game.passComplete}
+              <section class="live-trick" aria-label="Current trick">
+                {#each game.trick?.plays ?? [] as play}
+                  <span>{game.players.find((player) => player.uid === play.uid)?.displayName}: {cardLabel(play.card)}</span>
+                {/each}
+              </section>
+              {#each game.players as player}
+                <span class="sr-only" aria-label={`${player.displayName} captured cards`}>{game.capturedCounts[player.uid] ?? 0}</span>
+              {/each}
+            {/if}
+
             <section class="local-seat" aria-label="Your seat">
               <div class="local-heading"><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
               <div class="hand" role="region" aria-label="Your hand">
                 {#each game.hands[currentUid] ?? [] as card}
                   {@const committed = game.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card))}
-                  <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} class:committed disabled={game.passComplete || Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => handleHandCard(card)}>
+                  <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} class:committed class:playable={game.passComplete && playable(card)} disabled={game.passComplete ? !playable(card) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => handleHandCard(card)}>
                     <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
                     <strong>{card.rank}</strong><small>{card.suit}</small>
                     {#if committed}<em>To {passRecipient()}</em>{/if}
@@ -248,7 +272,7 @@
               </div>
               <div class="pass-controls">
                 {#if game.passComplete}
-                  <p class="pass-complete" role="alert">Passing complete · all {Object.values(game.hands).flat().length} cards accounted for</p>
+                  <p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${game.players.find((player) => player.uid === game?.currentTurnUid)?.displayName}`} · Trick {game.completedTricks + 1}</p>
                 {:else if game.passSubmissions[currentUid]}
                   <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(game.roundIds[0]).direction} to {passRecipient()} · {waitingForPasses()} Select a raised card to take it back.</p>
                 {:else}
@@ -552,6 +576,7 @@
   .playing-card:not(:disabled) { cursor: pointer; }
   .playing-card.selected, .playing-card.committed { border: 3px solid #ffc75f; transform: translateY(-9px); box-shadow: 0 7px 18px rgba(0, 0, 0, .45); }
   .playing-card.committed { border-color: #7de2a7; }
+  .playing-card.playable { border-color: #ffc75f; box-shadow: 0 0 0 1px #ffc75f; }
   .playing-card:disabled { opacity: 1; color: inherit; }
   .playing-card strong { position: absolute; top: 4px; left: 7px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 25px; text-shadow: 0 1px 3px #000; }
   .playing-card small { position: absolute; inset: auto 4px 4px; color: #fff4d0; font-size: 9px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
@@ -561,6 +586,7 @@
   .pass-submit { min-height: 32px; padding: 0 15px; font-size: 12px; }
   .pass-waiting, .pass-complete { margin: 0; color: #d9cedd; font-size: 11px; text-align: center; }
   .pass-complete { color: #7de2a7; font-weight: 700; }
+  .live-trick { position: absolute; top: 62%; left: 50%; display: flex; justify-content: center; gap: 10px; width: min(90%, 440px); color: #fff4d0; font-size: 11px; transform: translateX(-50%); }
 
   main.gameplay { width: calc(100% - 24px); height: 100dvh; min-height: 0; overflow: hidden; }
   main.gameplay .masthead { min-height: 54px; height: 54px; }

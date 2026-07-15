@@ -32,7 +32,12 @@ describe('append-only game events', () => {
       hands: null,
       seed: null,
       passSubmissions: {},
-      passComplete: false
+      passComplete: false,
+      trick: null,
+      currentTurnUid: null,
+      princesBroken: false,
+      capturedCounts: { host: 0, guest: 0 },
+      completedTricks: 0
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
@@ -62,6 +67,13 @@ describe('append-only game events', () => {
     expect(isGameEvent({
       type: 'pass/retracted', payload: { gameId: 'MOON42' }, actorUid: 'host',
       clientSeq: 4, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    })).toBe(true);
+  });
+
+  it('accepts an append-only card play envelope', () => {
+    expect(isGameEvent({
+      type: 'card/played', payload: { gameId: 'MOON42', card: { suit: 'pets', rank: 8 } }, actorUid: 'host',
+      clientSeq: 5, createdAt: null, schemaVersion: 1, reducerVersion: 1
     })).toBe(true);
   });
 });
