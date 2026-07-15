@@ -19,6 +19,7 @@ Early submissions reveal no incoming cards; the final submission deterministical
 
 **Verifications:**
 - [x] Fairies 3 is visibly selected
+- [x] The next card remains above the raised card so its value stays readable
 - [x] One card is not enough to pass
 
 ---
@@ -50,6 +51,7 @@ Early submissions reveal no incoming cards; the final submission deterministical
 **Verifications:**
 - [x] The waiting message identifies Jo and the two-card left pass
 - [x] The committed cards identify their destination
+- [x] Destination ribbons are left-aligned to remain readable under overlap
 
 ---
 
