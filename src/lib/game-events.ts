@@ -11,11 +11,12 @@ import {
 } from 'firebase/firestore';
 import type { Card } from './setup';
 import { passInstruction, resolvePasses } from './passing';
+import { breaksPrinces, canPlay, trickWinner, type TrickState } from './trick-taking';
 
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
 
-export type GameEventType = 'game/created' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted' | 'pass/retracted';
+export type GameEventType = 'game/created' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played';
 export type GameEventPayload = {
   gameId: string;
   displayName?: string;
@@ -25,6 +26,7 @@ export type GameEventPayload = {
   roundIds?: string[];
   hands?: Record<string, Card[]>;
   cards?: Card[];
+  card?: Card;
 };
 
 export interface GameEvent {
@@ -46,6 +48,11 @@ export interface GameProjection {
   seed: string | null;
   passSubmissions: Record<string, Card[]>;
   passComplete: boolean;
+  trick: TrickState | null;
+  currentTurnUid: string | null;
+  princesBroken: boolean;
+  capturedCounts: Record<string, number>;
+  completedTricks: number;
 }
 
 export interface EventCursor {
@@ -66,7 +73,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   const event = value as Record<string, unknown>;
   const payload = event.payload as Record<string, unknown> | undefined;
   const common = (
-    ['game/created', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted'].includes(String(event.type)) &&
+    ['game/created', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played'].includes(String(event.type)) &&
     typeof event.actorUid === 'string' &&
     Number.isInteger(event.clientSeq) &&
     event.schemaVersion === SCHEMA_VERSION &&
@@ -79,6 +86,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   if (event.type === 'player/configured') return typeof payload.princessId === 'string' && typeof payload.ready === 'boolean';
   if (event.type === 'game/dealt') return typeof payload.seed === 'string' && Array.isArray(payload.roundIds) && payload.roundIds.length === 5 && !!payload.hands && typeof payload.hands === 'object';
   if (event.type === 'pass/submitted') return Array.isArray(payload.cards) && payload.cards.length > 0;
+  if (event.type === 'card/played') return !!payload.card && typeof payload.card === 'object';
   return Object.keys(payload).length === 1;
 }
 
@@ -103,6 +111,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let hands: Record<string, Card[]> | null = null;
   let seed: string | null = null;
   const passSubmissions: Record<string, Card[]> = {};
+  const playEvents: GameEvent[] = [];
 
   for (const event of ordered) {
     gameId ||= event.payload.gameId;
@@ -125,12 +134,32 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     }
     if (event.type === 'pass/submitted') passSubmissions[event.actorUid] = event.payload.cards ?? [];
     if (event.type === 'pass/retracted') delete passSubmissions[event.actorUid];
+    if (event.type === 'card/played') playEvents.push(event);
   }
 
   const playerList = [...players.values()];
   const passComplete = Boolean(hands && playerList.length >= 3 && playerList.every((player) => passSubmissions[player.uid]));
   if (passComplete && hands) hands = resolvePasses(playerList.map((player) => player.uid), hands, passSubmissions, passInstruction(roundIds[0]));
-  return { gameId, players: playerList, roundIds, hands, seed, passSubmissions, passComplete };
+  let trick: TrickState | null = passComplete && playerList.length ? { leaderUid: playerList[0].uid, plays: [] } : null;
+  let currentTurnUid = trick?.leaderUid ?? null;
+  let princesBroken = false;
+  let completedTricks = 0;
+  const capturedCounts = Object.fromEntries(playerList.map((player) => [player.uid, 0]));
+  if (hands && trick) for (const event of playEvents) {
+    const card = event.payload.card;
+    if (!card || event.actorUid !== currentTurnUid || !hands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || !canPlay(hands[event.actorUid], trick, princesBroken, card)) continue;
+    princesBroken ||= breaksPrinces(trick, card);
+    hands[event.actorUid] = hands[event.actorUid].filter((held) => held.suit !== card.suit || held.rank !== card.rank);
+    trick.plays.push({ uid: event.actorUid, card });
+    if (trick.plays.length === playerList.length) {
+      const winner = trickWinner(trick);
+      capturedCounts[winner] += trick.plays.length;
+      completedTricks += 1;
+      trick = { leaderUid: winner, plays: [] };
+      currentTurnUid = winner;
+    } else currentTurnUid = playerList[(playerList.findIndex((player) => player.uid === event.actorUid) + 1) % playerList.length].uid;
+  }
+  return { gameId, players: playerList, roundIds, hands, seed, passSubmissions, passComplete, trick, currentTurnUid, princesBroken, capturedCounts, completedTricks };
 }
 
 export function replayCacheKey(gameId: string): string {
