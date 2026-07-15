@@ -4,24 +4,86 @@
   import '@fontsource/cormorant-garamond/latin-600.css';
   import '@fontsource/cormorant-garamond/latin-700.css';
   import { onMount } from 'svelte';
+  import { replaceState } from '$app/navigation';
   import suitAtlas from '../../assets/generated/suited-card-families.png';
-  import { probeFirebase } from '$lib/firebase';
+  import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
+  import {
+    appendGameEvent,
+    normalizeGameId,
+    subscribeToGame,
+    type GameProjection
+  } from '$lib/game-events';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
+  let displayName = '';
+  let inviteCode = '';
+  let activeGameId = '';
+  let game: GameProjection | null = null;
+  let actionError = '';
+  let unsubscribe = () => {};
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
 
-  onMount(async () => {
-    try {
-      const target = await probeFirebase();
+  onMount(() => {
+    void (async () => {
+      try {
+        const target = await probeFirebase(new URL(location.href).searchParams.get('e2eUid') ?? undefined);
+        connection = 'synced';
+        connectionLabel = target === 'emulator' ? 'Firebase emulator ready' : 'Firebase ready';
+        const gameId = normalizeGameId(new URL(location.href).searchParams.get('game') ?? '');
+        if (gameId) watchGame(gameId);
+      } catch {
+        connection = 'error';
+        connectionLabel = 'Firebase unavailable';
+      }
+    })();
+    return () => unsubscribe();
+  });
+
+  function watchGame(gameId: string) {
+    unsubscribe();
+    activeGameId = gameId;
+    const e2eUid = new URL(location.href).searchParams.get('e2eUid');
+    replaceState(`?game=${gameId}${e2eUid ? `&e2eUid=${encodeURIComponent(e2eUid)}` : ''}`, {});
+    unsubscribe = subscribeToGame(firebaseDatabase(), gameId, (next) => {
+      game = next;
       connection = 'synced';
-      connectionLabel = target === 'emulator' ? 'Firebase emulator ready' : 'Firebase ready';
+      connectionLabel = 'Game synchronized';
+    }, () => {
+      connection = 'error';
+      connectionLabel = 'Synchronization failed';
+    });
+  }
+
+  async function createGame() {
+    await enterGame('game/created', normalizeGameId(new URL(location.href).searchParams.get('gameId') ?? '') ||
+      crypto.randomUUID().replaceAll('-', '').slice(0, 6).toUpperCase());
+  }
+
+  async function joinGame() {
+    await enterGame('player/joined', normalizeGameId(inviteCode));
+  }
+
+  async function enterGame(type: 'game/created' | 'player/joined', gameId: string) {
+    actionError = '';
+    const name = displayName.trim();
+    if (!name || !gameId) {
+      actionError = 'Enter your name and a valid room code.';
+      return;
+    }
+    connection = 'checking';
+    connectionLabel = type === 'game/created' ? 'Creating room…' : 'Joining room…';
+    try {
+      const user = await ensureAnonymousIdentity(new URL(location.href).searchParams.get('e2eUid') ?? undefined);
+      await appendGameEvent(firebaseDatabase(), gameId, user.uid, type, name);
+      watchGame(gameId);
     } catch {
       connection = 'error';
-      connectionLabel = 'Firebase unavailable';
+      connectionLabel = 'Could not update the room';
+      actionError = 'The room could not be updated. Please try again.';
     }
-  });
+  }
 </script>
 
 <svelte:head>
@@ -48,10 +110,32 @@
         A live trick-taking game for three to six fiercely independent princesses.
         Create a room, invite the court, and keep those princes at arm's length.
       </p>
-      <div class="actions" aria-label="Game availability">
-        <button type="button" disabled>Create a game</button>
-        <span>Room play arrives in the next increment.</span>
-      </div>
+      {#if activeGameId}
+        <section class="room" aria-label="Game room">
+          <p class="room-label">Room code</p>
+          <div class="room-code" data-testid="invite-code">{activeGameId}</div>
+          <h2>Players · {game?.players.length ?? 0}</h2>
+          <ul aria-label="Players">
+            {#each game?.players ?? [] as player (player.uid)}
+              <li><span>{player.displayName}</span>{#if player.host}<small>Host</small>{/if}</li>
+            {/each}
+          </ul>
+          <p class="waiting">Share the code. The guest list updates live.</p>
+        </section>
+      {:else}
+        <form class="room-form" on:submit|preventDefault={createGame}>
+          <label for="display-name">Your name</label>
+          <input id="display-name" bind:value={displayName} maxlength="30" autocomplete="nickname" placeholder="Princess name" />
+          <div class="actions">
+            <button type="submit">Create a game</button>
+            <span>or</span>
+            <label class="sr-only" for="invite-code">Room code</label>
+            <input id="invite-code" bind:value={inviteCode} maxlength="8" placeholder="ROOM CODE" />
+            <button class="secondary" type="button" on:click={joinGame}>Join</button>
+          </div>
+          {#if actionError}<p class="form-error" role="alert">{actionError}</p>{/if}
+        </form>
+      {/if}
     </div>
 
     <figure class="atlas-card">
@@ -225,10 +309,41 @@
     padding: 0 23px;
     border: 1px solid rgba(255, 226, 163, 0.38);
     border-radius: 3px;
-    color: #54415d;
-    background: #b8a9b9;
+    color: #271631;
+    background: #ffc75f;
     font-weight: 700;
   }
+
+  input {
+    min-width: 0;
+    min-height: 46px;
+    padding: 0 13px;
+    border: 1px solid rgba(255, 226, 163, 0.38);
+    border-radius: 3px;
+    color: #fff5dc;
+    background: rgba(13, 8, 20, 0.7);
+    font: inherit;
+  }
+
+  input:focus { outline: 2px solid #b88cdf; outline-offset: 2px; }
+  .room-form { margin-top: 28px; }
+  .room-form > label { display: block; margin-bottom: 7px; color: #e4d8e5; font-size: 13px; }
+  .room-form > input { width: min(100%, 330px); }
+  .actions { flex-wrap: wrap; }
+  .actions input { width: 132px; text-transform: uppercase; }
+  .actions > span { color: #9f93a5; }
+  button.secondary { color: #fff4d0; background: transparent; }
+  .form-error { color: #ffaaa5; font-size: 13px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  .room { max-width: 420px; margin-top: 28px; padding: 20px; border: 1px solid rgba(255, 226, 163, 0.32); background: rgba(13, 8, 20, 0.5); }
+  .room-label { margin: 0; color: #b6a7ba; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+  .room-code { margin: 2px 0 16px; color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: 38px; font-weight: 700; letter-spacing: .12em; }
+  .room h2 { border-bottom: 1px solid rgba(255, 239, 199, 0.16); padding-bottom: 8px; }
+  .room ul { margin: 0; padding: 0; list-style: none; }
+  .room li { display: flex; justify-content: space-between; padding: 7px 0; color: #fff5dc; }
+  .room small { color: #b88cdf; text-transform: uppercase; letter-spacing: .1em; }
+  .waiting { margin: 12px 0 0; color: #9f93a5; font-size: 13px; }
 
   .actions span {
     max-width: 180px;
@@ -379,6 +494,9 @@
       margin-top: 23px;
       gap: 12px;
     }
+
+    .actions input { width: 118px; }
+    .room { max-width: none; padding: 15px; }
 
     button {
       min-height: 44px;
