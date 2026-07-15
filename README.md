@@ -26,3 +26,8 @@ nix develop
 bun install
 bun run emulators
 ```
+
+## License
+
+Copyright (C) 2026 Alex Nicolaou. Licensed under the GNU General Public
+License, version 3. See [LICENSE](LICENSE).
