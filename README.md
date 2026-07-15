@@ -1,8 +1,9 @@
 # Rebel Princess
 
 This repository is the starting point for a realtime, browser-based game of
-Rebel Princess. The current tracer bullet supports anonymous room creation and
-joining through an append-only Firestore stream; card play is not implemented yet.
+Rebel Princess. The current tracer bullets support anonymous rooms, distinct
+Princess setup, five Round-card selection, and deterministic dealing through an
+append-only Firestore stream; card play is not implemented yet.
 
 See [RULES.md](RULES.md) for the initial rules summary and
 [ARCHITECTURE.md](ARCHITECTURE.md) for the proposed trusted-client protocol.
