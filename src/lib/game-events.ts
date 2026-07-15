@@ -9,7 +9,7 @@ import {
   type Timestamp,
   type Unsubscribe
 } from 'firebase/firestore';
-import type { Card } from './setup';
+import { princessOptionsForPlayers, type Card } from './setup';
 import { passInstruction, resolvePasses } from './passing';
 import { breaksPrinces, canPlay, trickWinner, type TrickPlay, type TrickState } from './trick-taking';
 
@@ -60,6 +60,18 @@ export interface GameProjection {
   roundScores: Record<string, { princes: number; frog: number; total: number }>;
   totalScores: Record<string, number>;
   nextLeaderUid: string | null;
+  princessOptions: Record<string, string[]>;
+}
+
+export function nextRoundLeader(playerUids: string[], totalScores: Record<string, number>, lastLeaderUid: string): string | null {
+  if (!playerUids.length) return null;
+  const lowest = Math.min(...playerUids.map((uid) => totalScores[uid] ?? 0));
+  const lastIndex = Math.max(0, playerUids.indexOf(lastLeaderUid));
+  for (let offset = 1; offset <= playerUids.length; offset += 1) {
+    const uid = playerUids[(lastIndex + offset) % playerUids.length];
+    if ((totalScores[uid] ?? 0) === lowest) return uid;
+  }
+  return playerUids[0];
 }
 
 export interface EventCursor {
@@ -134,6 +146,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   }
 
   const playerList = [...players.values()];
+  const princessOptions = princessOptionsForPlayers(playerList.map((player) => player.uid), gameId);
   const deals = ordered.map((event, index) => ({ event, index })).filter(({ event }) => event.type === 'game/dealt');
   const emptyCounts = () => Object.fromEntries(playerList.map((player) => [player.uid, 0]));
   const emptyTricks = () => Object.fromEntries(playerList.map((player) => [player.uid, [] as TrickPlay[][]]));
@@ -194,20 +207,14 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     active = replayRound(deal, segment, leaderUid);
     roundIds = deal.payload.roundIds ?? roundIds;
     seed = deal.payload.seed ?? seed;
-    if (active.roundComplete) for (const player of playerList) totalScores[player.uid] += active.roundScores[player.uid].total;
-    if (active.lastWinnerUid) leaderUid = active.lastWinnerUid;
+    if (active.roundComplete) {
+      for (const player of playerList) totalScores[player.uid] += active.roundScores[player.uid].total;
+      leaderUid = nextRoundLeader(playerList.map((player) => player.uid), totalScores, leaderUid) ?? leaderUid;
+    }
   });
   const roundIndex = Math.max(0, deals.length - 1);
-  if (active.roundComplete && deals.length) {
-    const finalPlayIndex = ordered.findLastIndex((event) => event.type === 'card/played');
-    for (const player of playerList) {
-      const refreshed = ordered.slice(finalPlayIndex + 1).findLast((event) => event.type === 'player/configured' && event.actorUid === player.uid);
-      player.princessId = refreshed?.payload.princessId;
-      player.ready = refreshed?.payload.ready === true;
-    }
-  }
   const { lastWinnerUid: _lastWinnerUid, ...activeProjection } = active;
-  return { gameId, players: playerList, roundIds, seed, ...activeProjection, totalScores, roundIndex, nextLeaderUid: leaderUid || null };
+  return { gameId, players: playerList, roundIds, seed, ...activeProjection, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions };
 }
 
 export function replayCacheKey(gameId: string): string {

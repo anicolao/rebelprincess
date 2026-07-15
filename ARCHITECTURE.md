@@ -32,8 +32,9 @@ projections of the same stream rather than separate mutable documents. If a
 public game browser is later required, it can be a disposable projection; it is
 not part of the canonical game record.
 
-Increment 3 adds `player/configured` events for distinct Princess choice and
-readiness, followed by a host-authored `game/dealt` event containing the shuffle
+Increment 3 deterministically deals two Princess options per seat from the game
+ID; one `player/configured` event records each player's game-long choice and
+readiness. A host-authored `game/dealt` event then contains the shuffle
 seed, the ordered five Round-card IDs, and every player's complete hand. The
 versioned reducer keeps all hands, while the trustworthy view renders only the
 local UID's cards and opponent card counts. Deck composition is 36 cards for
@@ -55,9 +56,10 @@ winner's next lead entirely from the active deal segment.
 
 Increment 6 treats each `game/dealt` event as a round boundary. It replays each
 deal with only the passes and plays that follow it, scores captured Princes at
-one proposal and Pet 8/Frog at five, and carries cumulative totals plus the last
-trick winner forward. After a completed round, new `player/configured` events
-refresh Princess choices; the next host-authored `game/dealt` uses the original
+one proposal and Pet 8/Frog at five, and carries cumulative totals forward. The
+lowest cumulative scorer leads the next round; ties are scanned clockwise
+beginning after the prior round leader. Princess choices remain fixed while
+their powers refresh. The next host-authored `game/dealt` uses the original
 ordered Round IDs, a new seed and fresh hands. Reusing these existing immutable
 event types keeps round transition append-only without adding a mutable score or
 round document.

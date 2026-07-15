@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { deriveGame, eventCursor, eventId, isGameEvent, normalizeGameId, replayCacheKey, type GameEvent, type GameEventType, type GameEventPayload } from './game-events';
+import { deriveGame, eventCursor, eventId, isGameEvent, nextRoundLeader, normalizeGameId, replayCacheKey, type GameEvent, type GameEventType, type GameEventPayload } from './game-events';
+import { princessOptionsForPlayers } from './setup';
 
 const event = (id: string, type: 'game/created' | 'player/joined', uid: string, name: string) => ({
   id,
@@ -44,7 +45,8 @@ describe('append-only game events', () => {
       roundComplete: false,
       roundScores: { host: { princes: 0, frog: 0, total: 0 }, guest: { princes: 0, frog: 0, total: 0 } },
       totalScores: { host: 0, guest: 0 },
-      nextLeaderUid: 'host'
+      nextLeaderUid: 'host',
+      princessOptions: princessOptionsForPlayers(['host', 'guest'], 'MOON42')
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
@@ -113,7 +115,7 @@ describe('append-only game events', () => {
     expect(scored.roundComplete).toBe(true);
     expect(scored.roundScores.a).toEqual({ princes: 1, frog: 5, total: 6 });
     expect(scored.totalScores.a).toBe(6);
-    expect(scored.nextLeaderUid).toBe('a');
+    expect(scored.nextLeaderUid).toBe('b');
 
     const nextHands = {
       a: [{ suit: 'fairies' as const, rank: 2 }, { suit: 'queens' as const, rank: 2 }],
@@ -124,5 +126,12 @@ describe('append-only game events', () => {
     expect(advanced.roundIndex).toBe(1);
     expect(advanced.totalScores.a).toBe(6);
     expect(advanced.roundComplete).toBe(false);
+    expect(advanced.trick).toBeNull();
+  });
+
+  it('chooses the unique lowest total, then breaks a low-score tie clockwise after the last leader', () => {
+    expect(nextRoundLeader(['a', 'b', 'c'], { a: 4, b: 1, c: 7 }, 'a')).toBe('b');
+    expect(nextRoundLeader(['a', 'b', 'c'], { a: 2, b: 2, c: 5 }, 'c')).toBe('a');
+    expect(nextRoundLeader(['a', 'b', 'c'], { a: 2, b: 2, c: 2 }, 'a')).toBe('b');
   });
 });

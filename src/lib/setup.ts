@@ -7,7 +7,8 @@ export const PRINCESSES = [
   ['cinderella', 'Cinderella'], ['pocahontas', 'Pocahontas'],
   ['sleeping-beauty', 'Sleeping Beauty'], ['alice', 'Alice'], ['mulan', 'Mulan'],
   ['scheherazade', 'Scheherazade'], ['pea-princess', 'The Pea Princess'],
-  ['ice-princess', 'The Ice Princess']
+  ['ice-princess', 'The Ice Princess'], ['rapunzel', 'Rapunzel'],
+  ['thumbelina', 'Thumbelina']
 ] as const;
 
 export const ROUND_RULES = [
@@ -65,6 +66,16 @@ function seededRandom(seed: string): () => number {
     value ^= value + Math.imul(value ^ value >>> 7, value | 61);
     return ((value ^ value >>> 14) >>> 0) / 4294967296;
   };
+}
+
+export function princessOptionsForPlayers(playerUids: string[], seed: string): Record<string, string[]> {
+  const pool = PRINCESSES.map(([id]) => id);
+  const random = seededRandom(`${seed}:princesses`);
+  for (let index = pool.length - 1; index > 0; index--) {
+    const other = Math.floor(random() * (index + 1));
+    [pool[index], pool[other]] = [pool[other], pool[index]];
+  }
+  return Object.fromEntries(playerUids.map((uid, index) => [uid, pool.slice(index * 2, index * 2 + 2)]));
 }
 
 export function dealForPlayers(playerUids: string[], seed: string): Record<string, Card[]> {

@@ -131,7 +131,8 @@ proof.
 
 ### 3. Setup, seats, Princess choice, and deterministic deal
 
-- Support 3–6 seats, player names, ready state, distinct Princess selection,
+- Support 3–6 seats, player names, ready state, two dealt Princess options per
+  player with one game-long selection,
   five Round-card selection, player-count deck composition, seeded shuffle, and
   deal events.
 - Render the local hand from the suit atlas and opponents as counts; verify in
@@ -162,8 +163,9 @@ proof.
 
 - Score each Prince as one proposal and Pet 8/Frog as five.
 - Hide captured-card contents during the round, reveal the scoring breakdown at
-  its end, update totals, refresh Princesses, redeal, reveal the next Round card,
-  and make the previous last-trick winner the next leader.
+  its end, update totals, refresh Princess powers, redeal, reveal the next Round
+  card, and make the lowest cumulative scorer the next leader. Resolve a tie by
+  scanning clockwise beginning after the previous round leader.
 - Add `006-round-scoring` from the final live trick through the next round's
   first playable hand.
 

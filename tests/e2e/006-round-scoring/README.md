@@ -1,6 +1,6 @@
 # Round scoring and transition
 
-The final live trick reveals Prince and Frog proposals, preserves cumulative totals, refreshes Princesses, redeals, and gives the previous last-trick winner the next lead.
+The final live trick reveals Prince and Frog proposals, preserves cumulative totals and Princesses, then redeals with the lowest cumulative scorer leading.
 
 ## The final three cards remain a normal synchronized live trick
 
@@ -19,19 +19,19 @@ The final live trick reveals Prince and Frog proposals, preserves cumulative tot
 **Verifications:**
 - [x] Every player receives a visible Prince and Frog breakdown
 - [x] The deck’s nine Princes and five-point Frog account for fourteen proposals
-- [x] The winner of the final trick is named as the next leader
-- [x] All players must refresh their Princess choice
+- [x] The unique lowest cumulative scorer is named as the next leader
+- [x] Princesses stay fixed and only their powers refresh
 
 ---
 
-## Fresh hands and Princesses begin round two under the previous winner’s lead
+## Fresh hands begin round two under the lowest scorer’s lead
 
-![Fresh hands and Princesses begin round two under the previous winner’s lead](./screenshots/002-next-round-playable-desktop.png)
+![Fresh hands begin round two under the lowest scorer’s lead](./screenshots/002-next-round-playable-desktop.png)
 
 **Verifications:**
 - [x] The next Round card and round count are revealed
 - [x] Every client has a fresh twelve-card hand after the right pass
-- [x] The prior final-trick winner visibly leads the new round
+- [x] The lowest cumulative scorer visibly leads the new round
 - [x] The first-round cumulative proposals remain in the projection
 
 ---
