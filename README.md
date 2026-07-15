@@ -31,6 +31,17 @@ bun install
 bun run emulators
 ```
 
+Run the complete local verification contract with:
+
+```sh
+nix develop --command bun install
+nix develop --command bun run verify:change
+```
+
+The static client is deployed to GitHub Pages after the complete macOS E2E suite
+passes. Pull requests from branches in this repository receive retained previews
+under `/rebelprincess/pr<PR number>/`; `main` publishes at `/rebelprincess/`.
+
 ## License
 
 Copyright (C) 2026 Alex Nicolaou. Licensed under the GNU General Public
