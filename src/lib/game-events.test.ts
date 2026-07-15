@@ -25,11 +25,31 @@ describe('append-only game events', () => {
     expect(deriveGame([joined, created])).toEqual({
       gameId: 'MOON42',
       players: [
-        { uid: 'host', displayName: 'Alex', host: true },
-        { uid: 'guest', displayName: 'Jo', host: false }
-      ]
+        { uid: 'host', displayName: 'Alex', host: true, ready: false },
+        { uid: 'guest', displayName: 'Jo', host: false, ready: false }
+      ],
+      roundIds: [],
+      hands: null,
+      seed: null
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
+  });
+
+  it('replays readiness, Princess choice, rounds, and the complete shared deal', () => {
+    const events = [
+      event('a', 'game/created', 'host', 'Alex'),
+      event('b', 'player/joined', 'guest', 'Jo'),
+      { ...event('c', 'player/joined', 'guest', 'Jo'), type: 'player/configured' as const, payload: { gameId: 'MOON42', princessId: 'little-mermaid', ready: true } },
+      { ...event('d', 'game/created', 'host', 'Alex'), type: 'player/configured' as const, payload: { gameId: 'MOON42', princessId: 'snow-white', ready: true } },
+      { ...event('e', 'game/created', 'host', 'Alex'), type: 'game/dealt' as const, payload: { gameId: 'MOON42', seed: 'fixed', roundIds: ['a', 'b', 'c', 'd', 'e'], hands: { host: [{ suit: 'fairies' as const, rank: 2 }], guest: [{ suit: 'pets' as const, rank: 8 }] } } }
+    ];
+    const projection = deriveGame(events);
+    expect(projection.players.map(({ princessId, ready }) => ({ princessId, ready }))).toEqual([
+      { princessId: 'snow-white', ready: true },
+      { princessId: 'little-mermaid', ready: true }
+    ]);
+    expect(projection.roundIds).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(projection.hands?.guest[0]).toEqual({ suit: 'pets', rank: 8 });
   });
 
   it('versions the replay cache with the reducer', () => {

@@ -55,6 +55,19 @@ describe('append-only game event rules', () => {
     }));
   });
 
+  it('accepts configuration and complete deal payloads from their actors', async () => {
+    const host = environment.authenticatedContext('host').firestore();
+    await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-config'), {
+      ...validEvent(), type: 'player/configured', payload: { gameId: 'MOON42', princessId: 'snow-white', ready: true }
+    }));
+    await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-deal'), {
+      ...validEvent(), type: 'game/dealt', payload: {
+        gameId: 'MOON42', seed: 'fixed-003', roundIds: ['a', 'b', 'c', 'd', 'e'],
+        hands: { host: [{ suit: 'fairies', rank: 2 }] }
+      }
+    }));
+  });
+
   it('never permits mutation or deletion of an existing event', async () => {
     const host = environment.authenticatedContext('host').firestore();
     await assertFails(updateDoc(doc(host, path), { 'payload.displayName': 'Changed' }));

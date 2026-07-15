@@ -32,6 +32,13 @@ projections of the same stream rather than separate mutable documents. If a
 public game browser is later required, it can be a disposable projection; it is
 not part of the canonical game record.
 
+Increment 3 adds `player/configured` events for distinct Princess choice and
+readiness, followed by a host-authored `game/dealt` event containing the shuffle
+seed, the ordered five Round-card IDs, and every player's complete hand. The
+versioned reducer keeps all hands, while the trustworthy view renders only the
+local UID's cards and opponent card counts. Deck composition is 36 cards for
+three players, 40 for four or five, and 48 for six as specified in `RULES.md`.
+
 Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt` (server
 timestamp), `schemaVersion`, and `reducerVersion`. Event documents are immutable.
 Increment 2 uses `{actorUid}-{zero-padded clientSeq}` as the stable event ID and

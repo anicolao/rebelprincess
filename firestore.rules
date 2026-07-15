@@ -6,7 +6,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function validPayload(gameId) {
+    function validLobbyPayload(gameId) {
       return request.resource.data.payload.keys().hasOnly(['gameId', 'displayName'])
         && request.resource.data.payload.gameId == gameId
         && request.resource.data.payload.displayName is string
@@ -14,19 +14,40 @@ service cloud.firestore {
         && request.resource.data.payload.displayName.size() <= 30;
     }
 
+    function validConfiguredPayload(gameId) {
+      return request.resource.data.payload.keys().hasOnly(['gameId', 'princessId', 'ready'])
+        && request.resource.data.payload.gameId == gameId
+        && request.resource.data.payload.princessId is string
+        && request.resource.data.payload.princessId.size() >= 1
+        && request.resource.data.payload.ready is bool;
+    }
+
+    function validDealPayload(gameId) {
+      return request.resource.data.payload.keys().hasOnly(['gameId', 'seed', 'roundIds', 'hands'])
+        && request.resource.data.payload.gameId == gameId
+        && request.resource.data.payload.seed is string
+        && request.resource.data.payload.roundIds is list
+        && request.resource.data.payload.roundIds.size() == 5
+        && request.resource.data.payload.hands is map;
+    }
+
     function validEvent(gameId) {
       return request.resource.data.keys().hasOnly([
           'type', 'payload', 'actorUid', 'clientSeq', 'createdAt',
           'schemaVersion', 'reducerVersion'
         ])
-        && request.resource.data.type in ['game/created', 'player/joined']
+        && request.resource.data.type in ['game/created', 'player/joined', 'player/configured', 'game/dealt']
         && request.resource.data.actorUid == request.auth.uid
         && request.resource.data.clientSeq is int
         && request.resource.data.clientSeq > 0
         && request.resource.data.createdAt == request.time
         && request.resource.data.schemaVersion == 1
         && request.resource.data.reducerVersion == 1
-        && validPayload(gameId);
+        && (
+          (request.resource.data.type in ['game/created', 'player/joined'] && validLobbyPayload(gameId))
+          || (request.resource.data.type == 'player/configured' && validConfiguredPayload(gameId))
+          || (request.resource.data.type == 'game/dealt' && validDealPayload(gameId))
+        );
     }
 
     match /games/{gameId}/events/{eventId} {

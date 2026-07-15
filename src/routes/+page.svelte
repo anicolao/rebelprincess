@@ -9,10 +9,12 @@
   import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
   import {
     appendGameEvent,
+    loadGame,
     normalizeGameId,
     subscribeToGame,
     type GameProjection
   } from '$lib/game-events';
+  import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, SUITS, type Card } from '$lib/setup';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -22,13 +24,18 @@
   let game: GameProjection | null = null;
   let actionError = '';
   let unsubscribe = () => {};
+  let currentUid = '';
+  let selectedPrincess = '';
+  let selectedRounds: string[] = [];
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
 
   onMount(() => {
     void (async () => {
       try {
-        const target = await probeFirebase(new URL(location.href).searchParams.get('e2eUid') ?? undefined);
+        const e2eUid = new URL(location.href).searchParams.get('e2eUid') ?? undefined;
+        const target = await probeFirebase(e2eUid);
+        currentUid = (await ensureAnonymousIdentity(e2eUid)).uid;
         connection = 'synced';
         connectionLabel = target === 'emulator' ? 'Firebase emulator ready' : 'Firebase ready';
         const gameId = normalizeGameId(new URL(location.href).searchParams.get('game') ?? '');
@@ -44,8 +51,10 @@
   function watchGame(gameId: string) {
     unsubscribe();
     activeGameId = gameId;
-    const e2eUid = new URL(location.href).searchParams.get('e2eUid');
-    replaceState(`?game=${gameId}${e2eUid ? `&e2eUid=${encodeURIComponent(e2eUid)}` : ''}`, {});
+    const parameters = new URL(location.href).searchParams;
+    parameters.set('game', gameId);
+    parameters.delete('gameId');
+    replaceState(`?${parameters.toString()}`, {});
     unsubscribe = subscribeToGame(firebaseDatabase(), gameId, (next) => {
       game = next;
       connection = 'synced';
@@ -76,7 +85,13 @@
     connectionLabel = type === 'game/created' ? 'Creating room…' : 'Joining room…';
     try {
       const user = await ensureAnonymousIdentity(new URL(location.href).searchParams.get('e2eUid') ?? undefined);
-      await appendGameEvent(firebaseDatabase(), gameId, user.uid, type, name);
+      currentUid = user.uid;
+      if (type === 'player/joined') {
+        const existing = await loadGame(firebaseDatabase(), gameId);
+        if (existing.players.length === 0) throw new Error('Game not found');
+        if (existing.players.length >= 6 && !existing.players.some((player) => player.uid === user.uid)) throw new Error('Game is full');
+      }
+      await appendGameEvent(firebaseDatabase(), gameId, user.uid, type, { displayName: name });
       watchGame(gameId);
     } catch {
       connection = 'error';
@@ -84,6 +99,36 @@
       actionError = 'The room could not be updated. Please try again.';
     }
   }
+
+  async function becomeReady() {
+    if (!selectedPrincess || !game || game.players.some((player) => player.uid !== currentUid && player.princessId === selectedPrincess)) return;
+    connection = 'checking';
+    connectionLabel = 'Saving your Princess…';
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/configured', {
+      princessId: selectedPrincess,
+      ready: true
+    });
+  }
+
+  function toggleRound(roundId: string) {
+    selectedRounds = selectedRounds.includes(roundId)
+      ? selectedRounds.filter((id) => id !== roundId)
+      : selectedRounds.length < 5 ? [...selectedRounds, roundId] : selectedRounds;
+  }
+
+  async function dealCards() {
+    if (!game || game.players.length < 3 || game.players.length > 6 || !game.players.every((player) => player.ready) || selectedRounds.length !== 5) return;
+    const seed = new URL(location.href).searchParams.get('seed') ?? crypto.randomUUID();
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'game/dealt', {
+      seed,
+      roundIds: selectedRounds,
+      hands: dealForPlayers(game.players.map((player) => player.uid), seed)
+    });
+  }
+
+  function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
+  function roundName(id: string) { return ROUND_RULES.find(([key]) => key === id)?.[1] ?? id; }
+  function suitIndex(card: Card) { return SUITS.indexOf(card.suit); }
 </script>
 
 <svelte:head>
@@ -102,7 +147,7 @@
     </div>
   </header>
 
-  <section class="hero" aria-labelledby="hero-title">
+  <section class="hero" class:dealt={Boolean(game?.hands)} aria-labelledby="hero-title">
     <div class="copy">
       <p class="eyebrow">Five nights. Four suits. Zero unwanted proposals.</p>
       <h1 id="hero-title">The ball is almost ready.</h1>
@@ -110,17 +155,56 @@
         A live trick-taking game for three to six fiercely independent princesses.
         Create a room, invite the court, and keep those princes at arm's length.
       </p>
-      {#if activeGameId}
+      {#if activeGameId && game?.hands}
+        <section class="table" aria-label="Dealt game">
+          <div class="table-heading">
+            <div><p class="room-label">Room {activeGameId}</p><h2>Round 1 · {roundName(game.roundIds[0])}</h2></div>
+            <span>{game.hands[currentUid]?.length ?? 0} cards</span>
+          </div>
+          <div class="opponents" aria-label="Opponents">
+            {#each game.players.filter((player) => player.uid !== currentUid) as player}
+              <span>{player.displayName} · {game.hands[player.uid]?.length ?? 0}</span>
+            {/each}
+          </div>
+          <div class="hand" role="region" aria-label="Your hand">
+            {#each game.hands[currentUid] ?? [] as card}
+              <div class="playing-card" aria-label={cardLabel(card)}>
+                <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
+                <strong>{card.rank}</strong><small>{card.suit}</small>
+              </div>
+            {/each}
+          </div>
+          <span class="sr-only" data-testid="stream-card-count">Shared stream contains {Object.values(game.hands).flat().length} cards</span>
+        </section>
+      {:else if activeGameId}
         <section class="room" aria-label="Game room">
           <p class="room-label">Room code</p>
           <div class="room-code" data-testid="invite-code">{activeGameId}</div>
           <h2>Players · {game?.players.length ?? 0}</h2>
           <ul aria-label="Players">
             {#each game?.players ?? [] as player (player.uid)}
-              <li><span>{player.displayName}</span>{#if player.host}<small>Host</small>{/if}</li>
+              <li><span>{player.displayName} · {princessName(player.princessId)}</span><span>{#if player.host}<small>Host</small>{/if} {player.ready ? 'Ready' : 'Waiting'}</span></li>
             {/each}
           </ul>
-          <p class="waiting">Share the code. The guest list updates live.</p>
+          {#if !game?.players.find((player) => player.uid === currentUid)?.ready}
+            <fieldset class="choice-grid">
+              <legend>Choose your Princess</legend>
+              {#each PRINCESSES as princess}
+                <button type="button" class:chosen={selectedPrincess === princess[0]} disabled={game?.players.some((player) => player.uid !== currentUid && player.princessId === princess[0])} on:click={() => selectedPrincess = princess[0]}>{princess[1]}</button>
+              {/each}
+            </fieldset>
+            <button type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for the ball</button>
+          {/if}
+          {#if game?.players[0]?.uid === currentUid}
+            <fieldset class="choice-grid rounds">
+              <legend>Choose five Round cards · {selectedRounds.length}/5</legend>
+              {#each ROUND_RULES as round}
+                <button type="button" class:chosen={selectedRounds.includes(round[0])} on:click={() => toggleRound(round[0])}>{round[1]}</button>
+              {/each}
+            </fieldset>
+            <button type="button" disabled={game.players.length < 3 || !game.players.every((player) => player.ready) || selectedRounds.length !== 5} on:click={dealCards}>Shuffle and deal</button>
+          {/if}
+          <p class="waiting">Three to six players. The guest list updates live.</p>
         </section>
       {:else}
         <form class="room-form" on:submit|preventDefault={createGame}>
@@ -138,7 +222,7 @@
       {/if}
     </div>
 
-    <figure class="atlas-card">
+    {#if !game?.hands}<figure class="atlas-card">
       <img
         src={suitAtlas}
         alt="Original card illustrations for Fairies, Queens, Princes, and Pets"
@@ -146,7 +230,7 @@
       <figcaption>
         <span>Fairies</span><span>Queens</span><span>Princes</span><span>Pets</span>
       </figcaption>
-    </figure>
+    </figure>{/if}
   </section>
 
   <section class="promise" aria-label="Game principles">
@@ -263,6 +347,7 @@
     gap: clamp(38px, 7vw, 92px);
     padding: 72px 0 64px;
   }
+  .hero.dealt { grid-template-columns: 1fr; }
 
   .copy {
     position: relative;
@@ -344,6 +429,27 @@
   .room li { display: flex; justify-content: space-between; padding: 7px 0; color: #fff5dc; }
   .room small { color: #b88cdf; text-transform: uppercase; letter-spacing: .1em; }
   .waiting { margin: 12px 0 0; color: #9f93a5; font-size: 13px; }
+
+  fieldset { min-width: 0; margin: 18px 0; padding: 0; border: 0; }
+  legend { margin-bottom: 8px; color: #ffc75f; font-size: 13px; font-weight: 700; }
+  .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .choice-grid legend { grid-column: 1 / -1; }
+  .choice-grid button { min-height: 34px; padding: 5px 7px; color: #d9cedd; background: rgba(50, 31, 62, .7); font-size: 11px; }
+  .choice-grid button.chosen { border-color: #ffc75f; color: #211329; background: #ffc75f; }
+  .choice-grid button:disabled { opacity: .35; }
+  .rounds { max-height: 164px; padding-right: 3px; overflow-y: auto; }
+
+  .table { width: min(760px, 100%); margin-top: 26px; }
+  .table-heading { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 1px solid rgba(255, 239, 199, .2); }
+  .table-heading h2 { margin-top: 3px; font-size: 27px; }
+  .table-heading > span { padding-bottom: 11px; color: #b88cdf; }
+  .opponents { display: flex; gap: 8px; margin: 12px 0; }
+  .opponents span { padding: 5px 9px; border: 1px solid rgba(184, 140, 223, .35); color: #cabed0; font-size: 12px; }
+  .hand { display: grid; grid-template-columns: repeat(6, minmax(44px, 1fr)); gap: 7px; }
+  .playing-card { position: relative; min-height: 108px; overflow: hidden; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; }
+  .playing-card strong { position: absolute; top: 4px; left: 7px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 25px; text-shadow: 0 1px 3px #000; }
+  .playing-card small { position: absolute; inset: auto 4px 4px; color: #fff4d0; font-size: 9px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
+  .card-art { position: absolute; inset: 0; opacity: .72; background-size: 400% 100%; background-position: calc(var(--suit-index) * -100% / 3) center; }
 
   .actions span {
     max-width: 180px;
@@ -497,6 +603,8 @@
 
     .actions input { width: 118px; }
     .room { max-width: none; padding: 15px; }
+    .hand { grid-template-columns: repeat(4, minmax(44px, 1fr)); }
+    .playing-card { min-height: 92px; }
 
     button {
       min-height: 44px;
