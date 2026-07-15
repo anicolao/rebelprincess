@@ -124,11 +124,39 @@ test('three clients submit simultaneously and resolve a conserved split pass', a
   await steps.step('commit-revised-pass', {
     description: 'The revised pair is committed to its individual recipients',
     verifications: [
-      { spec: 'Fairies 4 heads to Jo while Fairies 5 heads to Sam', check: async () => {
-        await expect(page.getByRole('button', { name: 'Fairies 4' })).toContainText('To Jo');
-        await expect(page.getByRole('button', { name: 'Fairies 5' })).toContainText('To Sam');
+      { spec: 'The retained Fairies 4 still heads right to Sam while its replacement heads left to Jo', check: async () => {
+        await expect(page.getByRole('button', { name: 'Fairies 4' })).toContainText('To Sam');
+        await expect(page.getByRole('button', { name: 'Fairies 5' })).toContainText('To Jo');
       } },
       { spec: 'The host waits for both other players', check: async () => expect(page.getByRole('alert')).toContainText('Waiting for 2 other players') }
+    ]
+  });
+
+  await page.getByRole('button', { name: 'Fairies 5' }).click();
+  await expect(passButton).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Fairies 4', exact: true })).toHaveClass(/selected/);
+  await page.getByRole('button', { name: 'Fairies 4', exact: true }).click();
+  await steps.step('clear-split-pass', {
+    description: 'Releasing both cards resets the left and right destination slots',
+    verifications: [
+      { spec: 'Neither previously committed card remains selected', check: async () => {
+        await expect(page.getByRole('button', { name: 'Fairies 4', exact: true })).not.toHaveClass(/selected/);
+        await expect(page.getByRole('button', { name: 'Fairies 5', exact: true })).not.toHaveClass(/selected/);
+      } },
+      { spec: 'A fresh pair is required before passing again', check: async () => expect(passButton).toBeDisabled() }
+    ]
+  });
+
+  await page.getByRole('button', { name: 'Fairies 4', exact: true }).click();
+  await page.getByRole('button', { name: 'Fairies 5', exact: true }).click();
+  await passButton.click();
+  await steps.step('recommit-reset-pass', {
+    description: 'After a full reset, selection order assigns left and then right again',
+    verifications: [
+      { spec: 'The first new selection heads left to Jo and the second heads right to Sam', check: async () => {
+        await expect(page.getByRole('button', { name: 'Fairies 4' })).toContainText('To Jo');
+        await expect(page.getByRole('button', { name: 'Fairies 5' })).toContainText('To Sam');
+      } }
     ]
   });
 
