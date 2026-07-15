@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "license": "GPL-3.0-only",
+  "atlases": {
+    "suits": {
+      "file": "generated/suited-card-families.png",
+      "grid": { "columns": 4, "rows": 1 },
+      "cells": [
+        { "index": 0, "id": "fairies", "accent": "amber" },
+        { "index": 1, "id": "queens", "accent": "plum" },
+        { "index": 2, "id": "princes", "accent": "midnight-blue" },
+        { "index": 3, "id": "pets", "accent": "moss-green" }
+      ]
+    },
+    "princesses": {
+      "file": "generated/princess-portraits.png",
+      "grid": { "columns": 5, "rows": 2 },
+      "cells": [
+        { "index": 0, "id": "snow-white", "name": "Snow White" },
+        { "index": 1, "id": "little-mermaid", "name": "The Little Mermaid" },
+        { "index": 2, "id": "cinderella", "name": "Cinderella" },
+        { "index": 3, "id": "pocahontas", "name": "Pocahontas" },
+        { "index": 4, "id": "sleeping-beauty", "name": "Sleeping Beauty" },
+        { "index": 5, "id": "alice", "name": "Alice" },
+        { "index": 6, "id": "mulan", "name": "Mulan" },
+        { "index": 7, "id": "scheherazade", "name": "Scheherazade" },
+        { "index": 8, "id": "pea-princess", "name": "The Pea Princess" },
+        { "index": 9, "id": "ice-princess", "name": "The Ice Princess" }
+      ]
+    },
+    "roundRules": {
+      "file": "generated/round-rule-vignettes.png",
+      "grid": { "columns": 7, "rows": 3 },
+      "cells": [
+        { "index": 0, "id": "once-upon-a-time", "name": "Once Upon a Time…" },
+        { "index": 1, "id": "invitation", "name": "Invitation" },
+        { "index": 2, "id": "masquerade-ball", "name": "Masquerade Ball" },
+        { "index": 3, "id": "royal-decree", "name": "Royal Decree" },
+        { "index": 4, "id": "musical-chairs", "name": "Musical Chairs" },
+        { "index": 5, "id": "pets-revenge", "name": "Pets’ Revenge" },
+        { "index": 6, "id": "late-to-the-ball", "name": "Late to the Ball" },
+        { "index": 7, "id": "poisoned-apple", "name": "Poisoned Apple" },
+        { "index": 8, "id": "crystal-clear", "name": "Crystal Clear" },
+        { "index": 9, "id": "upside-down", "name": "Upside Down" },
+        { "index": 10, "id": "dancing-queens", "name": "Dancing Queens" },
+        { "index": 11, "id": "prince-rings-twice", "name": "The Prince Always Rings Twice" },
+        { "index": 12, "id": "wedding-gift", "name": "Wedding Gift" },
+        { "index": 13, "id": "after-party", "name": "After-party" },
+        { "index": 14, "id": "bathroom-break", "name": "Bathroom Break" },
+        { "index": 15, "id": "single-fairy", "name": "Single Fairy" },
+        { "index": 16, "id": "midnight-makeover", "name": "Midnight Makeover" },
+        { "index": 17, "id": "blind-mans-bluff", "name": "Blind Man’s Bluff" },
+        { "index": 18, "id": "odds-and-evens", "name": "Odds and Evens" },
+        { "index": 19, "id": "pass-the-bouquet", "name": "Pass the Bouquet!" },
+        { "index": 20, "id": "haggle-with-the-hag", "name": "Haggle with the Hag" }
+      ]
+    }
+  }
+}
