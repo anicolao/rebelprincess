@@ -66,6 +66,11 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
     description: 'The first chosen card rises from the hand',
     verifications: [
       { spec: 'Fairies 3 is visibly selected', check: async () => expect(page.getByRole('button', { name: 'Fairies 3', exact: true })).toHaveClass(/selected/) },
+      { spec: 'The next card remains above the raised card so its value stays readable', check: async () => expect(await page.evaluate(() => {
+        const next = document.querySelector<HTMLElement>('[aria-label="Fairies 4"]')!;
+        const box = next.getBoundingClientRect();
+        return document.elementFromPoint(box.left + 2, box.top + 10)?.closest('button')?.getAttribute('aria-label');
+      })).toBe('Fairies 4') },
       { spec: 'One card is not enough to pass', check: async () => expect(passButton).toBeDisabled() }
     ]
   });
@@ -100,7 +105,8 @@ test('three clients submit simultaneously and resolve a conserved left pass', as
       { spec: 'The committed cards identify their destination', check: async () => {
         await expect(page.getByRole('button', { name: 'Fairies 3' })).toContainText('To Jo');
         await expect(page.getByRole('button', { name: 'Fairies 4' })).toContainText('To Jo');
-      } }
+      } },
+      { spec: 'Destination ribbons are left-aligned to remain readable under overlap', check: async () => expect(page.getByRole('button', { name: 'Fairies 3' }).locator('em')).toHaveCSS('text-align', 'left') }
     ]
   });
 
