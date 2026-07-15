@@ -32,10 +32,11 @@ must not hide application synchronization bugs.
 
 ## Unified test-step helper
 
-Copy `TestStepHelper` verbatim from the established shared `food` test helper
-when the E2E harness is introduced. Keep the shared API generic; do not fork it
-with Rebel Princess behavior. If the shared helper needs improvement, make the
-change at its source and propagate the same version to sibling projects.
+Keep the established shared `TestStepHelper` API and responsibilities generic;
+do not fork it with Rebel Princess behavior. This implementation intentionally
+removes the legacy helper's explicit 5–30 second timeout overrides so it obeys
+this guide's stricter global two-second contract. Improvements that apply to
+sibling projects should be propagated back to their shared helpers.
 
 Every stable user-visible state is verified and captured atomically through
 `TestStepHelper.step()`. The helper is responsible for:

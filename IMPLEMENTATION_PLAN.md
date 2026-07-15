@@ -110,8 +110,9 @@ proof.
 
 - Scaffold SvelteKit static output, Firebase SDK initialization, CSS reset,
   local fonts, atlas loading, and an accessible landing page.
-- Add Vitest, Playwright, Firebase emulator startup, the verbatim shared
-  `TestStepHelper`, deterministic Chromium flags, and zero-pixel configuration.
+- Add Vitest, Playwright, Firebase emulator startup, the shared
+  `TestStepHelper` API without legacy timeout overrides, deterministic Chromium
+  flags, and zero-pixel configuration.
 - Add `001-app-shell-and-deployment`: load through the emulator-backed dev
   server, verify the title/build marker and Firebase readiness, capture phone
   and desktop baselines, and generate its walkthrough.
