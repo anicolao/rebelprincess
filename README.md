@@ -6,6 +6,8 @@ backend configuration only; the game itself is intentionally not implemented.
 
 See [RULES.md](RULES.md) for the initial rules summary and
 [ARCHITECTURE.md](ARCHITECTURE.md) for the proposed trusted-client protocol.
+Future gameplay work must follow the deterministic, zero-pixel-tolerance policy
+in [E2E_GUIDE.md](E2E_GUIDE.md).
 
 ## Firebase
 
