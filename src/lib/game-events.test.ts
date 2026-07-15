@@ -37,6 +37,8 @@ describe('append-only game events', () => {
       currentTurnUid: null,
       princesBroken: false,
       capturedCounts: { host: 0, guest: 0 },
+      capturedTricks: { host: [], guest: [] },
+      lastCompletedTrick: null,
       completedTricks: 0
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });

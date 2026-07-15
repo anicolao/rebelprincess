@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import type { Card } from './setup';
 import { passInstruction, resolvePasses } from './passing';
-import { breaksPrinces, canPlay, trickWinner, type TrickState } from './trick-taking';
+import { breaksPrinces, canPlay, trickWinner, type TrickPlay, type TrickState } from './trick-taking';
 
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
@@ -52,6 +52,8 @@ export interface GameProjection {
   currentTurnUid: string | null;
   princesBroken: boolean;
   capturedCounts: Record<string, number>;
+  capturedTricks: Record<string, TrickPlay[][]>;
+  lastCompletedTrick: { winnerUid: string; plays: TrickPlay[] } | null;
   completedTricks: number;
 }
 
@@ -145,6 +147,8 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let princesBroken = false;
   let completedTricks = 0;
   const capturedCounts = Object.fromEntries(playerList.map((player) => [player.uid, 0]));
+  const capturedTricks: Record<string, TrickPlay[][]> = Object.fromEntries(playerList.map((player) => [player.uid, []]));
+  let lastCompletedTrick: { winnerUid: string; plays: TrickPlay[] } | null = null;
   if (hands && trick) for (const event of playEvents) {
     const card = event.payload.card;
     if (!card || event.actorUid !== currentTurnUid || !hands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || !canPlay(hands[event.actorUid], trick, princesBroken, card)) continue;
@@ -154,12 +158,15 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     if (trick.plays.length === playerList.length) {
       const winner = trickWinner(trick);
       capturedCounts[winner] += trick.plays.length;
+      const completed = trick.plays.map((play) => ({ ...play, card: { ...play.card } }));
+      capturedTricks[winner].push(completed);
+      lastCompletedTrick = { winnerUid: winner, plays: completed };
       completedTricks += 1;
       trick = { leaderUid: winner, plays: [] };
       currentTurnUid = winner;
     } else currentTurnUid = playerList[(playerList.findIndex((player) => player.uid === event.actorUid) + 1) % playerList.length].uid;
   }
-  return { gameId, players: playerList, roundIds, hands, seed, passSubmissions, passComplete, trick, currentTurnUid, princesBroken, capturedCounts, completedTricks };
+  return { gameId, players: playerList, roundIds, hands, seed, passSubmissions, passComplete, trick, currentTurnUid, princesBroken, capturedCounts, capturedTricks, lastCompletedTrick, completedTricks };
 }
 
 export function replayCacheKey(gameId: string): string {
