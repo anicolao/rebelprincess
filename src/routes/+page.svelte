@@ -31,6 +31,7 @@
   let selectedPrincess = '';
   let selectedRounds: string[] = [];
   let selectedPassCards: Array<string | null> = [];
+  let observedRoundIndex = -1;
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
 
@@ -60,6 +61,10 @@
     parameters.delete('gameId');
     replaceState(`?${parameters.toString()}`, {});
     unsubscribe = subscribeToGame(firebaseDatabase(), gameId, (next) => {
+      if (next.roundIndex !== observedRoundIndex) {
+        selectedPassCards = [];
+        observedRoundIndex = next.roundIndex;
+      }
       game = next;
       connection = 'synced';
       connectionLabel = 'Game synchronized';
@@ -133,6 +138,8 @@
   function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
   function roundName(id: string) { return ROUND_RULES.find(([key]) => key === id)?.[1] ?? id; }
   function roundRule(id: string) { return ROUND_RULE_TEXT[id] ?? 'Follow the rule printed on this round card.'; }
+  function activeRoundId() { return game?.roundIds[game.roundIndex] ?? ''; }
+  function nextLeaderName() { return game?.players.find((player) => player.uid === game?.nextLeaderUid)?.displayName ?? ''; }
   function suitIndex(card: Card) { return SUITS.indexOf(card.suit); }
   function roundStyle(id: string) {
     const index = Math.max(0, ROUND_RULES.findIndex(([key]) => key === id));
@@ -153,7 +160,7 @@
 
   function passRecipient(card?: Card): string {
     if (!game) return '';
-    const instruction = passInstruction(game.roundIds[0]);
+    const instruction = passInstruction(activeRoundId());
     const index = game.players.findIndex((player) => player.uid === currentUid);
     const left = game.players[(index + 1) % game.players.length].displayName;
     const right = game.players[(index - 1 + game.players.length) % game.players.length].displayName;
@@ -171,7 +178,7 @@
   function togglePassCard(card: Card) {
     if (!game || game.passComplete || game.passSubmissions[currentUid]) return;
     const label = cardLabel(card);
-    const required = passInstruction(game.roundIds[0]).count;
+    const required = passInstruction(activeRoundId()).count;
     const existing = selectedPassCards.indexOf(label);
     if (existing >= 0) {
       selectedPassCards = selectedPassCards.map((entry, index) => index === existing ? null : entry);
@@ -184,7 +191,7 @@
 
   async function submitPass() {
     if (!game?.hands || game.passComplete || game.passSubmissions[currentUid]) return;
-    const instruction = passInstruction(game.roundIds[0]);
+    const instruction = passInstruction(activeRoundId());
     const hand = game.hands[currentUid];
     const cards = selectedPassCards.flatMap((label) => {
       const card = hand.find((held) => cardLabel(held) === label);
@@ -220,6 +227,17 @@
     connection = 'checking';
     connectionLabel = `Playing ${cardLabel(card)}…`;
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'card/played', { card });
+  }
+
+  async function dealNextRound() {
+    if (!game?.roundComplete || game.players[0]?.uid !== currentUid || !game.players.every((player) => player.ready) || game.roundIndex >= 4) return;
+    const nextRound = game.roundIndex + 1;
+    selectedPassCards = [];
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'game/dealt', {
+      seed: `${game.seed ?? activeGameId}-round-${nextRound + 1}`,
+      roundIds: game.roundIds,
+      hands: dealForPlayers(game.players.map((player) => player.uid), `${game.seed ?? activeGameId}-round-${nextRound + 1}`)
+    });
   }
 </script>
 
@@ -270,15 +288,15 @@
             </div>
 
             <article class="round-center" aria-label="Current Round card">
-              <h2>{roundName(game.roundIds[0])}</h2>
-              <div class="round-art" style={roundStyle(game.roundIds[0])}></div>
-              <p class="round-rule">{roundRule(game.roundIds[0])}</p>
-              <div class="pass-icon" aria-label={`Pass ${passInstruction(game.roundIds[0]).count} ${passInstruction(game.roundIds[0]).direction}`}>
-                {#if passInstruction(game.roundIds[0]).direction === 'left' || passInstruction(game.roundIds[0]).direction === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
-                <strong>{passInstruction(game.roundIds[0]).direction === 'split' ? passInstruction(game.roundIds[0]).count / 2 : passInstruction(game.roundIds[0]).count}</strong>
-                {#if passInstruction(game.roundIds[0]).direction === 'right' || passInstruction(game.roundIds[0]).direction === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
+              <h2>{roundName(activeRoundId())}</h2>
+              <div class="round-art" style={roundStyle(activeRoundId())}></div>
+              <p class="round-rule">{roundRule(activeRoundId())}</p>
+              <div class="pass-icon" aria-label={`Pass ${passInstruction(activeRoundId()).count} ${passInstruction(activeRoundId()).direction}`}>
+                {#if passInstruction(activeRoundId()).direction === 'left' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
+                <strong>{passInstruction(activeRoundId()).direction === 'split' ? passInstruction(activeRoundId()).count / 2 : passInstruction(activeRoundId()).count}</strong>
+                {#if passInstruction(activeRoundId()).direction === 'right' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
               </div>
-              <p class="round-count">Round 1 of 5</p>
+              <p class="round-count">Round {game.roundIndex + 1} of 5</p>
             </article>
 
             {#if game.passComplete}
@@ -322,16 +340,42 @@
                 {/each}
               </div>
               <div class="pass-controls">
-                {#if game.passComplete}
+                {#if game.roundComplete}
+                  <p class="pass-complete" role="alert">Round {game.roundIndex + 1} complete · scoring revealed</p>
+                {:else if game.passComplete}
                   <p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${game.players.find((player) => player.uid === game?.currentTurnUid)?.displayName}`} · Trick {game.completedTricks + 1}</p>
                 {:else if game.passSubmissions[currentUid]}
-                  <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(game.roundIds[0]).direction} to {passRecipient()} · {waitingForPasses()} Select a raised card to take it back.</p>
+                  <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(activeRoundId()).direction} to {passRecipient()} · {waitingForPasses()} Select a raised card to take it back.</p>
                 {:else}
-                  {@const instruction = passInstruction(game.roundIds[0])}
+                  {@const instruction = passInstruction(activeRoundId())}
                   <button class="pass-submit" type="button" disabled={selectedPassCards.filter(Boolean).length !== instruction.count} on:click={submitPass}>Pass {instruction.count} {instruction.direction} to {passRecipient()}</button>
                 {/if}
               </div>
             </section>
+            {#if game.roundComplete}
+              <section class="round-results" aria-label={`Round ${game.roundIndex + 1} scoring`}>
+                <h2>Proposals received</h2>
+                <p class="next-lead">Next lead: {nextLeaderName()}</p>
+                <ul>
+                  {#each game.players as player}
+                    <li><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog = {game.roundScores[player.uid].total}</span><b>{game.totalScores[player.uid]} total</b></li>
+                  {/each}
+                </ul>
+                {#if !game.players.find((player) => player.uid === currentUid)?.ready}
+                  <fieldset class="choice-grid results-princesses">
+                    <legend>Choose your Princess for round {game.roundIndex + 2}</legend>
+                    {#each PRINCESSES as princess}
+                      <button type="button" class:chosen={selectedPrincess === princess[0]} disabled={game.players.some((player) => player.uid !== currentUid && player.princessId === princess[0])} on:click={() => selectedPrincess = princess[0]}>{princess[1]}</button>
+                    {/each}
+                  </fieldset>
+                  <button class="results-ready" type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for round {game.roundIndex + 2}</button>
+                {:else if game.players[0]?.uid === currentUid}
+                  <button class="results-ready" type="button" disabled={!game.players.every((player) => player.ready)} on:click={dealNextRound}>Deal round {game.roundIndex + 2}</button>
+                {:else}
+                  <p>Ready · waiting for the host to deal</p>
+                {/if}
+              </section>
+            {/if}
           </div>
           <span class="sr-only" data-testid="stream-card-count">Shared stream contains {Object.values(game.hands).flat().length} cards</span>
         </section>
@@ -660,6 +704,15 @@
     0%, 62% { opacity: 1; transform: translate(0, 0) scale(1); }
     100% { opacity: 0; transform: translate(var(--collect-x), var(--collect-y)) scale(.65); }
   }
+  .round-results { position: absolute; z-index: 20; inset: 8% 12%; display: flex; flex-direction: column; align-items: center; overflow: auto; padding: 14px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 12px; color: #fff4d0; background: rgba(20, 13, 30, .97); box-shadow: 0 18px 60px rgba(0, 0, 0, .7); }
+  .round-results > * { flex-shrink: 0; }
+  .round-results h2 { margin: 0 0 8px; }
+  .round-results ul { width: min(100%, 520px); margin: 0; padding: 0; list-style: none; }
+  .round-results li { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255, 226, 163, .15); font-size: 12px; }
+  .round-results li span { color: #d8c8dc; }
+  .round-results li b { color: #ffc75f; }
+  .results-princesses { width: min(100%, 520px); margin: 10px 0 6px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .results-ready { min-height: 34px; margin-top: 5px; padding: 0 16px; font-size: 12px; }
 
   main.gameplay { width: calc(100% - 24px); height: 100dvh; min-height: 0; overflow: hidden; }
   main.gameplay .masthead { min-height: 54px; height: 54px; }
@@ -830,6 +883,8 @@
     main.gameplay .playing-card + .playing-card { margin-left: -15px; }
     main.gameplay .local-seat { bottom: 2px; }
     main.gameplay .round-center { top: 43%; }
+    main.gameplay .round-results { inset: 8% 5%; }
+    main.gameplay .results-princesses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
     button {
       min-height: 44px;

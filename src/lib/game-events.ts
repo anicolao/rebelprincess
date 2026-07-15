@@ -55,6 +55,11 @@ export interface GameProjection {
   capturedTricks: Record<string, TrickPlay[][]>;
   lastCompletedTrick: { winnerUid: string; plays: TrickPlay[] } | null;
   completedTricks: number;
+  roundIndex: number;
+  roundComplete: boolean;
+  roundScores: Record<string, { princes: number; frog: number; total: number }>;
+  totalScores: Record<string, number>;
+  nextLeaderUid: string | null;
 }
 
 export interface EventCursor {
@@ -110,10 +115,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   const players = new Map<string, { uid: string; displayName: string; host: boolean; princessId?: string; ready: boolean }>();
   let gameId = '';
   let roundIds: string[] = [];
-  let hands: Record<string, Card[]> | null = null;
   let seed: string | null = null;
-  const passSubmissions: Record<string, Card[]> = {};
-  const playEvents: GameEvent[] = [];
 
   for (const event of ordered) {
     gameId ||= event.payload.gameId;
@@ -129,44 +131,83 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       const player = players.get(event.actorUid);
       if (player) players.set(event.actorUid, { ...player, princessId: event.payload.princessId, ready: event.payload.ready === true });
     }
-    if (event.type === 'game/dealt') {
-      roundIds = event.payload.roundIds ?? [];
-      hands = event.payload.hands ?? null;
-      seed = event.payload.seed ?? null;
-    }
-    if (event.type === 'pass/submitted') passSubmissions[event.actorUid] = event.payload.cards ?? [];
-    if (event.type === 'pass/retracted') delete passSubmissions[event.actorUid];
-    if (event.type === 'card/played') playEvents.push(event);
   }
 
   const playerList = [...players.values()];
-  const passComplete = Boolean(hands && playerList.length >= 3 && playerList.every((player) => passSubmissions[player.uid]));
-  if (passComplete && hands) hands = resolvePasses(playerList.map((player) => player.uid), hands, passSubmissions, passInstruction(roundIds[0]));
-  let trick: TrickState | null = passComplete && playerList.length ? { leaderUid: playerList[0].uid, plays: [] } : null;
-  let currentTurnUid = trick?.leaderUid ?? null;
-  let princesBroken = false;
-  let completedTricks = 0;
-  const capturedCounts = Object.fromEntries(playerList.map((player) => [player.uid, 0]));
-  const capturedTricks: Record<string, TrickPlay[][]> = Object.fromEntries(playerList.map((player) => [player.uid, []]));
-  let lastCompletedTrick: { winnerUid: string; plays: TrickPlay[] } | null = null;
-  if (hands && trick) for (const event of playEvents) {
-    const card = event.payload.card;
-    if (!card || event.actorUid !== currentTurnUid || !hands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || !canPlay(hands[event.actorUid], trick, princesBroken, card)) continue;
-    princesBroken ||= breaksPrinces(trick, card);
-    hands[event.actorUid] = hands[event.actorUid].filter((held) => held.suit !== card.suit || held.rank !== card.rank);
-    trick.plays.push({ uid: event.actorUid, card });
-    if (trick.plays.length === playerList.length) {
-      const winner = trickWinner(trick);
-      capturedCounts[winner] += trick.plays.length;
-      const completed = trick.plays.map((play) => ({ ...play, card: { ...play.card } }));
-      capturedTricks[winner].push(completed);
-      lastCompletedTrick = { winnerUid: winner, plays: completed };
-      completedTricks += 1;
-      trick = { leaderUid: winner, plays: [] };
-      currentTurnUid = winner;
-    } else currentTurnUid = playerList[(playerList.findIndex((player) => player.uid === event.actorUid) + 1) % playerList.length].uid;
+  const deals = ordered.map((event, index) => ({ event, index })).filter(({ event }) => event.type === 'game/dealt');
+  const emptyCounts = () => Object.fromEntries(playerList.map((player) => [player.uid, 0]));
+  const emptyTricks = () => Object.fromEntries(playerList.map((player) => [player.uid, [] as TrickPlay[][]]));
+  type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores'> & { lastWinnerUid: string | null };
+  const replayRound = (deal: GameEvent, segment: GameEvent[], leaderUid: string): RoundProjection => {
+    let roundHands = deal.payload.hands
+      ? Object.fromEntries(Object.entries(deal.payload.hands).map(([uid, cards]) => [uid, cards.map((card) => ({ ...card }))]))
+      : null;
+    const submissions: Record<string, Card[]> = {};
+    for (const event of segment) {
+      if (event.type === 'pass/submitted') submissions[event.actorUid] = event.payload.cards ?? [];
+      if (event.type === 'pass/retracted') delete submissions[event.actorUid];
+    }
+    const completePass = Boolean(roundHands && playerList.length >= 3 && playerList.every((player) => submissions[player.uid]));
+    const roundNumber = deals.findIndex(({ event }) => event === deal);
+    if (completePass && roundHands) roundHands = resolvePasses(playerList.map((player) => player.uid), roundHands, submissions, passInstruction(deal.payload.roundIds?.[roundNumber] ?? ''));
+    let roundTrick: TrickState | null = completePass ? { leaderUid, plays: [] } : null;
+    let turnUid = roundTrick?.leaderUid ?? null;
+    let broken = false;
+    let trickCount = 0;
+    const counts = emptyCounts();
+    const tricks = emptyTricks();
+    let latest: { winnerUid: string; plays: TrickPlay[] } | null = null;
+    let lastWinnerUid: string | null = null;
+    if (roundHands && roundTrick) for (const event of segment.filter((entry) => entry.type === 'card/played')) {
+      const card = event.payload.card;
+      if (!card || event.actorUid !== turnUid || !roundHands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || !canPlay(roundHands[event.actorUid], roundTrick, broken, card)) continue;
+      broken ||= breaksPrinces(roundTrick, card);
+      roundHands[event.actorUid] = roundHands[event.actorUid].filter((held) => held.suit !== card.suit || held.rank !== card.rank);
+      roundTrick.plays.push({ uid: event.actorUid, card });
+      if (roundTrick.plays.length === playerList.length) {
+        const winner = trickWinner(roundTrick);
+        counts[winner] += roundTrick.plays.length;
+        const completed = roundTrick.plays.map((play) => ({ ...play, card: { ...play.card } }));
+        tricks[winner].push(completed);
+        latest = { winnerUid: winner, plays: completed };
+        lastWinnerUid = winner;
+        trickCount += 1;
+        roundTrick = { leaderUid: winner, plays: [] };
+        turnUid = winner;
+      } else turnUid = playerList[(playerList.findIndex((player) => player.uid === event.actorUid) + 1) % playerList.length].uid;
+    }
+    const finished = Boolean(roundHands && Object.values(roundHands).every((hand) => hand.length === 0));
+    const scores = Object.fromEntries(playerList.map((player) => {
+      const cards = tricks[player.uid].flat().map((play) => play.card);
+      const princes = cards.filter((card) => card.suit === 'princes').length;
+      const frog = cards.some((card) => card.suit === 'pets' && card.rank === 8) ? 5 : 0;
+      return [player.uid, { princes, frog, total: princes + frog }];
+    }));
+    return { hands: roundHands, passSubmissions: submissions, passComplete: completePass, trick: roundTrick, currentTurnUid: finished ? null : turnUid, princesBroken: broken, capturedCounts: counts, capturedTricks: tricks, lastCompletedTrick: latest, completedTricks: trickCount, roundComplete: finished, roundScores: scores, lastWinnerUid };
+  };
+  let leaderUid = playerList[0]?.uid ?? '';
+  let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, total: 0 }])), lastWinnerUid: null };
+  const totalScores = emptyCounts();
+  deals.forEach(({ event: deal, index }, dealIndex) => {
+    const nextIndex = deals[dealIndex + 1]?.index ?? ordered.length;
+    const segment = ordered.slice(index + 1, nextIndex);
+    active = replayRound(deal, segment, leaderUid);
+    roundIds = deal.payload.roundIds ?? roundIds;
+    seed = deal.payload.seed ?? seed;
+    if (active.roundComplete) for (const player of playerList) totalScores[player.uid] += active.roundScores[player.uid].total;
+    if (active.lastWinnerUid) leaderUid = active.lastWinnerUid;
+  });
+  const roundIndex = Math.max(0, deals.length - 1);
+  if (active.roundComplete && deals.length) {
+    const finalPlayIndex = ordered.findLastIndex((event) => event.type === 'card/played');
+    for (const player of playerList) {
+      const refreshed = ordered.slice(finalPlayIndex + 1).findLast((event) => event.type === 'player/configured' && event.actorUid === player.uid);
+      player.princessId = refreshed?.payload.princessId;
+      player.ready = refreshed?.payload.ready === true;
+    }
   }
-  return { gameId, players: playerList, roundIds, hands, seed, passSubmissions, passComplete, trick, currentTurnUid, princesBroken, capturedCounts, capturedTricks, lastCompletedTrick, completedTricks };
+  const { lastWinnerUid: _lastWinnerUid, ...activeProjection } = active;
+  return { gameId, players: playerList, roundIds, seed, ...activeProjection, totalScores, roundIndex, nextLeaderUid: leaderUid || null };
 }
 
 export function replayCacheKey(gameId: string): string {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveGame, eventCursor, eventId, isGameEvent, normalizeGameId, replayCacheKey } from './game-events';
+import { deriveGame, eventCursor, eventId, isGameEvent, normalizeGameId, replayCacheKey, type GameEvent, type GameEventType, type GameEventPayload } from './game-events';
 
 const event = (id: string, type: 'game/created' | 'player/joined', uid: string, name: string) => ({
   id,
@@ -39,7 +39,12 @@ describe('append-only game events', () => {
       capturedCounts: { host: 0, guest: 0 },
       capturedTricks: { host: [], guest: [] },
       lastCompletedTrick: null,
-      completedTricks: 0
+      completedTricks: 0,
+      roundIndex: 0,
+      roundComplete: false,
+      roundScores: { host: { princes: 0, frog: 0, total: 0 }, guest: { princes: 0, frog: 0, total: 0 } },
+      totalScores: { host: 0, guest: 0 },
+      nextLeaderUid: 'host'
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
@@ -77,5 +82,47 @@ describe('append-only game events', () => {
       type: 'card/played', payload: { gameId: 'MOON42', card: { suit: 'pets', rank: 8 } }, actorUid: 'host',
       clientSeq: 5, createdAt: null, schemaVersion: 1, reducerVersion: 1
     })).toBe(true);
+  });
+
+  it('scores Princes and the Frog and carries the last winner into the next round', () => {
+    let sequence = 0;
+    const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
+      id: String(++sequence).padStart(2, '0'), type, payload: { gameId: 'SCORE6', ...payload }, actorUid,
+      clientSeq: sequence, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    });
+    const events = [
+      make('game/created', 'a', { displayName: 'Alex' }),
+      make('player/joined', 'b', { displayName: 'Jo' }),
+      make('player/joined', 'c', { displayName: 'Sam' }),
+      make('game/dealt', 'a', { seed: 'one', roundIds: ['once-upon-a-time', 'invitation', 'masquerade-ball', 'royal-decree', 'musical-chairs'], hands: {
+        a: [{ suit: 'fairies', rank: 2 }, { suit: 'princes', rank: 2 }],
+        b: [{ suit: 'fairies', rank: 3 }, { suit: 'pets', rank: 8 }],
+        c: [{ suit: 'fairies', rank: 4 }, { suit: 'queens', rank: 2 }]
+      } }),
+      make('pass/submitted', 'a', { cards: [{ suit: 'fairies', rank: 2 }, { suit: 'princes', rank: 2 }] }),
+      make('pass/submitted', 'b', { cards: [{ suit: 'fairies', rank: 3 }, { suit: 'pets', rank: 8 }] }),
+      make('pass/submitted', 'c', { cards: [{ suit: 'fairies', rank: 4 }, { suit: 'queens', rank: 2 }] }),
+      make('card/played', 'a', { card: { suit: 'fairies', rank: 4 } }),
+      make('card/played', 'b', { card: { suit: 'fairies', rank: 2 } }),
+      make('card/played', 'c', { card: { suit: 'fairies', rank: 3 } }),
+      make('card/played', 'a', { card: { suit: 'queens', rank: 2 } }),
+      make('card/played', 'b', { card: { suit: 'princes', rank: 2 } }),
+      make('card/played', 'c', { card: { suit: 'pets', rank: 8 } })
+    ];
+    const scored = deriveGame(events);
+    expect(scored.roundComplete).toBe(true);
+    expect(scored.roundScores.a).toEqual({ princes: 1, frog: 5, total: 6 });
+    expect(scored.totalScores.a).toBe(6);
+    expect(scored.nextLeaderUid).toBe('a');
+
+    const nextHands = {
+      a: [{ suit: 'fairies' as const, rank: 2 }, { suit: 'queens' as const, rank: 2 }],
+      b: [{ suit: 'fairies' as const, rank: 3 }, { suit: 'queens' as const, rank: 3 }],
+      c: [{ suit: 'fairies' as const, rank: 4 }, { suit: 'queens' as const, rank: 4 }]
+    };
+    const advanced = deriveGame([...events, make('game/dealt', 'a', { seed: 'two', roundIds: scored.roundIds, hands: nextHands })]);
+    expect(advanced.roundIndex).toBe(1);
+    expect(advanced.totalScores.a).toBe(6);
+    expect(advanced.roundComplete).toBe(false);
   });
 });
