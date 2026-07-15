@@ -6,6 +6,7 @@
   import { onMount } from 'svelte';
   import { replaceState } from '$app/navigation';
   import suitAtlas from '../../assets/generated/suited-card-families.png';
+  import roundAtlas from '../../assets/generated/round-rule-vignettes.png';
   import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
   import {
     appendGameEvent,
@@ -131,6 +132,23 @@
   function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
   function roundName(id: string) { return ROUND_RULES.find(([key]) => key === id)?.[1] ?? id; }
   function suitIndex(card: Card) { return SUITS.indexOf(card.suit); }
+  function roundStyle(id: string) {
+    const index = Math.max(0, ROUND_RULES.findIndex(([key]) => key === id));
+    return `--round-x: ${(index % 7) * 100 / 6}%; --round-y: ${Math.floor(index / 7) * 50}%; background-image: url(${roundAtlas})`;
+  }
+
+  function passRecipient(): string {
+    if (!game) return '';
+    const instruction = passInstruction(game.roundIds[0]);
+    const index = game.players.findIndex((player) => player.uid === currentUid);
+    const left = game.players[(index + 1) % game.players.length].displayName;
+    const right = game.players[(index - 1 + game.players.length) % game.players.length].displayName;
+    return instruction.direction === 'left' ? left : instruction.direction === 'right' ? right : `${left} and ${right}`;
+  }
+  function waitingForPasses(): string {
+    const count = game?.players.filter((player) => !game?.passSubmissions[player.uid]).length ?? 0;
+    return `Waiting for ${count} other ${count === 1 ? 'player' : 'players'}.`;
+  }
 
   function togglePassCard(card: Card) {
     if (!game || game.passComplete || game.passSubmissions[currentUid]) return;
@@ -150,13 +168,27 @@
     connectionLabel = 'Submitting cards…';
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'pass/submitted', { cards });
   }
+
+  async function reclaimPassCard(card: Card) {
+    const committed = game?.passSubmissions[currentUid];
+    if (!committed || game?.passComplete || !committed.some((entry) => cardLabel(entry) === cardLabel(card))) return;
+    selectedPassCards = committed.map(cardLabel).filter((label) => label !== cardLabel(card));
+    connection = 'checking';
+    connectionLabel = 'Reclaiming cards…';
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'pass/retracted', {});
+  }
+
+  function handleHandCard(card: Card) {
+    if (game?.passSubmissions[currentUid]) void reclaimPassCard(card);
+    else togglePassCard(card);
+  }
 </script>
 
 <svelte:head>
   <title>Rebel Princess — Live card play</title>
 </svelte:head>
 
-<main data-e2e-layout>
+<main class:gameplay={Boolean(game?.hands)} data-e2e-layout>
   <header class="masthead">
     <a class="wordmark" href="./" aria-label="Rebel Princess home">
       <span>Rebel</span>
@@ -178,33 +210,46 @@
       </p>
       {#if activeGameId && game?.hands}
         <section class="table" aria-label="Dealt game">
-          <div class="table-heading">
-            <div><p class="room-label">Room {activeGameId}</p><h2>Round 1 · {roundName(game.roundIds[0])}</h2></div>
-            <span>{game.hands[currentUid]?.length ?? 0} cards</span>
+          <div class="table-board">
+            <div class="opponents" aria-label="Opponents">
+              {#each game.players.filter((player) => player.uid !== currentUid) as player, index}
+                <section class="opponent-seat" class:seat-0={index === 0} class:seat-1={index === 1} class:seat-2={index === 2} class:seat-3={index === 3} class:seat-4={index === 4} aria-label={`${player.displayName}'s hand`}>
+                  <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0}</strong>
+                  <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                </section>
+              {/each}
+            </div>
+
+            <article class="round-center" aria-label="Current Round card">
+              <div class="round-art" style={roundStyle(game.roundIds[0])}></div>
+              <p>Round 1 of 5</p>
+              <h2>{roundName(game.roundIds[0])}</h2>
+            </article>
+
+            <section class="local-seat" aria-label="Your seat">
+              <div class="local-heading"><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
+              <div class="hand" role="region" aria-label="Your hand">
+                {#each game.hands[currentUid] ?? [] as card}
+                  {@const committed = game.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card))}
+                  <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} class:committed disabled={game.passComplete || Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => handleHandCard(card)}>
+                    <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
+                    <strong>{card.rank}</strong><small>{card.suit}</small>
+                    {#if committed}<em>To {passRecipient()}</em>{/if}
+                  </button>
+                {/each}
+              </div>
+              <div class="pass-controls">
+                {#if game.passComplete}
+                  <p class="pass-complete" role="alert">Passing complete · all {Object.values(game.hands).flat().length} cards accounted for</p>
+                {:else if game.passSubmissions[currentUid]}
+                  <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(game.roundIds[0]).direction} to {passRecipient()} · {waitingForPasses()} Select a raised card to take it back.</p>
+                {:else}
+                  {@const instruction = passInstruction(game.roundIds[0])}
+                  <button class="pass-submit" type="button" disabled={selectedPassCards.length !== instruction.count} on:click={submitPass}>Pass {instruction.count} {instruction.direction} to {passRecipient()}</button>
+                {/if}
+              </div>
+            </section>
           </div>
-          <div class="opponents" aria-label="Opponents">
-            {#each game.players.filter((player) => player.uid !== currentUid) as player}
-              <span>{player.displayName} · {game.hands[player.uid]?.length ?? 0}</span>
-            {/each}
-          </div>
-          {#if game.passSubmissions[currentUid] && !game.passComplete}
-            <div class="pass-waiting" role="alert"><strong>Cards committed</strong><span>Waiting for {game.players.filter((player) => !game?.passSubmissions[player.uid]).length} player(s). Incoming cards stay hidden.</span></div>
-          {:else}
-          <div class="hand" role="region" aria-label="Your hand">
-            {#each game.hands[currentUid] ?? [] as card}
-              <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} disabled={game.passComplete} aria-label={cardLabel(card)} on:click={() => togglePassCard(card)}>
-                <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
-                <strong>{card.rank}</strong><small>{card.suit}</small>
-              </button>
-            {/each}
-          </div>
-          {/if}
-          {#if game.passComplete}
-            <p class="pass-complete" role="alert">Passing complete · all {Object.values(game.hands).flat().length} cards accounted for</p>
-          {:else if !game.passSubmissions[currentUid]}
-            {@const instruction = passInstruction(game.roundIds[0])}
-            <button class="pass-submit" type="button" disabled={selectedPassCards.length !== instruction.count} on:click={submitPass}>Pass {instruction.count} {instruction.direction}</button>
-          {/if}
           <span class="sr-only" data-testid="stream-card-count">Shared stream contains {Object.values(game.hands).flat().length} cards</span>
         </section>
       {:else if activeGameId}
@@ -470,25 +515,49 @@
   .choice-grid button:disabled { opacity: .35; }
   .rounds { max-height: 164px; padding-right: 3px; overflow-y: auto; }
 
-  .table { width: min(760px, 100%); margin-top: 26px; }
-  .table-heading { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 1px solid rgba(255, 239, 199, .2); }
-  .table-heading h2 { margin-top: 3px; font-size: 27px; }
-  .table-heading > span { padding-bottom: 11px; color: #b88cdf; }
-  .opponents { display: flex; gap: 8px; margin: 12px 0; }
-  .opponents span { padding: 5px 9px; border: 1px solid rgba(184, 140, 223, .35); color: #cabed0; font-size: 12px; }
-  .hand { display: grid; grid-template-columns: repeat(6, minmax(44px, 1fr)); gap: 7px; }
-  .playing-card { position: relative; min-height: 108px; padding: 0; overflow: hidden; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; }
+  .table { width: 100%; height: 100%; }
+  .table-board { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid rgba(255, 226, 163, .2); border-radius: 18px; background: radial-gradient(ellipse at center, rgba(75, 44, 91, .72), rgba(19, 25, 35, .88) 70%); box-shadow: inset 0 0 90px rgba(0, 0, 0, .35); }
+  .round-center { position: absolute; top: 45%; left: 50%; width: clamp(112px, 14vh, 148px); margin: 0; transform: translate(-50%, -50%); text-align: center; }
+  .round-art { width: 72%; aspect-ratio: .855; margin: 0 auto 5px; border: 1px solid rgba(255, 226, 163, .5); border-radius: 7px; background-size: 700% 300%; background-position: var(--round-x) var(--round-y); box-shadow: 0 10px 25px rgba(0, 0, 0, .45); }
+  .round-center p { margin: 0; color: #b88cdf; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .round-center h2 { margin: 2px 0 0; font-size: clamp(15px, 2.3vh, 22px); line-height: 1; }
+  .opponent-seat { position: absolute; z-index: 2; min-width: 105px; color: #e9deeb; text-align: center; }
+  .opponent-seat > strong { display: block; margin-bottom: 4px; font-size: 12px; }
+  .seat-0 { top: 12px; left: 18%; }
+  .seat-1 { top: 12px; right: 18%; }
+  .seat-2 { top: 34%; left: 12px; }
+  .seat-3 { top: 34%; right: 12px; }
+  .seat-4 { top: 12px; left: 50%; transform: translateX(-50%); }
+  .card-backs { display: flex; justify-content: center; height: 46px; }
+  .card-backs i { width: 30px; height: 44px; margin-left: -18px; border: 1px solid #b88cdf; border-radius: 3px; background: repeating-linear-gradient(135deg, #251638 0 4px, #604077 4px 6px); box-shadow: 0 3px 7px rgba(0, 0, 0, .35); }
+  .card-backs i:first-child { margin-left: 0; }
+  .local-seat { position: absolute; z-index: 3; inset: auto 8px 8px; }
+  .local-heading { display: flex; justify-content: center; gap: 12px; margin-bottom: 5px; color: #fff4d0; font-size: 12px; }
+  .local-heading span { color: #b88cdf; }
+  .hand { display: flex; justify-content: center; align-items: flex-end; min-height: clamp(78px, 15vh, 145px); padding-top: 8px; }
+  .playing-card { position: relative; width: clamp(50px, 6.3vw, 78px); height: clamp(76px, 14vh, 120px); min-height: 0; padding: 0; overflow: hidden; flex: 0 0 auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; transition: transform .15s ease; }
+  .playing-card + .playing-card { margin-left: clamp(-27px, -1.8vw, -12px); }
   .playing-card:not(:disabled) { cursor: pointer; }
-  .playing-card.selected { border: 3px solid #ffc75f; transform: translateY(-5px); box-shadow: 0 7px 18px rgba(0, 0, 0, .45); }
+  .playing-card.selected, .playing-card.committed { z-index: 2; border: 3px solid #ffc75f; transform: translateY(-9px); box-shadow: 0 7px 18px rgba(0, 0, 0, .45); }
+  .playing-card.committed { border-color: #7de2a7; }
   .playing-card:disabled { opacity: 1; color: inherit; }
   .playing-card strong { position: absolute; top: 4px; left: 7px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 25px; text-shadow: 0 1px 3px #000; }
   .playing-card small { position: absolute; inset: auto 4px 4px; color: #fff4d0; font-size: 9px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
+  .playing-card em { position: absolute; z-index: 2; inset: auto 0 0; padding: 3px 1px; color: #102019; background: #7de2a7; font-size: 8px; font-style: normal; }
   .card-art { position: absolute; inset: 0; opacity: .72; background-size: 400% 100%; background-position: calc(var(--suit-index) * -100% / 3) center; }
-  .pass-submit { margin-top: 14px; }
-  .pass-waiting { min-height: 146px; display: grid; place-content: center; gap: 4px; padding: 20px; border: 1px dashed rgba(184, 140, 223, .5); color: #d9cedd; text-align: center; }
-  .pass-waiting strong { color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: 26px; }
-  .pass-waiting span { font-size: 13px; }
-  .pass-complete { margin: 14px 0 0; color: #7de2a7; font-size: 13px; font-weight: 700; }
+  .pass-controls { min-height: 37px; display: flex; justify-content: center; align-items: center; }
+  .pass-submit { min-height: 32px; padding: 0 15px; font-size: 12px; }
+  .pass-waiting, .pass-complete { margin: 0; color: #d9cedd; font-size: 11px; text-align: center; }
+  .pass-complete { color: #7de2a7; font-weight: 700; }
+
+  main.gameplay { width: calc(100% - 24px); height: 100dvh; min-height: 0; overflow: hidden; }
+  main.gameplay .masthead { min-height: 54px; height: 54px; }
+  main.gameplay .wordmark { font-size: 18px; }
+  main.gameplay .wordmark strong { font-size: 24px; }
+  main.gameplay .hero.dealt { height: calc(100dvh - 54px); min-height: 0; padding: 8px 0 10px; }
+  main.gameplay .copy { height: 100%; }
+  main.gameplay .eyebrow, main.gameplay h1, main.gameplay .lede, main.gameplay .promise, main.gameplay footer { display: none; }
+  :global(body:has(main.gameplay)) { height: 100dvh; overflow: hidden; }
 
   .actions span {
     max-width: 180px;
@@ -644,6 +713,12 @@
     .room { max-width: none; padding: 15px; }
     .hand { grid-template-columns: repeat(4, minmax(44px, 1fr)); }
     .playing-card { min-height: 92px; }
+    main.gameplay .hand { min-height: 82px; }
+    main.gameplay .playing-card { height: 76px; min-height: 0; }
+    main.gameplay .playing-card { width: 44px; }
+    main.gameplay .playing-card + .playing-card { margin-left: -15px; }
+    main.gameplay .local-seat { bottom: 2px; }
+    main.gameplay .round-center { top: 43%; }
 
     button {
       min-height: 44px;

@@ -15,7 +15,7 @@ import { passInstruction, resolvePasses } from './passing';
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
 
-export type GameEventType = 'game/created' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted';
+export type GameEventType = 'game/created' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted' | 'pass/retracted';
 export type GameEventPayload = {
   gameId: string;
   displayName?: string;
@@ -66,7 +66,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   const event = value as Record<string, unknown>;
   const payload = event.payload as Record<string, unknown> | undefined;
   const common = (
-    ['game/created', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted'].includes(String(event.type)) &&
+    ['game/created', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted'].includes(String(event.type)) &&
     typeof event.actorUid === 'string' &&
     Number.isInteger(event.clientSeq) &&
     event.schemaVersion === SCHEMA_VERSION &&
@@ -78,7 +78,8 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   if (event.type === 'game/created' || event.type === 'player/joined') return typeof payload.displayName === 'string';
   if (event.type === 'player/configured') return typeof payload.princessId === 'string' && typeof payload.ready === 'boolean';
   if (event.type === 'game/dealt') return typeof payload.seed === 'string' && Array.isArray(payload.roundIds) && payload.roundIds.length === 5 && !!payload.hands && typeof payload.hands === 'object';
-  return Array.isArray(payload.cards) && payload.cards.length > 0;
+  if (event.type === 'pass/submitted') return Array.isArray(payload.cards) && payload.cards.length > 0;
+  return Object.keys(payload).length === 1;
 }
 
 export function orderEvents(events: GameEvent[]): GameEvent[] {
@@ -122,7 +123,8 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       hands = event.payload.hands ?? null;
       seed = event.payload.seed ?? null;
     }
-    if (event.type === 'pass/submitted' && !passSubmissions[event.actorUid]) passSubmissions[event.actorUid] = event.payload.cards ?? [];
+    if (event.type === 'pass/submitted') passSubmissions[event.actorUid] = event.payload.cards ?? [];
+    if (event.type === 'pass/retracted') delete passSubmissions[event.actorUid];
   }
 
   const playerList = [...players.values()];

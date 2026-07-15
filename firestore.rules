@@ -39,12 +39,17 @@ service cloud.firestore {
         && request.resource.data.payload.cards.size() <= 3;
     }
 
+    function validRetractionPayload(gameId) {
+      return request.resource.data.payload.keys().hasOnly(['gameId'])
+        && request.resource.data.payload.gameId == gameId;
+    }
+
     function validEvent(gameId) {
       return request.resource.data.keys().hasOnly([
           'type', 'payload', 'actorUid', 'clientSeq', 'createdAt',
           'schemaVersion', 'reducerVersion'
         ])
-        && request.resource.data.type in ['game/created', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted']
+        && request.resource.data.type in ['game/created', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted']
         && request.resource.data.actorUid == request.auth.uid
         && request.resource.data.clientSeq is int
         && request.resource.data.clientSeq > 0
@@ -56,6 +61,7 @@ service cloud.firestore {
           || (request.resource.data.type == 'player/configured' && validConfiguredPayload(gameId))
           || (request.resource.data.type == 'game/dealt' && validDealPayload(gameId))
           || (request.resource.data.type == 'pass/submitted' && validPassPayload(gameId))
+          || (request.resource.data.type == 'pass/retracted' && validRetractionPayload(gameId))
         );
     }
 
