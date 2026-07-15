@@ -1,9 +1,27 @@
 import { readFile } from 'node:fs/promises';
-import { assertFails, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  assertFails,
+  assertSucceeds,
+  initializeTestEnvironment,
+  type RulesTestEnvironment
+} from '@firebase/rules-unit-testing';
+import { deleteDoc, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { afterAll, beforeAll, describe, it } from 'vitest';
 
 let environment: RulesTestEnvironment;
+const path = 'games/MOON42/events/host-0000000001';
+
+function validEvent(actorUid = 'host') {
+  return {
+    type: 'game/created',
+    payload: { gameId: 'MOON42', displayName: 'Alex' },
+    actorUid,
+    clientSeq: 1,
+    createdAt: serverTimestamp(),
+    schemaVersion: 1,
+    reducerVersion: 1
+  };
+}
 
 beforeAll(async () => {
   environment = await initializeTestEnvironment({
@@ -12,16 +30,34 @@ beforeAll(async () => {
   });
 });
 
-afterAll(async () => {
-  await environment.cleanup();
-});
+afterAll(async () => environment.cleanup());
 
-describe('closed foundation rules', () => {
-  it('denies reads and writes before the event protocol opens', async () => {
-    const firestore = environment.authenticatedContext('foundation-player').firestore();
-    const probe = doc(firestore, 'health', 'readiness');
+describe('append-only game event rules', () => {
+  it('lets a signed-in actor append a valid event and read the shared stream', async () => {
+    const host = environment.authenticatedContext('host').firestore();
+    await assertSucceeds(setDoc(doc(host, path), validEvent()));
+    await assertSucceeds(getDoc(doc(host, path)));
+  });
 
-    await assertFails(getDoc(probe));
-    await assertFails(setDoc(probe, { ready: true }));
+  it('denies unauthenticated reads and actor spoofing', async () => {
+    const guest = environment.authenticatedContext('guest').firestore();
+    await assertFails(getDoc(doc(environment.unauthenticatedContext().firestore(), path)));
+    await assertFails(setDoc(doc(guest, 'games/MOON42/events/spoof'), validEvent('host')));
+  });
+
+  it('denies malformed, mismatched, and out-of-schema events', async () => {
+    const host = environment.authenticatedContext('host').firestore();
+    await assertFails(setDoc(doc(host, 'games/MOON42/events/wrong-game'), {
+      ...validEvent(), payload: { gameId: 'OTHER', displayName: 'Alex' }
+    }));
+    await assertFails(setDoc(doc(host, 'games/MOON42/events/extra'), {
+      ...validEvent(), secret: 'not in the envelope'
+    }));
+  });
+
+  it('never permits mutation or deletion of an existing event', async () => {
+    const host = environment.authenticatedContext('host').firestore();
+    await assertFails(updateDoc(doc(host, path), { 'payload.displayName': 'Changed' }));
+    await assertFails(deleteDoc(doc(host, path)));
   });
 });

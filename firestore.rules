@@ -2,8 +2,41 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // The game protocol has not been implemented yet. Keep production closed
-    // until its document schema and rule tests are reviewed together.
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function validPayload(gameId) {
+      return request.resource.data.payload.keys().hasOnly(['gameId', 'displayName'])
+        && request.resource.data.payload.gameId == gameId
+        && request.resource.data.payload.displayName is string
+        && request.resource.data.payload.displayName.size() >= 1
+        && request.resource.data.payload.displayName.size() <= 30;
+    }
+
+    function validEvent(gameId) {
+      return request.resource.data.keys().hasOnly([
+          'type', 'payload', 'actorUid', 'clientSeq', 'createdAt',
+          'schemaVersion', 'reducerVersion'
+        ])
+        && request.resource.data.type in ['game/created', 'player/joined']
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.clientSeq is int
+        && request.resource.data.clientSeq > 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.reducerVersion == 1
+        && validPayload(gameId);
+    }
+
+    match /games/{gameId}/events/{eventId} {
+      // Trusted clients intentionally share the complete stream. The rules only
+      // guarantee attribution and append-only history; they are not anti-cheat.
+      allow read: if signedIn();
+      allow create: if signedIn() && validEvent(gameId);
+      allow update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

@@ -16,9 +16,8 @@ git diff --check
 echo "Checking Firestore rules in the emulator..."
 bun run test:rules
 
-# The repository is currently documentation and backend configuration only.
-# The first application tracer bullet creates src/ and all five scripts. From
-# that moment onward, a missing script is an error rather than a skipped check.
+# Before the application tracer bullet, src/ did not exist. From that increment
+# onward, a missing verification script is an error rather than a skipped check.
 if [[ ! -d src ]]; then
   echo "Application source is not scaffolded; application checks begin when src/ exists."
   exit 0

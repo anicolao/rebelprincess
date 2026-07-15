@@ -32,9 +32,11 @@ projections of the same stream rather than separate mutable documents. If a
 public game browser is later required, it can be a disposable projection; it is
 not part of the canonical game record.
 
-Every event should include `type`, `actorUid`, `clientSeq`, `createdAt` (server
+Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt` (server
 timestamp), `schemaVersion`, and `reducerVersion`. Event documents are immutable.
-Use a stable sortable event ID as the tie-breaker when timestamps match. Moves
+Increment 2 uses `{actorUid}-{zero-padded clientSeq}` as the stable event ID and
+orders equal timestamps by that ID. Its initial event types are `game/created`
+and `player/joined`, each with `{gameId, displayName}` payloads. Moves
 may carry the expected previous event ID and turn number so trustworthy clients
 can identify duplicates or concurrent actions and resolve them deterministically.
 
@@ -61,7 +63,9 @@ can identify duplicates or concurrent actions and resolve them deterministically
 4. Implement dealing, selective client display, trick events, and replay.
 5. Add reconnect, idempotency, conflict, and divergence tests.
 
-The checked-in production rules currently deny every read and write on purpose.
+The checked-in production rules allow signed-in users to read complete game
+event streams and create valid immutable events attributed to their own UID.
+Every other path and every update or delete remains denied.
 
 ## Visual asset references
 
