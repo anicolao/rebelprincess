@@ -1,0 +1,12 @@
+{
+  "name": "rebel-princess",
+  "private": true,
+  "scripts": {
+    "firebase": "firebase",
+    "emulators": "firebase emulators:start",
+    "rules:test": "firebase emulators:exec --only firestore 'true'"
+  },
+  "devDependencies": {
+    "firebase-tools": "latest"
+  }
+}
