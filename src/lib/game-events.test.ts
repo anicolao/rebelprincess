@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveGame, eventCursor, eventId, isGameEvent, nextRoundLeader, normalizeGameId, replayCacheKey, type GameEvent, type GameEventType, type GameEventPayload } from './game-events';
+import { deriveGame, eventCursor, eventId, gameWinners, isGameEvent, nextRoundLeader, normalizeGameId, replayCacheKey, type GameEvent, type GameEventType, type GameEventPayload } from './game-events';
 import { princessOptionsForPlayers } from './setup';
 
 const event = (id: string, type: 'game/created' | 'player/joined', uid: string, name: string) => ({
@@ -46,7 +46,11 @@ describe('append-only game events', () => {
       roundScores: { host: { princes: 0, frog: 0, total: 0 }, guest: { princes: 0, frog: 0, total: 0 } },
       totalScores: { host: 0, guest: 0 },
       nextLeaderUid: 'host',
-      princessOptions: princessOptionsForPlayers(['host', 'guest'], 'MOON42')
+      princessOptions: princessOptionsForPlayers(['host', 'guest'], 'MOON42'),
+      gameNumber: 0,
+      gameComplete: false,
+      zeroRounds: { host: 0, guest: 0 },
+      winnerUids: []
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
@@ -133,5 +137,25 @@ describe('append-only game events', () => {
     expect(nextRoundLeader(['a', 'b', 'c'], { a: 4, b: 1, c: 7 }, 'a')).toBe('b');
     expect(nextRoundLeader(['a', 'b', 'c'], { a: 2, b: 2, c: 5 }, 'c')).toBe('a');
     expect(nextRoundLeader(['a', 'b', 'c'], { a: 2, b: 2, c: 2 }, 'a')).toBe('b');
+  });
+
+  it('breaks final score ties with zero-proposal rounds and otherwise shares victory', () => {
+    expect(gameWinners(['a', 'b', 'c'], { a: 8, b: 8, c: 10 }, { a: 2, b: 1, c: 3 })).toEqual(['a']);
+    expect(gameWinners(['a', 'b', 'c'], { a: 8, b: 8, c: 10 }, { a: 2, b: 2, c: 3 })).toEqual(['a', 'b']);
+  });
+
+  it('resets setup after an append-only rematch marker while retaining membership', () => {
+    const rematched = deriveGame([
+      event('a', 'game/created', 'host', 'Alex'),
+      event('b', 'player/joined', 'guest', 'Jo'),
+      { ...event('c', 'game/created', 'host', 'Alex'), type: 'player/configured' as const, payload: { gameId: 'MOON42', princessId: 'snow-white', ready: true } },
+      { ...event('d', 'game/created', 'host', 'Alex'), type: 'game/rematched' as const, payload: { gameId: 'MOON42' } }
+    ]);
+    expect(rematched.players.map((player) => ({ name: player.displayName, ready: player.ready }))).toEqual([
+      { name: 'Alex', ready: false }, { name: 'Jo', ready: false }
+    ]);
+    expect(rematched.gameNumber).toBe(1);
+    expect(rematched.hands).toBeNull();
+    expect(rematched.princessOptions).toEqual(princessOptionsForPlayers(['host', 'guest'], 'MOON42:rematch:1'));
   });
 });

@@ -16,7 +16,7 @@ import { breaksPrinces, canPlay, trickWinner, type TrickPlay, type TrickState } 
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
 
-export type GameEventType = 'game/created' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played';
+export type GameEventType = 'game/created' | 'game/rematched' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played';
 export type GameEventPayload = {
   gameId: string;
   displayName?: string;
@@ -61,6 +61,10 @@ export interface GameProjection {
   totalScores: Record<string, number>;
   nextLeaderUid: string | null;
   princessOptions: Record<string, string[]>;
+  gameNumber: number;
+  gameComplete: boolean;
+  zeroRounds: Record<string, number>;
+  winnerUids: string[];
 }
 
 export function nextRoundLeader(playerUids: string[], totalScores: Record<string, number>, lastLeaderUid: string): string | null {
@@ -72,6 +76,14 @@ export function nextRoundLeader(playerUids: string[], totalScores: Record<string
     if ((totalScores[uid] ?? 0) === lowest) return uid;
   }
   return playerUids[0];
+}
+
+export function gameWinners(playerUids: string[], totalScores: Record<string, number>, zeroRounds: Record<string, number>): string[] {
+  if (!playerUids.length) return [];
+  const lowestScore = Math.min(...playerUids.map((uid) => totalScores[uid] ?? 0));
+  const scoreLeaders = playerUids.filter((uid) => (totalScores[uid] ?? 0) === lowestScore);
+  const mostZeroRounds = Math.max(...scoreLeaders.map((uid) => zeroRounds[uid] ?? 0));
+  return scoreLeaders.filter((uid) => (zeroRounds[uid] ?? 0) === mostZeroRounds);
 }
 
 export interface EventCursor {
@@ -92,7 +104,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   const event = value as Record<string, unknown>;
   const payload = event.payload as Record<string, unknown> | undefined;
   const common = (
-    ['game/created', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played'].includes(String(event.type)) &&
+    ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played'].includes(String(event.type)) &&
     typeof event.actorUid === 'string' &&
     Number.isInteger(event.clientSeq) &&
     event.schemaVersion === SCHEMA_VERSION &&
@@ -128,8 +140,10 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let gameId = '';
   let roundIds: string[] = [];
   let seed: string | null = null;
+  const lastRematchIndex = ordered.findLastIndex((event) => event.type === 'game/rematched');
+  const gameNumber = ordered.filter((event) => event.type === 'game/rematched').length;
 
-  for (const event of ordered) {
+  for (const [index, event] of ordered.entries()) {
     gameId ||= event.payload.gameId;
     if ((event.type === 'game/created' || event.type === 'player/joined') && !players.has(event.actorUid)) {
       players.set(event.actorUid, {
@@ -139,15 +153,15 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         ready: false
       });
     }
-    if (event.type === 'player/configured') {
+    if (event.type === 'player/configured' && index > lastRematchIndex) {
       const player = players.get(event.actorUid);
       if (player) players.set(event.actorUid, { ...player, princessId: event.payload.princessId, ready: event.payload.ready === true });
     }
   }
 
   const playerList = [...players.values()];
-  const princessOptions = princessOptionsForPlayers(playerList.map((player) => player.uid), gameId);
-  const deals = ordered.map((event, index) => ({ event, index })).filter(({ event }) => event.type === 'game/dealt');
+  const princessOptions = princessOptionsForPlayers(playerList.map((player) => player.uid), gameNumber ? `${gameId}:rematch:${gameNumber}` : gameId);
+  const deals = ordered.map((event, index) => ({ event, index })).filter(({ event, index }) => event.type === 'game/dealt' && index > lastRematchIndex);
   const emptyCounts = () => Object.fromEntries(playerList.map((player) => [player.uid, 0]));
   const emptyTricks = () => Object.fromEntries(playerList.map((player) => [player.uid, [] as TrickPlay[][]]));
   type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores'> & { lastWinnerUid: string | null };
@@ -201,6 +215,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let leaderUid = playerList[0]?.uid ?? '';
   let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, total: 0 }])), lastWinnerUid: null };
   const totalScores = emptyCounts();
+  const zeroRounds = emptyCounts();
   deals.forEach(({ event: deal, index }, dealIndex) => {
     const nextIndex = deals[dealIndex + 1]?.index ?? ordered.length;
     const segment = ordered.slice(index + 1, nextIndex);
@@ -208,13 +223,19 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     roundIds = deal.payload.roundIds ?? roundIds;
     seed = deal.payload.seed ?? seed;
     if (active.roundComplete) {
-      for (const player of playerList) totalScores[player.uid] += active.roundScores[player.uid].total;
+      for (const player of playerList) {
+        totalScores[player.uid] += active.roundScores[player.uid].total;
+        if (active.roundScores[player.uid].total === 0) zeroRounds[player.uid] += 1;
+      }
       leaderUid = nextRoundLeader(playerList.map((player) => player.uid), totalScores, leaderUid) ?? leaderUid;
     }
   });
   const roundIndex = Math.max(0, deals.length - 1);
+  const gameComplete = deals.length === 5 && active.roundComplete;
+  let winnerUids: string[] = [];
+  if (gameComplete) winnerUids = gameWinners(playerList.map((player) => player.uid), totalScores, zeroRounds);
   const { lastWinnerUid: _lastWinnerUid, ...activeProjection } = active;
-  return { gameId, players: playerList, roundIds, seed, ...activeProjection, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions };
+  return { gameId, players: playerList, roundIds, seed, ...activeProjection, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions, gameNumber, gameComplete, zeroRounds, winnerUids };
 }
 
 export function replayCacheKey(gameId: string): string {

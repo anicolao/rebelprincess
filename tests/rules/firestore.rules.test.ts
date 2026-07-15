@@ -77,6 +77,9 @@ describe('append-only game event rules', () => {
     await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-play'), {
       ...validEvent(), type: 'card/played', payload: { gameId: 'MOON42', card: { suit: 'pets', rank: 8 } }
     }));
+    await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-rematch'), {
+      ...validEvent(), type: 'game/rematched', payload: { gameId: 'MOON42' }
+    }));
   });
 
   it('never permits mutation or deletion of an existing event', async () => {
