@@ -110,6 +110,11 @@ Do not wait for elapsed time. Do not inspect emulator internals merely to guess
 that the UI should be ready. When no observable state exists, add an accessible,
 deterministic state indicator to the application and assert against it.
 
+Suite setup obeys the same rule: it opens the real client and waits for the
+visible deterministic build marker and `Firebase emulator ready` status. This
+warms the Vite transform pipeline while proving that the rendered app—not merely
+an open development-server port—is ready before the first scenario runs.
+
 ## Multiplayer scenarios
 
 Use one isolated browser context per player so anonymous Auth persistence and
