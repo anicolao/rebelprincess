@@ -32,7 +32,10 @@ with no UI), implements UI against mock state, or defers its E2E coverage to a
 later commit. Refactoring commits must preserve the complete E2E suite; when a
 refactor changes observable structure or behavior, it needs its own tracer step.
 
-Before each commit:
+Before each commit and again before each push, Husky runs
+`scripts/verify-change.sh`. The repository-managed hooks are installed by the
+`prepare` package script. The verifier enters `nix develop` when necessary and
+runs the following checks; do not bypass it with `--no-verify`:
 
 ```sh
 nix develop --command bun run check
@@ -44,9 +47,12 @@ nix develop --command bun run build
 git diff --check
 ```
 
-The scripts will be introduced by the first slices. Follow `E2E_GUIDE.md`
-throughout: no sleeps, explicit test timeout overrides, retries, masks, manual
-screenshots, ignored tests, or nonzero screenshot tolerances.
+Before the application is scaffolded, the verifier runs patch checks and the
+Firestore Rules emulator check. The first slice creates `src/` and all remaining
+package scripts atomically; once `src/` exists, the verifier treats any missing
+script as an error and runs the full suite. Follow `E2E_GUIDE.md` throughout: no
+sleeps, explicit test timeout overrides, retries, masks, manual screenshots,
+ignored tests, or nonzero screenshot tolerances.
 
 ## Fixed technical decisions
 
