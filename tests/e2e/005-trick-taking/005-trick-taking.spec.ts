@@ -53,16 +53,30 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
     description: 'The leader may play non-Princes but cannot lead an unbroken Prince',
     verifications: [
       { spec: 'Alex is prompted to lead the first trick', check: async () => expect(page.getByRole('alert')).toContainText('Your turn') },
+      { spec: 'Every client identifies Alex as the leader', check: async () => {
+        await expect(page.getByText('You lead', { exact: true })).toBeVisible();
+        await expect(jo.getByLabel("Alex's hand").getByText('Leads', { exact: true })).toBeVisible();
+        await expect(sam.getByLabel("Alex's hand").getByText('Leads', { exact: true })).toBeVisible();
+      } },
+      { spec: 'The leader sees a prominent highlighted lead badge', check: async () => expect(page.locator('.local-heading')).toHaveClass(/local-leader/) },
       { spec: 'A Prince is disabled before the suit is broken', check: async () => expect(page.getByRole('button', { name: 'Princes 4', exact: true })).toBeDisabled() },
       { spec: 'A Fairy is a legal opening lead', check: async () => expect(page.getByRole('button', { name: 'Fairies 4', exact: true })).toBeEnabled() }
     ]
   });
 
+  const animationStarted = page.evaluate(() => new Promise<string>((resolve) => document.addEventListener('animationstart', (event) => resolve((event as AnimationEvent).animationName), { once: true })));
   await play(page, 'Fairies 4');
+  expect(await animationStarted).toMatch(/play-to-table$/);
   await steps.step('observer-sees-lead', {
     description: 'Every client sees the lead and Jo must follow suit',
     verifications: [
-      { spec: 'The shared trick shows Alex’s Fairy 4', check: async () => expect(page.getByLabel('Current trick')).toContainText('Alex: Fairies 4') },
+      { spec: 'The shared trick shows Alex’s Fairy 4', check: async () => expect(page.getByLabel('Alex played Fairies 4')).toBeVisible() },
+      { spec: 'The played card uses the Fairies atlas graphic and visible value', check: async () => {
+        const played = page.getByLabel('Alex played Fairies 4');
+        await expect(played.locator('.trick-card')).toHaveCSS('background-image', /suited-card-families/);
+        await expect(played.locator('strong')).toHaveText('4');
+      } },
+      { spec: 'The played card animates from the hand into the table', check: async () => expect(page.getByLabel('Alex played Fairies 4').locator('.trick-card')).toHaveCSS('animation-name', /play-to-table$/) },
       { spec: 'Jo can follow with a Fairy', check: async () => expect(jo.getByRole('button', { name: 'Fairies 3', exact: true })).toBeEnabled() },
       { spec: 'Jo cannot discard an off-suit Prince while holding Fairies', check: async () => expect(jo.getByRole('button', { name: 'Princes 3', exact: true })).toBeDisabled() }
     ]
@@ -81,7 +95,7 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
     description: 'A void player may discard a Prince and break the suit',
     verifications: [
       { spec: 'Jo has no Fairies remaining and may play a Prince', check: async () => expect(jo.getByRole('button', { name: 'Princes 10', exact: true })).toBeEnabled() },
-      { spec: 'The current trick is synchronized through Alex’s lead', check: async () => expect(jo.getByLabel('Current trick')).toContainText('Alex: Fairies 5') }
+      { spec: 'The current trick is synchronized through Alex’s lead', check: async () => expect(jo.getByLabel('Alex played Fairies 5')).toBeVisible() }
     ]
   });
 

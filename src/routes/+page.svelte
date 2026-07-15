@@ -138,6 +138,11 @@
     const index = Math.max(0, ROUND_RULES.findIndex(([key]) => key === id));
     return `--round-x: ${(index % 7) * 100 / 6}%; --round-y: ${Math.floor(index / 7) * 50}%; background-image: url(${roundAtlas})`;
   }
+  function playOrigin(uid: string) {
+    if (!game || uid === currentUid) return '--play-x: 0; --play-y: 34vh';
+    const index = game.players.filter((player) => player.uid !== currentUid).findIndex((player) => player.uid === uid);
+    return `--play-x: ${index % 2 === 0 ? '-24vw' : '24vw'}; --play-y: -32vh`;
+  }
 
   function passRecipient(): string {
     if (!game) return '';
@@ -228,7 +233,7 @@
             <div class="opponents" aria-label="Opponents">
               {#each game.players.filter((player) => player.uid !== currentUid) as player, index}
                 <section class="opponent-seat" class:seat-0={index === 0} class:seat-1={index === 1} class:seat-2={index === 2} class:seat-3={index === 3} class:seat-4={index === 4} aria-label={`${player.displayName}'s hand`}>
-                  <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0}</strong>
+                  <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0} {#if game.trick?.leaderUid === player.uid}<span class="lead-marker">Leads</span>{/if}</strong>
                   <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
                 </section>
               {/each}
@@ -241,7 +246,6 @@
               <div class="pass-icon" aria-label={`Pass ${passInstruction(game.roundIds[0]).count} ${passInstruction(game.roundIds[0]).direction}`}>
                 {#if passInstruction(game.roundIds[0]).direction === 'left' || passInstruction(game.roundIds[0]).direction === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
                 <strong>{passInstruction(game.roundIds[0]).direction === 'split' ? passInstruction(game.roundIds[0]).count / 2 : passInstruction(game.roundIds[0]).count}</strong>
-                {#if passInstruction(game.roundIds[0]).direction === 'split'}<strong>{passInstruction(game.roundIds[0]).count / 2}</strong>{/if}
                 {#if passInstruction(game.roundIds[0]).direction === 'right' || passInstruction(game.roundIds[0]).direction === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
               </div>
               <p class="round-count">Round 1 of 5</p>
@@ -250,7 +254,12 @@
             {#if game.passComplete}
               <section class="live-trick" aria-label="Current trick">
                 {#each game.trick?.plays ?? [] as play}
-                  <span>{game.players.find((player) => player.uid === play.uid)?.displayName}: {cardLabel(play.card)}</span>
+                  <article class="trick-play" aria-label={`${game.players.find((player) => player.uid === play.uid)?.displayName} played ${cardLabel(play.card)}`}>
+                    <span>{game.players.find((player) => player.uid === play.uid)?.displayName}</span>
+                    <div class="trick-card" style={`${playOrigin(play.uid)}; --suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}>
+                      <strong>{play.card.rank}</strong><small>{play.card.suit}</small>
+                    </div>
+                  </article>
                 {/each}
               </section>
               {#each game.players as player}
@@ -259,7 +268,7 @@
             {/if}
 
             <section class="local-seat" aria-label="Your seat">
-              <div class="local-heading"><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
+              <div class="local-heading" class:local-leader={game.trick?.leaderUid === currentUid}><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You {#if game.trick?.leaderUid === currentUid}<span class="lead-marker">You lead</span>{/if}</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
               <div class="hand" role="region" aria-label="Your hand">
                 {#each game.hands[currentUid] ?? [] as card}
                   {@const committed = game.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card))}
@@ -559,6 +568,7 @@
   .round-center .round-count { margin-top: 4px; }
   .opponent-seat { position: absolute; z-index: 2; min-width: 105px; color: #e9deeb; text-align: center; }
   .opponent-seat > strong { display: block; margin-bottom: 4px; font-size: 12px; }
+  .lead-marker { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 999px; color: #211329; background: #ffc75f; font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 9px; text-transform: uppercase; }
   .seat-0 { top: 12px; left: 18%; }
   .seat-1 { top: 12px; right: 18%; }
   .seat-2 { top: 34%; left: 12px; }
@@ -570,6 +580,8 @@
   .local-seat { position: absolute; z-index: 3; inset: auto 8px 8px; }
   .local-heading { display: flex; justify-content: center; gap: 12px; margin-bottom: 5px; color: #fff4d0; font-size: 12px; }
   .local-heading span { color: #b88cdf; }
+  .local-heading.local-leader { width: max-content; margin-right: auto; margin-left: auto; padding: 4px 9px; border: 1px solid #ffc75f; border-radius: 999px; color: #ffc75f; box-shadow: 0 0 14px rgba(255, 199, 95, .3); }
+  .local-heading.local-leader .lead-marker { color: #211329; }
   .hand { display: flex; justify-content: center; align-items: flex-end; min-height: clamp(78px, 15vh, 145px); padding-top: 8px; }
   .playing-card { position: relative; width: clamp(50px, 6.3vw, 78px); height: auto; min-height: 0; aspect-ratio: 1717 / 3664; padding: 0; overflow: hidden; flex: 0 0 auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; transition: transform .15s ease; }
   .playing-card + .playing-card { margin-left: clamp(-27px, -1.8vw, -12px); }
@@ -586,7 +598,12 @@
   .pass-submit { min-height: 32px; padding: 0 15px; font-size: 12px; }
   .pass-waiting, .pass-complete { margin: 0; color: #d9cedd; font-size: 11px; text-align: center; }
   .pass-complete { color: #7de2a7; font-weight: 700; }
-  .live-trick { position: absolute; top: 62%; left: 50%; display: flex; justify-content: center; gap: 10px; width: min(90%, 440px); color: #fff4d0; font-size: 11px; transform: translateX(-50%); }
+  .live-trick { position: absolute; z-index: 4; top: 61%; left: 50%; display: flex; justify-content: center; align-items: flex-end; gap: 8px; width: min(90%, 440px); color: #fff4d0; font-size: 10px; transform: translateX(-50%); }
+  .trick-play { display: grid; justify-items: center; gap: 2px; }
+  .trick-card { position: relative; width: clamp(42px, 5vw, 62px); aspect-ratio: 1717 / 3664; overflow: hidden; border: 1px solid rgba(255, 226, 163, .7); border-radius: 4px; background-color: #150d1d; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; box-shadow: 0 8px 18px rgba(0, 0, 0, .5); animation: play-to-table .35s ease-out both; }
+  .trick-card strong { position: absolute; top: 2px; left: 5px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 20px; text-shadow: 0 1px 3px #000; }
+  .trick-card small { position: absolute; inset: auto 3px 3px; color: #fff4d0; font-size: 7px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
+  @keyframes play-to-table { from { opacity: .3; transform: translate(var(--play-x), var(--play-y)) scale(1.15); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
 
   main.gameplay { width: calc(100% - 24px); height: 100dvh; min-height: 0; overflow: hidden; }
   main.gameplay .masthead { min-height: 54px; height: 54px; }

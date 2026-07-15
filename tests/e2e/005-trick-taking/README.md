@@ -8,6 +8,8 @@ Three trustworthy clients play complete synchronized tricks through follow-suit,
 
 **Verifications:**
 - [x] Alex is prompted to lead the first trick
+- [x] Every client identifies Alex as the leader
+- [x] The leader sees a prominent highlighted lead badge
 - [x] A Prince is disabled before the suit is broken
 - [x] A Fairy is a legal opening lead
 
@@ -19,6 +21,8 @@ Three trustworthy clients play complete synchronized tricks through follow-suit,
 
 **Verifications:**
 - [x] The shared trick shows Alex’s Fairy 4
+- [x] The played card uses the Fairies atlas graphic and visible value
+- [x] The played card animates from the hand into the table
 - [x] Jo can follow with a Fairy
 - [x] Jo cannot discard an off-suit Prince while holding Fairies
 
