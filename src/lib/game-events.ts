@@ -10,11 +10,12 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import type { Card } from './setup';
+import { passInstruction, resolvePasses } from './passing';
 
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
 
-export type GameEventType = 'game/created' | 'player/joined' | 'player/configured' | 'game/dealt';
+export type GameEventType = 'game/created' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted';
 export type GameEventPayload = {
   gameId: string;
   displayName?: string;
@@ -23,6 +24,7 @@ export type GameEventPayload = {
   seed?: string;
   roundIds?: string[];
   hands?: Record<string, Card[]>;
+  cards?: Card[];
 };
 
 export interface GameEvent {
@@ -42,6 +44,8 @@ export interface GameProjection {
   roundIds: string[];
   hands: Record<string, Card[]> | null;
   seed: string | null;
+  passSubmissions: Record<string, Card[]>;
+  passComplete: boolean;
 }
 
 export interface EventCursor {
@@ -62,7 +66,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   const event = value as Record<string, unknown>;
   const payload = event.payload as Record<string, unknown> | undefined;
   const common = (
-    ['game/created', 'player/joined', 'player/configured', 'game/dealt'].includes(String(event.type)) &&
+    ['game/created', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted'].includes(String(event.type)) &&
     typeof event.actorUid === 'string' &&
     Number.isInteger(event.clientSeq) &&
     event.schemaVersion === SCHEMA_VERSION &&
@@ -73,7 +77,8 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   if (!common) return false;
   if (event.type === 'game/created' || event.type === 'player/joined') return typeof payload.displayName === 'string';
   if (event.type === 'player/configured') return typeof payload.princessId === 'string' && typeof payload.ready === 'boolean';
-  return typeof payload.seed === 'string' && Array.isArray(payload.roundIds) && payload.roundIds.length === 5 && !!payload.hands && typeof payload.hands === 'object';
+  if (event.type === 'game/dealt') return typeof payload.seed === 'string' && Array.isArray(payload.roundIds) && payload.roundIds.length === 5 && !!payload.hands && typeof payload.hands === 'object';
+  return Array.isArray(payload.cards) && payload.cards.length > 0;
 }
 
 export function orderEvents(events: GameEvent[]): GameEvent[] {
@@ -96,6 +101,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let roundIds: string[] = [];
   let hands: Record<string, Card[]> | null = null;
   let seed: string | null = null;
+  const passSubmissions: Record<string, Card[]> = {};
 
   for (const event of ordered) {
     gameId ||= event.payload.gameId;
@@ -116,9 +122,13 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       hands = event.payload.hands ?? null;
       seed = event.payload.seed ?? null;
     }
+    if (event.type === 'pass/submitted' && !passSubmissions[event.actorUid]) passSubmissions[event.actorUid] = event.payload.cards ?? [];
   }
 
-  return { gameId, players: [...players.values()], roundIds, hands, seed };
+  const playerList = [...players.values()];
+  const passComplete = Boolean(hands && playerList.length >= 3 && playerList.every((player) => passSubmissions[player.uid]));
+  if (passComplete && hands) hands = resolvePasses(playerList.map((player) => player.uid), hands, passSubmissions, passInstruction(roundIds[0]));
+  return { gameId, players: playerList, roundIds, hands, seed, passSubmissions, passComplete };
 }
 
 export function replayCacheKey(gameId: string): string {

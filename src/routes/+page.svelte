@@ -15,6 +15,7 @@
     type GameProjection
   } from '$lib/game-events';
   import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, SUITS, type Card } from '$lib/setup';
+  import { passInstruction } from '$lib/passing';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -27,6 +28,7 @@
   let currentUid = '';
   let selectedPrincess = '';
   let selectedRounds: string[] = [];
+  let selectedPassCards: string[] = [];
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
 
@@ -129,6 +131,25 @@
   function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
   function roundName(id: string) { return ROUND_RULES.find(([key]) => key === id)?.[1] ?? id; }
   function suitIndex(card: Card) { return SUITS.indexOf(card.suit); }
+
+  function togglePassCard(card: Card) {
+    if (!game || game.passComplete || game.passSubmissions[currentUid]) return;
+    const label = cardLabel(card);
+    const required = passInstruction(game.roundIds[0]).count;
+    selectedPassCards = selectedPassCards.includes(label)
+      ? selectedPassCards.filter((entry) => entry !== label)
+      : selectedPassCards.length < required ? [...selectedPassCards, label] : selectedPassCards;
+  }
+
+  async function submitPass() {
+    if (!game?.hands || game.passComplete || game.passSubmissions[currentUid]) return;
+    const instruction = passInstruction(game.roundIds[0]);
+    const cards = game.hands[currentUid].filter((card) => selectedPassCards.includes(cardLabel(card)));
+    if (cards.length !== instruction.count) return;
+    connection = 'checking';
+    connectionLabel = 'Submitting cards…';
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'pass/submitted', { cards });
+  }
 </script>
 
 <svelte:head>
@@ -166,14 +187,24 @@
               <span>{player.displayName} · {game.hands[player.uid]?.length ?? 0}</span>
             {/each}
           </div>
+          {#if game.passSubmissions[currentUid] && !game.passComplete}
+            <div class="pass-waiting" role="alert"><strong>Cards committed</strong><span>Waiting for {game.players.filter((player) => !game?.passSubmissions[player.uid]).length} player(s). Incoming cards stay hidden.</span></div>
+          {:else}
           <div class="hand" role="region" aria-label="Your hand">
             {#each game.hands[currentUid] ?? [] as card}
-              <div class="playing-card" aria-label={cardLabel(card)}>
+              <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} disabled={game.passComplete} aria-label={cardLabel(card)} on:click={() => togglePassCard(card)}>
                 <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
                 <strong>{card.rank}</strong><small>{card.suit}</small>
-              </div>
+              </button>
             {/each}
           </div>
+          {/if}
+          {#if game.passComplete}
+            <p class="pass-complete" role="alert">Passing complete · all {Object.values(game.hands).flat().length} cards accounted for</p>
+          {:else if !game.passSubmissions[currentUid]}
+            {@const instruction = passInstruction(game.roundIds[0])}
+            <button class="pass-submit" type="button" disabled={selectedPassCards.length !== instruction.count} on:click={submitPass}>Pass {instruction.count} {instruction.direction}</button>
+          {/if}
           <span class="sr-only" data-testid="stream-card-count">Shared stream contains {Object.values(game.hands).flat().length} cards</span>
         </section>
       {:else if activeGameId}
@@ -446,10 +477,18 @@
   .opponents { display: flex; gap: 8px; margin: 12px 0; }
   .opponents span { padding: 5px 9px; border: 1px solid rgba(184, 140, 223, .35); color: #cabed0; font-size: 12px; }
   .hand { display: grid; grid-template-columns: repeat(6, minmax(44px, 1fr)); gap: 7px; }
-  .playing-card { position: relative; min-height: 108px; overflow: hidden; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; }
+  .playing-card { position: relative; min-height: 108px; padding: 0; overflow: hidden; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; }
+  .playing-card:not(:disabled) { cursor: pointer; }
+  .playing-card.selected { border: 3px solid #ffc75f; transform: translateY(-5px); box-shadow: 0 7px 18px rgba(0, 0, 0, .45); }
+  .playing-card:disabled { opacity: 1; color: inherit; }
   .playing-card strong { position: absolute; top: 4px; left: 7px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 25px; text-shadow: 0 1px 3px #000; }
   .playing-card small { position: absolute; inset: auto 4px 4px; color: #fff4d0; font-size: 9px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
   .card-art { position: absolute; inset: 0; opacity: .72; background-size: 400% 100%; background-position: calc(var(--suit-index) * -100% / 3) center; }
+  .pass-submit { margin-top: 14px; }
+  .pass-waiting { min-height: 146px; display: grid; place-content: center; gap: 4px; padding: 20px; border: 1px dashed rgba(184, 140, 223, .5); color: #d9cedd; text-align: center; }
+  .pass-waiting strong { color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: 26px; }
+  .pass-waiting span { font-size: 13px; }
+  .pass-complete { margin: 14px 0 0; color: #7de2a7; font-size: 13px; font-weight: 700; }
 
   .actions span {
     max-width: 180px;

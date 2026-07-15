@@ -39,6 +39,13 @@ versioned reducer keeps all hands, while the trustworthy view renders only the
 local UID's cards and opponent card counts. Deck composition is 36 cards for
 three players, 40 for four or five, and 48 for six as specified in `RULES.md`.
 
+Increment 4 adds one `pass/submitted` event per player. Submissions contain the
+outgoing cards and are readable in the trusted shared stream, but the client
+hides committed and incoming cards until every seated UID has submitted. The
+reducer then applies the Round card's left, right, or split instruction in seat
+order, sorts each resulting hand, and verifies every submitted card came from
+its actor's dealt hand. No mutable resolution document is required.
+
 Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt` (server
 timestamp), `schemaVersion`, and `reducerVersion`. Event documents are immutable.
 Increment 2 uses `{actorUid}-{zero-padded clientSeq}` as the stable event ID and
