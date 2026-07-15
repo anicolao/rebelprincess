@@ -222,9 +222,8 @@
             </div>
 
             <article class="round-center" aria-label="Current Round card">
-              <div class="round-art" style={roundStyle(game.roundIds[0])}></div>
-              <p>Round 1 of 5</p>
               <h2>{roundName(game.roundIds[0])}</h2>
+              <div class="round-art" style={roundStyle(game.roundIds[0])}></div>
               <p class="round-rule">{roundRule(game.roundIds[0])}</p>
               <div class="pass-icon" aria-label={`Pass ${passInstruction(game.roundIds[0]).count} ${passInstruction(game.roundIds[0]).direction}`}>
                 {#if passInstruction(game.roundIds[0]).direction === 'left' || passInstruction(game.roundIds[0]).direction === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
@@ -232,6 +231,7 @@
                 {#if passInstruction(game.roundIds[0]).direction === 'split'}<strong>{passInstruction(game.roundIds[0]).count / 2}</strong>{/if}
                 {#if passInstruction(game.roundIds[0]).direction === 'right' || passInstruction(game.roundIds[0]).direction === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
               </div>
+              <p class="round-count">Round 1 of 5</p>
             </article>
 
             <section class="local-seat" aria-label="Your seat">
@@ -525,13 +525,14 @@
 
   .table { width: 100%; height: 100%; }
   .table-board { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid rgba(255, 226, 163, .2); border-radius: 18px; background: radial-gradient(ellipse at center, rgba(75, 44, 91, .72), rgba(19, 25, 35, .88) 70%); box-shadow: inset 0 0 90px rgba(0, 0, 0, .35); }
-  .round-center { position: absolute; top: 45%; left: 50%; width: clamp(112px, 14vh, 148px); margin: 0; transform: translate(-50%, -50%); text-align: center; }
-  .round-art { width: 72%; aspect-ratio: .855; margin: 0 auto 5px; border: 1px solid rgba(255, 226, 163, .5); border-radius: 7px; background-size: 700% 300%; background-position: var(--round-x) var(--round-y); box-shadow: 0 10px 25px rgba(0, 0, 0, .45); }
+  .round-center { position: absolute; top: 45%; left: 50%; width: clamp(180px, 22vh, 230px); margin: 0; transform: translate(-50%, -50%); text-align: center; }
+  .round-art { width: clamp(84px, 55%, 118px); aspect-ratio: .855; margin: 5px auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 7px; background-size: 700% 300%; background-position: var(--round-x) var(--round-y); box-shadow: 0 10px 25px rgba(0, 0, 0, .45); }
   .round-center p { margin: 0; color: #b88cdf; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-  .round-center h2 { margin: 2px 0 0; font-size: clamp(15px, 2.3vh, 22px); line-height: 1; }
+  .round-center h2 { margin: 0; font-size: clamp(16px, 2.3vh, 22px); line-height: 1; }
   .round-center .round-rule { margin: 5px auto 0; max-width: 190px; color: #eee4f0; font-size: clamp(9px, 1.25vh, 12px); font-weight: 400; line-height: 1.15; letter-spacing: 0; text-transform: none; }
   .pass-icon { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 4px; color: #ffc75f; font-size: clamp(17px, 2.5vh, 24px); line-height: 1; }
   .pass-icon strong { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: .72em; }
+  .round-center .round-count { margin-top: 4px; }
   .opponent-seat { position: absolute; z-index: 2; min-width: 105px; color: #e9deeb; text-align: center; }
   .opponent-seat > strong { display: block; margin-bottom: 4px; font-size: 12px; }
   .seat-0 { top: 12px; left: 18%; }
