@@ -15,6 +15,8 @@ without imitating the original illustrator or any other named artist.
 - `generated/suited-card-families.png`: four panels for Fairies, Queens,
   Princes, and Pets. Values and suit labels should be rendered by the client.
 - `generated/princess-portraits.png`: ten portraits in a 5 × 2 grid.
+- `generated/princess-portraits-deluxe.png`: Rapunzel and Thumbelina in a
+  2 × 1 extension grid matching the original Princess portraits.
 - `generated/round-rule-vignettes.png`: twenty-one symbolic scenes in a 7 × 3
   grid. Rule names and text should be rendered by the client.
 - `manifest.json`: stable row-major mapping from grid cells to game IDs.
@@ -37,3 +39,10 @@ and enchanted Pets centered on a frog. The Princess prompt specified ten diverse
 adult fairy-tale archetypes in a fixed 5 × 2 portrait grid. The Round prompt
 specified the twenty-one row-major symbolic scenes enumerated in
 `manifest.json`, in a fixed 7 × 3 grid.
+
+The Deluxe Princess extension was generated with the original Princess atlas
+as a style and framing reference. It requested two original adult heroines in
+a fixed 2 × 1 grid: Rapunzel with a practical climbing braid and tower-and-ivy
+motif, and Thumbelina among oversized clover and bellflowers. The prompt kept
+the same gouache, paper grain, ornamental border, crop-safe framing, and
+text-free constraints as the original atlas.
