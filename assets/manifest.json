@@ -25,9 +25,15 @@
         { "index": 6, "id": "mulan", "name": "Mulan" },
         { "index": 7, "id": "scheherazade", "name": "Scheherazade" },
         { "index": 8, "id": "pea-princess", "name": "The Pea Princess" },
-        { "index": 9, "id": "ice-princess", "name": "The Ice Princess" },
-        { "index": 10, "id": "rapunzel", "name": "Rapunzel" },
-        { "index": 11, "id": "thumbelina", "name": "Thumbelina" }
+        { "index": 9, "id": "ice-princess", "name": "The Ice Princess" }
+      ]
+    },
+    "deluxePrincesses": {
+      "file": "generated/princess-portraits-deluxe.png",
+      "grid": { "columns": 2, "rows": 1 },
+      "cells": [
+        { "index": 0, "id": "rapunzel", "name": "Rapunzel" },
+        { "index": 1, "id": "thumbelina", "name": "Thumbelina" }
       ]
     },
     "roundRules": {
