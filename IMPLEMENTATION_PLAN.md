@@ -173,8 +173,10 @@ proof.
 
 - Complete game lifecycle, terminal projection, lowest-score victory, zero-round
   tie-break, shared victory, rematch/new-game controls, and immutable summary.
-- Add `007-five-round-game`, using compact deterministic deals in E2E mode to
-  play all five rounds through the final result without bypassing UI actions.
+- Add `007-five-round-game` using complete production-size deterministic deals.
+  Three real clients pass and legally play all 180 cards through the UI and
+  Firestore stream, validate every exact round and cumulative score, resolve
+  the final result, and enter a rematch without bypassing any action.
 
 ### 8. Princess powers: direct card/trick modifiers
 

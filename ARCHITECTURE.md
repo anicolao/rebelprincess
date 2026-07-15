@@ -64,6 +64,15 @@ ordered Round IDs, a new seed and fresh hands. Reusing these existing immutable
 event types keeps round transition append-only without adding a mutable score or
 round document.
 
+Increment 7 derives the terminal result after the fifth completed round. The
+lowest cumulative score wins; tied players are filtered to those with the most
+zero-proposal rounds, and any remaining tie is a shared victory. Totals,
+zero-round counts, and winner UIDs are deterministic projection data rather
+than mutable result documents. A host-authored `game/rematched` marker starts a
+fresh setup epoch in the same stream: membership persists, while Princess
+choices, readiness, deals, scores, and Round cards replay only from after that
+marker. Earlier game events remain immutable and fully replayable.
+
 Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt` (server
 timestamp), `schemaVersion`, and `reducerVersion`. Event documents are immutable.
 Increment 2 uses `{actorUid}-{zero-padded clientSeq}` as the stable event ID and

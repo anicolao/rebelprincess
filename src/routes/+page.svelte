@@ -140,6 +140,7 @@
   function roundRule(id: string) { return ROUND_RULE_TEXT[id] ?? 'Follow the rule printed on this round card.'; }
   function activeRoundId() { return game?.roundIds[game.roundIndex] ?? ''; }
   function nextLeaderName() { return game?.players.find((player) => player.uid === game?.nextLeaderUid)?.displayName ?? ''; }
+  function winnerNames() { return game?.winnerUids.map((uid) => game?.players.find((player) => player.uid === uid)?.displayName).filter(Boolean).join(' and ') ?? ''; }
   function suitIndex(card: Card) { return SUITS.indexOf(card.suit); }
   function roundStyle(id: string) {
     const index = Math.max(0, ROUND_RULES.findIndex(([key]) => key === id));
@@ -238,6 +239,18 @@
       roundIds: game.roundIds,
       hands: dealForPlayers(game.players.map((player) => player.uid), `${game.seed ?? activeGameId}-round-${nextRound + 1}`)
     });
+  }
+
+  async function rematch() {
+    if (!game?.gameComplete || game.players[0]?.uid !== currentUid) return;
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'game/rematched', {});
+    selectedPrincess = '';
+    selectedRounds = [];
+    selectedPassCards = [];
+  }
+
+  function newGame() {
+    location.assign(new URL('./', location.href).pathname);
   }
 </script>
 
@@ -354,18 +367,30 @@
             </section>
             {#if game.roundComplete}
               <section class="round-results" aria-label={`Round ${game.roundIndex + 1} scoring`}>
-                <h2>Proposals received</h2>
-                <p class="next-lead">Lowest total leads next: {nextLeaderName()}</p>
+                <h2>{game.gameComplete ? 'The ball is over' : 'Proposals received'}</h2>
+                {#if game.gameComplete}
+                  <p class="victory" role="status">{game.winnerUids.length > 1 ? 'Shared victory' : 'Winner'}: {winnerNames()}</p>
+                {:else}
+                  <p class="next-lead">Lowest total leads next: {nextLeaderName()}</p>
+                {/if}
                 <ul>
                   {#each game.players as player}
-                    <li><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog = {game.roundScores[player.uid].total}</span><b>{game.totalScores[player.uid]} total</b></li>
+                    <li class:winner={game.winnerUids.includes(player.uid)}><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog = {game.roundScores[player.uid].total}</span><b>{game.totalScores[player.uid]} total · {game.zeroRounds[player.uid]} zero rounds</b></li>
                   {/each}
                 </ul>
-                <p class="princess-kept">Princesses stay with their players and refresh their powers.</p>
-                {#if game.players[0]?.uid === currentUid}
-                  <button class="results-ready" type="button" on:click={dealNextRound}>Deal round {game.roundIndex + 2}</button>
+                {#if game.gameComplete}
+                  <p class="princess-kept">Lowest score wins; tied scores favor the most zero-proposal rounds.</p>
+                  <div class="result-actions">
+                    {#if game.players[0]?.uid === currentUid}<button class="results-ready" type="button" on:click={rematch}>Rematch</button>{/if}
+                    <button class="secondary" type="button" on:click={newGame}>New game</button>
+                  </div>
                 {:else}
-                  <p>Waiting for the host to deal round {game.roundIndex + 2}</p>
+                  <p class="princess-kept">Princesses stay with their players and refresh their powers.</p>
+                  {#if game.players[0]?.uid === currentUid}
+                    <button class="results-ready" type="button" on:click={dealNextRound}>Deal round {game.roundIndex + 2}</button>
+                  {:else}
+                    <p>Waiting for the host to deal round {game.roundIndex + 2}</p>
+                  {/if}
                 {/if}
               </section>
             {/if}
@@ -705,6 +730,10 @@
   .round-results li { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255, 226, 163, .15); font-size: 12px; }
   .round-results li span { color: #d8c8dc; }
   .round-results li b { color: #ffc75f; }
+  .round-results li.winner { margin: 2px -8px; padding: 7px 8px; border-radius: 8px; background: rgba(255, 199, 95, .14); }
+  .victory { margin: 0 0 8px; color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: clamp(22px, 4vw, 36px); font-weight: 700; }
+  .result-actions { display: flex; gap: 8px; }
+  .result-actions .secondary { min-height: 34px; margin-top: 5px; padding: 0 16px; font-size: 12px; }
   .results-ready { min-height: 34px; margin-top: 5px; padding: 0 16px; font-size: 12px; }
 
   main.gameplay { width: calc(100% - 24px); height: 100dvh; min-height: 0; overflow: hidden; }
