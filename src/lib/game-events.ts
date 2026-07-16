@@ -450,6 +450,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       roundHands[event.actorUid] = roundHands[event.actorUid].filter((held) => held.suit !== card.suit || held.rank !== card.rank);
       delete forcedCards[event.actorUid];
       const zero = snowZero.get(event.actorUid) === cardLabel(card);
+      if (roundId === 'upside-down' && card.rank === 6) roundTrick.reversed = !roundTrick.reversed;
       roundTrick.plays.push({ uid: event.actorUid, card, ...(zero ? { effectiveRank: 0 } : {}) });
       snowZero.delete(event.actorUid);
       thumbelinaPlays.delete(event.actorUid);
