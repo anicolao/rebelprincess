@@ -74,7 +74,7 @@ Reveal the no-rule teaching card, then click and display all three ordinary play
 **Verifications:**
 - [x] Every player again holds twelve cards
 - [x] Alex receives the exact right incoming cards
-- [x] The table announces that passing is complete
+- [x] The table leaves the simultaneous pass phase for play or the Round card’s next action
 
 ---
 
