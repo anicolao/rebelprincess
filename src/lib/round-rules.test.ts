@@ -7,6 +7,11 @@ describe('introductory Round cards', () => {
     expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'fairies', rank: 5 } }] }, false, 'magic-beans')).toEqual([hand[0], hand[2]]);
     expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'queens', rank: 5 } }] }, false, 'magic-beans')).toEqual([hand[0], hand[2], hand[3]]);
   });
+  it('applies Odds and Evens parity after the ordinary suit obligation', () => {
+    const hand = [{ suit: 'fairies' as const, rank: 2 }, { suit: 'fairies' as const, rank: 5 }, { suit: 'pets' as const, rank: 7 }];
+    expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'fairies', rank: 9 } }] }, false, 'odds-and-evens')).toEqual([hand[1]]);
+    expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'queens', rank: 9 } }] }, false, 'odds-and-evens')).toEqual([hand[1], hand[2]]);
+  });
   it('leaves teaching rounds unchanged and makes Queens trump under Royal Decree', () => {
     const trick = { leaderUid: 'a', plays: [
       { uid: 'a', card: { suit: 'fairies' as const, rank: 10 } },
