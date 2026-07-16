@@ -18,7 +18,7 @@ async function chooseFirstSuit(player: Page) {
 test('Crystal Clear reveals a chosen suit and keeps those cards playable', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Crystal Clear', 'Each player chooses through the UI, everyone sees the original revealed cards, and the leader plays one normally.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Crystal Clear');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Crystal Clear', undefined, [], { steps, direction: 'right', count: 2 });
   await steps.step('crystal-choices', { description: 'After passing, every client is prompted to reveal a suit they actually hold', verifications: [
     { spec: 'The center explains that revealed cards remain in hand', check: async () => expect(page.getByText('Reveal every card of one suit from your hand. They remain in your hand and may be played normally.')).toBeVisible() },
     { spec: 'All three clients have suit-choice buttons', check: async () => { for (const player of game.players) await expect(player.getByRole('group', { name: 'Crystal Clear suit choice' }).getByRole('button').first()).toBeVisible(); } }
