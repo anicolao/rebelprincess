@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isMasqueradeHidden, roundCardScore, roundLegalCards, roundTrickWinner } from './round-rules';
+import { cardsPerTrick, isMasqueradeHidden, roundCardScore, roundLegalCards, roundTrickWinner } from './round-rules';
 
 describe('introductory Round cards', () => {
   it('limits Magic Beans to each otherwise-legal suit’s highest and lowest cards', () => {
@@ -52,6 +52,14 @@ describe('introductory Round cards', () => {
     ] };
     expect(roundTrickWinner(trick, 'poisoned-apple')).toBe('b');
     expect(roundTrickWinner({ ...trick, plays: [trick.plays[0], trick.plays[1], { uid: 'c', card: { suit: 'queens' as const, rank: 8 } }] }, 'poisoned-apple')).toBe('c');
+  });
+  it('sums two leading-suit cards and breaks Rings Twice ties with the highest card', () => {
+    const trick = { leaderUid: 'a', plays: [
+      { uid: 'a', card: { suit: 'fairies' as const, rank: 2 } }, { uid: 'b', card: { suit: 'fairies' as const, rank: 6 } }, { uid: 'c', card: { suit: 'pets' as const, rank: 12 } },
+      { uid: 'a', card: { suit: 'fairies' as const, rank: 8 } }, { uid: 'b', card: { suit: 'fairies' as const, rank: 4 } }, { uid: 'c', card: { suit: 'fairies' as const, rank: 9 } }
+    ] };
+    expect(cardsPerTrick('prince-rings-twice')).toBe(2);
+    expect(roundTrickWinner(trick, 'prince-rings-twice')).toBe('a');
   });
 
   it('adds one proposal per Pet while retaining the Frog’s five', () => {

@@ -14,7 +14,7 @@ import { passInstruction, resolvePasses } from './passing';
 import { breaksPrinces, trickWinner, type TrickPlay, type TrickState } from './trick-taking';
 import { mulanReplacements, snowWhiteCanZero, thumbelinaCanPlay } from './princess-powers';
 import { deterministicCards, exchangeCards, redistributeCards, returnedTrickCards } from './interactive-princess-powers';
-import { roundCardScore, roundLegalCards, roundTrickWinner } from './round-rules';
+import { cardsPerTrick, roundCardScore, roundLegalCards, roundTrickWinner } from './round-rules';
 
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
@@ -234,7 +234,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     const snowZero = new Map<string, string>();
     const thumbelinaPlays = new Map<string, string>();
     const resolveTrick = () => {
-      if (!roundTrick || roundTrick.plays.length !== playerList.length) return;
+      if (!roundTrick || roundTrick.plays.length !== playerList.length * cardsPerTrick(roundId)) return;
       const winner = roundTrickWinner(roundTrick, roundId);
       counts[winner] += roundTrick.plays.length;
       const completed = roundTrick.plays.map((play) => ({ ...play, card: { ...play.card } }));
@@ -453,7 +453,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       roundTrick.plays.push({ uid: event.actorUid, card, ...(zero ? { effectiveRank: 0 } : {}) });
       snowZero.delete(event.actorUid);
       thumbelinaPlays.delete(event.actorUid);
-      if (roundTrick.plays.length === playerList.length) {
+      if (roundTrick.plays.length === playerList.length * cardsPerTrick(roundId)) {
         const mulan = playerList.find((candidate) => candidate.princessId === 'mulan' && !exhausted.has(candidate.uid));
         const mulanPlay = mulan ? roundTrick.plays.find((play) => play.uid === mulan.uid) : undefined;
         if (mulan && mulanPlay && mulanReplacements(roundHands[mulan.uid], mulanPlay).length) {
