@@ -5,6 +5,7 @@ export interface PassInstruction { direction: PassDirection; count: number }
 
 const PASS_BY_ROUND: Record<string, PassInstruction> = {
   'once-upon-a-time': { direction: 'right', count: 3 },
+  'late-to-the-ball': { direction: 'right', count: 1 },
   invitation: { direction: 'right', count: 2 },
   'masquerade-ball': { direction: 'split', count: 2 }
 };

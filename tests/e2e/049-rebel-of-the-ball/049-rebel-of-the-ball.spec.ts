@@ -15,7 +15,7 @@ async function handCards(page: Page): Promise<Card[]> { return (await page.getBy
 test('Rebel of the Ball awards exactly minus ten after a full cooperative game', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Rebel of the Ball', 'Use only visible hand-card clicks to play all twelve tricks, deliberately collect all nine Princes and the Frog with Jo, and prove the exact −10 override.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Once Upon a Time…', 'REB00000');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Once Upon a Time…', 'REB00001');
   const initial = (await Promise.all(game.players.map(handCards))).flat();
   await steps.step('rebel-ready', { description: 'The complete shared deal visibly contains the nine in-deck Princes and the Frog required for Rebel of the Ball', verifications: [
     { spec: 'Exactly nine Princes are in the three-player deck', check: async () => expect(initial.filter((card) => card.suit === 'princes')).toHaveLength(9) },

@@ -6,7 +6,7 @@ const IDS = { phone: 'RLB00001', desktop: 'RLB00002' } as const;
 
 test('Late to the Ball reserves and plays the final card entirely through clicks', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo); steps.setMetadata('Late to the Ball', 'Each player clicks a reserved card, plays every ordinary trick, then sees and clicks that exact card in the final trick.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Late to the Ball');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Late to the Ball', undefined, [], { steps, direction: 'right', count: 1 });
   await steps.step('reserve-prompt', { description: 'After passing, every player is prompted to reserve one card for the final trick', verifications: [
     { spec: 'The Round rule is printed in the center', check: async () => expect(page.getByText('After passing, set aside one card face down. It must be played normally in the final trick.')).toBeVisible() },
     { spec: 'All clients receive the reserve prompt before anyone can lead', check: async () => { for (const player of game.players) await expect(player.getByRole('alert')).toContainText('Choose one card to reserve'); } }

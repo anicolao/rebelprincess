@@ -6,8 +6,11 @@ const card = (rank: number): Card => ({ suit: 'fairies', rank });
 const hands = { a: [card(2), card(3), card(4)], b: [card(5), card(6), card(7)], c: [card(8), card(9), card(10)] };
 
 describe('simultaneous passing', () => {
-  it('uses Once Upon a Time’s printed three-card right pass', () => {
-    expect(passInstruction('once-upon-a-time')).toEqual({ direction: 'right', count: 3 });
+  it.each([
+    ['once-upon-a-time', 'right', 3],
+    ['late-to-the-ball', 'right', 1]
+  ] as const)('uses %s’s printed pass', (roundId, direction, count) => {
+    expect(passInstruction(roundId)).toEqual({ direction, count });
   });
 
   it.each([

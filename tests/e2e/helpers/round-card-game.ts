@@ -67,7 +67,7 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
     await steps.step('opening-pass-resolved', { description: `Sam commits last; all three ${direction} transfers resolve simultaneously and play can begin`, verifications: [
       { spec: 'Every player again holds twelve cards', check: async () => { for (const hand of hands) await expect(hand.getByRole('button')).toHaveCount(12); } },
       { spec: `Alex receives the exact ${direction} incoming card${count === 1 ? '' : 's'}`, check: async () => { for (const label of expectedIncoming) await expect(hands[0].getByRole('button', { name: label, exact: true })).toBeVisible(); } },
-      { spec: 'The table announces that passing is complete', check: async () => expect(host.getByRole('alert')).toContainText('Passing complete') }
+      { spec: 'The table leaves the simultaneous pass phase for play or the Round card’s next action', check: async () => { await expect(host.locator('.pass-submit')).toHaveCount(0); await expect(hands[0].locator('.playing-card.committed')).toHaveCount(0); } }
     ] });
     return { host, jo, sam, players, contexts };
   }

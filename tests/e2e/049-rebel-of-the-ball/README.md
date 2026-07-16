@@ -12,9 +12,9 @@ Use only visible hand-card clicks to play all twelve tricks, deliberately collec
 
 ---
 
-## Jo’s first planned target trick visibly captures Pets 8
+## Jo’s first planned target trick visibly captures Princes 2, Princes 4, Princes 3
 
-![Jo’s first planned target trick visibly captures Pets 8](./screenshots/001-rebel-target-capture-desktop.png)
+![Jo’s first planned target trick visibly captures Princes 2, Princes 4, Princes 3](./screenshots/001-rebel-target-capture-desktop.png)
 
 **Verifications:**
 - [x] The open review contains every target from this trick
