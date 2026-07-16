@@ -1,13 +1,13 @@
-# Ice Princess click activation
+# Scheherazade click activation
 
-Click the Ice Princess, Jo, and one inspected card, then click the lead.
+Click Scheherazade, Jo, and the card to exchange.
 
-## Every stage is clicked and Jo receives one forced card
+## The three UI clicks exchange the displayed cards
 
-![Every stage is clicked and Jo receives one forced card](./screenshots/000-ice-princess-clicks-frozen-card-desktop.png)
+![The three UI clicks exchange the displayed cards](./screenshots/000-scheherazade-clicks-exchange-desktop.png)
 
 **Verifications:**
-- [x] Only the clicked inspected card is playable for Jo
-- [x] The Ice Princess is exhausted
+- [x] The inspected card appears in Scheherazade’s hand
+- [x] The clicked exchange card leaves her hand
 
 ---
