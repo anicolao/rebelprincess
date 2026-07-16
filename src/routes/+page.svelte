@@ -259,7 +259,7 @@
   }
 
   function handleHandCard(card: Card) {
-    if (game?.awaitingRoundAction) void submitRoundAction(card);
+    if (game?.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit') void submitRoundAction(card);
     else if (game?.passComplete) void playCard(card);
     else if (game?.passSubmissions[currentUid]) void reclaimPassCard(card);
     else togglePassCard(card);
@@ -275,6 +275,11 @@
   async function submitRoundAction(card: Card) {
     if (!game?.awaitingRoundAction || game.roundActionSubmissions[currentUid]) return;
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, game.awaitingRoundAction === 'set-aside' ? 'round/card-set-aside' : 'round/pass-submitted', { card });
+  }
+
+  async function revealCrystalSuit(suit: Card['suit']) {
+    if (game?.awaitingRoundAction !== 'reveal-suit' || game.revealedSuits[currentUid] || !game.hands?.[currentUid]?.some((card) => card.suit === suit)) return;
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'round/suit-revealed', { suit });
   }
 
   async function playCard(card: Card) {
@@ -399,6 +404,13 @@
                     <span>{PRINCESS_POWER_TEXT[player.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
                   </div>
                   <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+                  {#if game.revealedSuits[player.uid]}
+                    <div class="revealed-cards" role="group" aria-label={`${player.displayName}'s revealed ${game.revealedSuits[player.uid]} cards`}>
+                      {#each game.hands[player.uid]?.filter((card) => card.suit === game?.revealedSuits[player.uid]) ?? [] as card}
+                        <span class="review-card" aria-label={cardLabel(card)} style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}><strong>{card.rank}</strong></span>
+                      {/each}
+                    </div>
+                  {/if}
                   {#if game.passComplete}<details class="trick-counter">
                     <summary aria-label={`${player.displayName} tricks`}>{game.capturedTricks[player.uid]?.length ?? 0}</summary>
                     {#if lastCaptured(player.uid).length}
@@ -498,7 +510,7 @@
               <div class="hand" role="region" aria-label="Your hand">
                 {#each game.hands[currentUid] ?? [] as card}
                   {@const committed = !game.passComplete && game.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card))}
-                  {@const roundActionAvailable = Boolean(game.awaitingRoundAction && !game.roundActionSubmissions[currentUid])}
+                  {@const roundActionAvailable = Boolean(game.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit' && !game.roundActionSubmissions[currentUid])}
                   <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} class:committed class:playable={game.passComplete && playable(card)} class:contributable={roundActionAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))} disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}>
                     <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
                     <strong>{card.rank}</strong><small>{card.suit}</small>
@@ -512,6 +524,8 @@
                 {:else if game.passComplete}
                   {#if game.awaitingRoundAction === 'set-aside'}<p class="pass-waiting" role="alert">Late to the Ball · {game.roundActionSubmissions[currentUid] ? 'Card reserved for the final trick' : 'Choose one card to reserve for the final trick'}</p>
                   {:else if game.awaitingRoundAction === 'musical-pass'}<p class="pass-waiting" role="alert">Musical Chairs · {game.roundActionSubmissions[currentUid] ? 'Waiting for the other chairs' : 'Choose one card to pass right'}</p>
+                  {:else if game.awaitingRoundAction === 'reveal-suit'}
+                    <div class="power-controls" role="group" aria-label="Crystal Clear suit choice"><strong>{game.revealedSuits[currentUid] ? `Revealed ${game.revealedSuits[currentUid]} · waiting for everyone` : 'Choose one suit in your hand to reveal'}</strong>{#if !game.revealedSuits[currentUid]}{#each SUITS.filter((suit) => game?.hands?.[currentUid]?.some((card) => card.suit === suit)) as suit}<button type="button" on:click={() => revealCrystalSuit(suit)}>{suit}</button>{/each}{/if}</div>
                   {:else if game.pendingMulanUid}<p class="pass-waiting" role="alert">{game.pendingMulanUid === currentUid ? 'Tap Mulan to swap her played card or keep it' : `Waiting for ${playerName(game.pendingMulanUid)} to resolve Mulan`}</p>
                   {:else if game.pendingPower}<p class="pass-waiting" role="alert">Waiting for {playerName(game.pendingPower.actorUid)} to resolve {princessName(game.pendingPower.powerId)}</p>
                   {:else}<p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${playerName(game.currentTurnUid)}`} · Trick {game.completedTricks + 1}</p>{/if}
