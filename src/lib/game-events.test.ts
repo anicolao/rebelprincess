@@ -60,7 +60,8 @@ describe('append-only game events', () => {
       roundActionSubmissions: {},
       roundCardSubmissions: {},
       revealedSuits: {},
-      retainedCards: { host: [], guest: [] }
+      retainedCards: { host: [], guest: [] },
+      haggleWinnerUid: null
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
