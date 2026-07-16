@@ -61,7 +61,8 @@ describe('append-only game events', () => {
       roundCardSubmissions: {},
       revealedSuits: {},
       retainedCards: { host: [], guest: [] },
-      haggleWinnerUid: null
+      haggleWinnerUid: null,
+      blindTransferComplete: false
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
