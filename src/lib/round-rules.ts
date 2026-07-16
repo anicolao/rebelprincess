@@ -12,6 +12,16 @@ export function roundLegalCards(hand: Card[], trick: TrickState, princesBroken: 
 }
 
 export function roundTrickWinner(trick: TrickState, roundId: string): string {
+  if (roundId === 'poisoned-apple') {
+    const ledSuit = trick.plays[0]?.card.suit;
+    const voids = trick.plays.filter((play) => play.card.suit !== ledSuit);
+    if (!voids.length) return trickWinner(trick);
+    return voids.reduce((winner, play) => {
+      const rank = play.effectiveRank ?? play.card.rank;
+      const winnerRank = winner.effectiveRank ?? winner.card.rank;
+      return trick.reversed ? rank < winnerRank ? play : winner : rank > winnerRank ? play : winner;
+    }).uid;
+  }
   if (roundId === 'sisterhood') {
     const lead = trick.plays[0];
     if (!lead) return trick.leaderUid;
