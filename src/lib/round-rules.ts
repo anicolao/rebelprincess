@@ -12,6 +12,20 @@ export function roundLegalCards(hand: Card[], trick: TrickState, princesBroken: 
 }
 
 export function roundTrickWinner(trick: TrickState, roundId: string): string {
+  if (roundId === 'sisterhood') {
+    const lead = trick.plays[0];
+    if (!lead) return trick.leaderUid;
+    const suited = trick.plays.filter((play) => play.card.suit === lead.card.suit);
+    const candidates = suited.length > 1 ? suited : trick.plays;
+    const leadRank = lead.effectiveRank ?? lead.card.rank;
+    return candidates.reduce((winner, play) => {
+      const rank = play.effectiveRank ?? play.card.rank;
+      const winnerRank = winner.effectiveRank ?? winner.card.rank;
+      const distance = Math.abs(rank - leadRank);
+      const winnerDistance = Math.abs(winnerRank - leadRank);
+      return distance > winnerDistance || (distance === winnerDistance && rank > winnerRank) ? play : winner;
+    }).uid;
+  }
   if (roundId === 'always-the-bridesmaid') {
     const ledSuit = trick.plays[0]?.card.suit;
     const followers = trick.plays.filter((play) => play.card.suit === ledSuit);
