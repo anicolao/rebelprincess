@@ -1,13 +1,13 @@
-# Snow White click activation
+# Cinderella click activation
 
-A player clicks Snow White and then clicks a legal low card; no keyboard or direct backend action is used.
+Click Cinderella, then click every card in the reversed trick.
 
-## Clicking the Princess arms her and clicking the card applies zero
+## The clicked card visibly activates and reverses a complete clicked trick
 
-![Clicking the Princess arms her and clicking the card applies zero](./screenshots/000-snow-white-clicks-zero-desktop.png)
+![The clicked card visibly activates and reverses a complete clicked trick](./screenshots/000-cinderella-clicks-reversal-desktop.png)
 
 **Verifications:**
-- [x] The played card visibly counts as zero
-- [x] Observers see Snow White exhausted
+- [x] All clients see Cinderella exhausted
+- [x] The reversed trick is awarded
 
 ---
