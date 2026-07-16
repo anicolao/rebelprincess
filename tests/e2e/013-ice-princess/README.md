@@ -41,3 +41,13 @@ Click the Ice Princess, Jo, and one inspected card, then click the lead.
 - [x] The Ice Princess is exhausted
 
 ---
+
+## Jo clicks the only available card, Fairies 2, and it appears in the trick
+
+![Jo clicks the only available card, Fairies 2, and it appears in the trick](./screenshots/004-ice-princess-forced-card-played-desktop.png)
+
+**Verifications:**
+- [x] Jo plays the exact card Alex froze
+- [x] Every player sees Jo’s frozen card in the center
+
+---

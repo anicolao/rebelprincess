@@ -25,8 +25,12 @@ test('Sleeping Beauty redistributes cards entirely through clicks', async ({ pag
     { spec: 'Redistribute remains disabled until ordering is complete', check: async () => expect(group.getByRole('button', { name: 'Redistribute' })).toBeDisabled() }
   ] });
   for (const label of contributed) await group.getByRole('button', { name: new RegExp(`${label}$`) }).click();
+  await steps.step('sleeping-beauty-order-complete', { description: 'The three clicks visibly number which card Alex keeps and which cards Jo and Sam receive', verifications: [
+    { spec: 'All three contributed cards have an assignment number', check: async () => { for (const [index, label] of contributed.entries()) await expect(group.getByRole('button', { name: `${index + 1} ${label}` })).toBeVisible(); } },
+    { spec: 'Redistribute becomes enabled only after the order is complete', check: async () => expect(group.getByRole('button', { name: 'Redistribute' })).toBeEnabled() }
+  ] });
   await group.getByRole('button', { name: 'Redistribute' }).click();
-  await steps.step('sleeping-beauty-clicks-redistribution', { description: 'Every participant and final assignment uses visible clicks', verifications: [
+  await steps.step('sleeping-beauty-clicks-redistribution', { description: `The final hands show Alex kept ${contributed[0]}, Jo received ${contributed[1]}, and Sam received ${contributed[2]}`, verifications: [
     { spec: 'Sleeping Beauty keeps the first clicked contribution', check: async () => expect(page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: contributed[0], exact: true })).toBeVisible() },
     { spec: 'Jo and Sam receive the next clicked cards', check: async () => { await expect(game.jo.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: contributed[1], exact: true })).toBeVisible(); await expect(game.sam.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: contributed[2], exact: true })).toBeVisible(); } }
   ] });

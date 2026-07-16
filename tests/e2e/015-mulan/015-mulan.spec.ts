@@ -27,8 +27,13 @@ test('Mulan swaps her played card entirely through clicks', async ({ page, brows
   ] });
   const replacement = page.getByRole('group', { name: 'Mulan power' }).getByRole('button', { name: /^Swap for / }).first();
   const replacementLabel = (await replacement.textContent())?.replace('Swap for ', '') ?? ''; await replacement.click();
-  await steps.step('mulan-clicks-swap', { description: 'Clicking Mulan and a replacement visibly changes the full trick', verifications: [
-    { spec: 'The replacement graphic is in the resolved trick', check: async () => expect(page.getByLabel(`Alex played ${replacementLabel}`)).toBeVisible() },
+  const names = ['Alex', 'Jo', 'Sam'];
+  await expect.poll(async () => Promise.all(names.map(async (name) => Number(await page.getByLabel(`${name} tricks`).textContent())))).toContain(1);
+  const winnerName = names[(await Promise.all(names.map(async (name) => Number(await page.getByLabel(`${name} tricks`).textContent())))).findIndex((count) => count === 1)];
+  await page.getByLabel(`${winnerName} tricks`).click();
+  await steps.step('mulan-clicks-swap', { description: `The awarded trick opens for review: Alex’s ${replacementLabel} replaced ${lead}`, verifications: [
+    { spec: 'The open trick review contains the replacement graphic', check: async () => expect(page.getByLabel(`${winnerName} last trick`).getByLabel(replacementLabel, { exact: true })).toBeVisible() },
+    { spec: 'The original card is absent from the awarded trick', check: async () => expect(page.getByLabel(`${winnerName} last trick`).getByLabel(lead, { exact: true })).toHaveCount(0) },
     { spec: 'The original card returns to Mulan’s hand', check: async () => expect(page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: lead, exact: true })).toBeVisible() }
   ] });
   steps.generateDocs(); await closePrincessGame(game);

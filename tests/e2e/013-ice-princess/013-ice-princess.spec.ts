@@ -29,5 +29,10 @@ test('The Ice Princess freezes a card entirely through clicks', async ({ page, b
     { spec: 'Only the clicked inspected card is playable for Jo', check: async () => { await expect(game.jo.locator('.playing-card.playable:not(:disabled)')).toHaveCount(1); expect(await game.jo.locator('.playing-card.playable:not(:disabled)').getAttribute('aria-label')).toBe(label); } },
     { spec: 'The Ice Princess is exhausted', check: async () => expect(page.locator('.local-princess.exhausted')).toBeVisible() }
   ] });
+  const forcedPlay = await playOneClick(game.players);
+  await steps.step('ice-princess-forced-card-played', { description: `Jo clicks the only available card, ${forcedPlay}, and it appears in the trick`, verifications: [
+    { spec: 'Jo plays the exact card Alex froze', check: async () => expect(forcedPlay).toBe(label) },
+    { spec: 'Every player sees Jo’s frozen card in the center', check: async () => { for (const player of game.players) await expect(player.getByLabel(`Jo played ${label}`)).toBeVisible(); } }
+  ] });
   steps.generateDocs(); await closePrincessGame(game);
 });
