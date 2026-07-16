@@ -12,6 +12,17 @@ export function roundLegalCards(hand: Card[], trick: TrickState, princesBroken: 
 }
 
 export function roundTrickWinner(trick: TrickState, roundId: string): string {
+  if (roundId === 'always-the-bridesmaid') {
+    const ledSuit = trick.plays[0]?.card.suit;
+    const followers = trick.plays.filter((play) => play.card.suit === ledSuit);
+    if (followers.length === 1) return followers[0].uid;
+    const ordered = [...followers].sort((left, right) => {
+      const leftRank = left.effectiveRank ?? left.card.rank;
+      const rightRank = right.effectiveRank ?? right.card.rank;
+      return trick.reversed ? leftRank - rightRank : rightRank - leftRank;
+    });
+    return ordered[1].uid;
+  }
   if (roundId !== 'royal-decree') return trickWinner(trick);
   const queens = trick.plays.filter((play) => play.card.suit === 'queens');
   if (!queens.length) return trickWinner(trick);

@@ -19,6 +19,16 @@ describe('introductory Round cards', () => {
     expect(roundTrickWinner({ ...trick, plays: [...trick.plays, { uid: 'd', card: { suit: 'queens', rank: 8 } }], reversed: true }, 'royal-decree')).toBe('b');
   });
 
+  it('awards Always the Bridesmaid to the second-highest led-suit card', () => {
+    const trick = { leaderUid: 'a', plays: [
+      { uid: 'a', card: { suit: 'fairies' as const, rank: 10 } },
+      { uid: 'b', card: { suit: 'fairies' as const, rank: 4 } },
+      { uid: 'c', card: { suit: 'fairies' as const, rank: 8 } }
+    ] };
+    expect(roundTrickWinner(trick, 'always-the-bridesmaid')).toBe('c');
+    expect(roundTrickWinner({ ...trick, plays: [trick.plays[0], { uid: 'b', card: { suit: 'pets' as const, rank: 12 } }, { uid: 'c', card: { suit: 'queens' as const, rank: 11 } }] }, 'always-the-bridesmaid')).toBe('a');
+  });
+
   it('adds one proposal per Pet while retaining the Frog’s five', () => {
     expect(roundCardScore([{ suit: 'pets', rank: 2 }, { suit: 'pets', rank: 8 }, { suit: 'princes', rank: 4 }], 'pets-revenge'))
       .toEqual({ princes: 1, frog: 5, roundRule: 2, total: 8 });
