@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isMasqueradeHidden, roundCardScore, roundTrickWinner } from './round-rules';
+import { isMasqueradeHidden, roundCardScore, roundLegalCards, roundTrickWinner } from './round-rules';
 
 describe('introductory Round cards', () => {
+  it('limits Magic Beans to each otherwise-legal suit’s highest and lowest cards', () => {
+    const hand = [{ suit: 'fairies' as const, rank: 2 }, { suit: 'fairies' as const, rank: 6 }, { suit: 'fairies' as const, rank: 9 }, { suit: 'pets' as const, rank: 4 }];
+    expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'fairies', rank: 5 } }] }, false, 'magic-beans')).toEqual([hand[0], hand[2]]);
+    expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'queens', rank: 5 } }] }, false, 'magic-beans')).toEqual([hand[0], hand[2], hand[3]]);
+  });
   it('leaves teaching rounds unchanged and makes Queens trump under Royal Decree', () => {
     const trick = { leaderUid: 'a', plays: [
       { uid: 'a', card: { suit: 'fairies' as const, rank: 10 } },

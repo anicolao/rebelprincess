@@ -19,6 +19,8 @@ without imitating the original illustrator or any other named artist.
   2 × 1 extension grid matching the original Princess portraits.
 - `generated/round-rule-vignettes.png`: twenty-one symbolic scenes in a 7 × 3
   grid. Rule names and text should be rendered by the client.
+- `generated/round-rule-vignettes-deluxe.png`: six additional Deluxe symbolic
+  scenes in a 3 × 2 extension grid.
 - `manifest.json`: stable row-major mapping from grid cells to game IDs.
 
 Keep typography out of the bitmap assets. HTML-rendered names, values, and rule
@@ -46,3 +48,9 @@ a fixed 2 × 1 grid: Rapunzel with a practical climbing braid and tower-and-ivy
 motif, and Thumbelina among oversized clover and bellflowers. The prompt kept
 the same gouache, paper grain, ornamental border, crop-safe framing, and
 text-free constraints as the original atlas.
+
+The Deluxe Round extension was generated with the original Round atlas as its
+style and crop reference. Its row-major cells are Magic Beans, Three Times a
+Lady, Arranged Marriage, Always the Bridesmaid, Sisterhood, and Late for a Very
+Important Date. It uses original symbolic compositions and contains no copied
+commercial artwork or readable text.

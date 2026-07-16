@@ -62,6 +62,18 @@
         { "index": 19, "id": "pass-the-bouquet", "name": "Pass the Bouquet!" },
         { "index": 20, "id": "haggle-with-the-hag", "name": "Haggle with the Hag" }
       ]
+    },
+    "deluxeRoundRules": {
+      "file": "generated/round-rule-vignettes-deluxe.png",
+      "grid": { "columns": 3, "rows": 2 },
+      "cells": [
+        { "index": 0, "id": "magic-beans", "name": "Magic Beans" },
+        { "index": 1, "id": "three-times-a-lady", "name": "Three Times a Lady" },
+        { "index": 2, "id": "arranged-marriage", "name": "Arranged Marriage" },
+        { "index": 3, "id": "always-the-bridesmaid", "name": "Always the Bridesmaid" },
+        { "index": 4, "id": "sisterhood", "name": "Sisterhood" },
+        { "index": 5, "id": "late-for-a-very-important-date", "name": "Late for a Very Important Date" }
+      ]
     }
   }
 }
