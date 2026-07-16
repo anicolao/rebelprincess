@@ -17,6 +17,17 @@ export function roundLegalCards(hand: Card[], trick: TrickState, princesBroken: 
 }
 
 export function roundTrickWinner(trick: TrickState, roundId: string): string {
+  if (roundId === 'prince-rings-twice') {
+    const ledSuit = trick.plays[0]?.card.suit;
+    const totals = new Map<string, { total: number; high: number }>();
+    for (const play of trick.plays) {
+      const current = totals.get(play.uid) ?? { total: 0, high: 0 };
+      const rank = play.effectiveRank ?? play.card.rank;
+      if (play.card.suit === ledSuit) { current.total += rank; current.high = Math.max(current.high, rank); }
+      totals.set(play.uid, current);
+    }
+    return [...totals].reduce((winner, entry) => entry[1].total > winner[1].total || (entry[1].total === winner[1].total && entry[1].high > winner[1].high) ? entry : winner)[0];
+  }
   if (roundId === 'poisoned-apple') {
     const ledSuit = trick.plays[0]?.card.suit;
     const voids = trick.plays.filter((play) => play.card.suit !== ledSuit);
@@ -61,6 +72,8 @@ export function roundTrickWinner(trick: TrickState, roundId: string): string {
     return trick.reversed ? rank < winnerRank ? play : winner : rank > winnerRank ? play : winner;
   }).uid;
 }
+
+export function cardsPerTrick(roundId: string): number { return roundId === 'prince-rings-twice' ? 2 : 1; }
 
 export function roundCardScore(cards: Card[], roundId: string): { princes: number; frog: number; roundRule: number; total: number } {
   const princes = cards.filter((card) => card.suit === 'princes').length;

@@ -471,7 +471,7 @@
             {#if game.passComplete}
               {@const collecting = !game.trick?.plays.length && Boolean(game.lastCompletedTrick)}
               {@const visiblePlays = collecting ? game.lastCompletedTrick?.plays ?? [] : game.trick?.plays ?? []}
-              <section class="live-trick" class:collecting aria-label={collecting ? 'Completed trick' : 'Current trick'}>
+              <section class="live-trick" class:collecting class:double-trick={activeRoundId() === 'prince-rings-twice'} aria-label={collecting ? 'Completed trick' : 'Current trick'}>
                 {#each visiblePlays as play}
                   {@const masqueradeHidden = !collecting && play.uid !== currentUid && isMasqueradeHidden(activeRoundId(), game.trick!, play.uid, game.players.length)}
                   <article class="trick-play" style={collectDestination(game.lastCompletedTrick?.winnerUid ?? play.uid)} aria-label={`${game.players.find((player) => player.uid === play.uid)?.displayName} played ${masqueradeHidden ? 'a face-down card' : cardLabel(play.card)}`}>
@@ -941,6 +941,7 @@
   .trick-card small { position: absolute; inset: auto 3px 3px; color: #fff4d0; font-size: 7px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
   .trick-card em { position: absolute; inset: auto 0 14px; color: #211329; background: #ffc75f; font-size: 8px; font-style: normal; font-weight: 700; text-align: center; }
   .live-trick.collecting .trick-play { animation: collect-trick 3s ease-in-out forwards; }
+  .live-trick.double-trick.collecting .trick-play { animation: none; }
   @keyframes play-to-table { from { opacity: .3; transform: translate(var(--play-x), var(--play-y)) scale(1.15); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
   @keyframes collect-trick {
     0%, 62% { opacity: 1; transform: translate(0, 0) scale(1); }
@@ -1061,6 +1062,8 @@
   }
 
   @media (max-width: 760px) {
+    .live-trick.double-trick { width: 96%; gap: 2px; font-size: 8px; }
+    .live-trick.double-trick .trick-card { width: 36px; }
     main {
       width: min(100% - 28px, 520px);
     }
