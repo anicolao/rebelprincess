@@ -3,6 +3,13 @@ import { trickWinner, type TrickState } from './trick-taking';
 import { legalCardsWithPeaPower } from './princess-powers';
 
 export function roundLegalCards(hand: Card[], trick: TrickState, princesBroken: boolean, roundId: string, peaActive = false): Card[] {
+  if (roundId === 'pass-the-bouquet' && trick.plays.length) {
+    const seen = new Set<Card['suit']>(); let current = trick.plays[0].card.suit;
+    for (const play of trick.plays) { if (!seen.has(play.card.suit)) current = play.card.suit; seen.add(play.card.suit); }
+    const following = hand.filter((card) => card.suit === current); const legal = following.length ? following : hand;
+    const high = peaActive ? legal.filter((card) => card.rank > 5) : [];
+    return high.length ? high : legal;
+  }
   const legal = legalCardsWithPeaPower(hand, trick, princesBroken, peaActive);
   if (roundId === 'midnight-makeover' && trick.plays.length) {
     const ledSuit = trick.plays[0].card.suit;
@@ -22,6 +29,12 @@ export function roundLegalCards(hand: Card[], trick: TrickState, princesBroken: 
 }
 
 export function roundTrickWinner(trick: TrickState, roundId: string): string {
+  if (roundId === 'pass-the-bouquet') {
+    const seen = new Set<Card['suit']>(); let current = trick.plays[0]?.card.suit;
+    for (const play of trick.plays) { if (!seen.has(play.card.suit)) current = play.card.suit; seen.add(play.card.suit); }
+    const eligible = trick.plays.filter((play) => play.card.suit === current);
+    return eligible.reduce((winner, play) => (play.effectiveRank ?? play.card.rank) > (winner.effectiveRank ?? winner.card.rank) ? play : winner).uid;
+  }
   if (roundId === 'midnight-makeover') {
     const ledSuit = trick.plays[0]?.card.suit;
     const eligible = trick.plays.filter((play) => play.card.suit === ledSuit || play.card.suit === 'fairies');

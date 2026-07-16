@@ -16,6 +16,12 @@ describe('introductory Round cards', () => {
     const hand = [{ suit: 'queens' as const, rank: 2 }, { suit: 'fairies' as const, rank: 8 }, { suit: 'pets' as const, rank: 12 }];
     expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'queens', rank: 5 } }] }, false, 'midnight-makeover')).toEqual([hand[0], hand[1]]);
   });
+  it('changes the Pass the Bouquet suit when a new suit appears', () => {
+    const hand = [{ suit: 'queens' as const, rank: 2 }, { suit: 'pets' as const, rank: 8 }];
+    const trick = { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'fairies' as const, rank: 9 } }, { uid: 'b', card: { suit: 'queens' as const, rank: 4 } }] };
+    expect(roundLegalCards(hand, trick, false, 'pass-the-bouquet')).toEqual([hand[0]]);
+    expect(roundTrickWinner({ ...trick, plays: [...trick.plays, { uid: 'c', card: { suit: 'queens' as const, rank: 7 } }] }, 'pass-the-bouquet')).toBe('c');
+  });
   it('leaves teaching rounds unchanged and makes Queens trump under Royal Decree', () => {
     const trick = { leaderUid: 'a', plays: [
       { uid: 'a', card: { suit: 'fairies' as const, rank: 10 } },
