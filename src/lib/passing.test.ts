@@ -12,7 +12,8 @@ describe('simultaneous passing', () => {
     ['magic-beans', 'left', 3],
     ['three-times-a-lady', 'right', 3],
     ['arranged-marriage', 'split', 2],
-    ['royal-decree', 'right', 3]
+    ['royal-decree', 'right', 3],
+    ['always-the-bridesmaid', 'right', 1]
   ] as const)('uses %s’s printed pass', (roundId, direction, count) => {
     expect(passInstruction(roundId)).toEqual({ direction, count });
   });
