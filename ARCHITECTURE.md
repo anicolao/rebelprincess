@@ -89,6 +89,13 @@ authenticated `power/contributed` events from every player before her ordered
 redistribution resolves. Ice Princess forced cards remain projected until their
 owner plays them. This adds no mutable side channel or private backend state.
 
+Increment 10 applies stateless Round rules to rendering, trick winners, or
+scoring from the active stable Round ID. The stateful rules add two attributed
+events: `round/card-set-aside` records each Late to the Ball reserve, and
+`round/pass-submitted` records each Musical Chairs choice. Both phases suspend
+ordinary turns until every player contributes, after which replay releases or
+exchanges the cards deterministically in the same readable stream.
+
 Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt` (server
 timestamp), `schemaVersion`, and `reducerVersion`. Event documents are immutable.
 Increment 2 uses `{actorUid}-{zero-padded clientSeq}` as the stable event ID and

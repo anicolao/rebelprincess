@@ -98,6 +98,24 @@ The interactive powers follow these Deluxe rules:
   must be their next play even when it violates follow-suit or another ordinary
   play restriction; choosing a Prince breaks Princes.
 
+## Introductory Round cards
+
+- **Once Upon a Time…** and **Invitation** are teaching rounds with no rule
+  beyond their printed pass instructions.
+- **Masquerade Ball:** only the leader’s card is face up during a trick. Every
+  follower plays face down, then all cards are revealed together to resolve the
+  winner. Players still make legal choices from their own visible hands.
+- **Royal Decree:** any Queen defeats every non-Queen; the highest Queen wins
+  when several are played.
+- **Musical Chairs:** after each non-final trick, every player simultaneously
+  passes one card face down to the player on their right. Princess powers that
+  occur before a trick wait until this exchange has resolved.
+- **Pets’ Revenge:** every captured Pet adds one proposal. The Frog therefore
+  scores six in total: its ordinary five plus the Round-card proposal.
+- **Late to the Ball:** after the opening pass and before the first trick, every
+  player sets aside one card face down. Those cards return to their owners as
+  the only cards in the final trick and are played under the normal rules.
+
 ## Scoring and winning
 
 At the end of each round:

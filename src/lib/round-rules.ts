@@ -1,0 +1,24 @@
+import type { Card } from './setup';
+import { trickWinner, type TrickState } from './trick-taking';
+
+export function roundTrickWinner(trick: TrickState, roundId: string): string {
+  if (roundId !== 'royal-decree') return trickWinner(trick);
+  const queens = trick.plays.filter((play) => play.card.suit === 'queens');
+  if (!queens.length) return trickWinner(trick);
+  return queens.reduce((winner, play) => {
+    const rank = play.effectiveRank ?? play.card.rank;
+    const winnerRank = winner.effectiveRank ?? winner.card.rank;
+    return trick.reversed ? rank < winnerRank ? play : winner : rank > winnerRank ? play : winner;
+  }).uid;
+}
+
+export function roundCardScore(cards: Card[], roundId: string): { princes: number; frog: number; roundRule: number; total: number } {
+  const princes = cards.filter((card) => card.suit === 'princes').length;
+  const frog = cards.some((card) => card.suit === 'pets' && card.rank === 8) ? 5 : 0;
+  const roundRule = roundId === 'pets-revenge' ? cards.filter((card) => card.suit === 'pets').length : 0;
+  return { princes, frog, roundRule, total: princes + frog + roundRule };
+}
+
+export function isMasqueradeHidden(roundId: string, trick: TrickState, uid: string, playerCount: number): boolean {
+  return roundId === 'masquerade-ball' && trick.plays.length > 0 && trick.plays.length < playerCount && uid !== trick.leaderUid;
+}

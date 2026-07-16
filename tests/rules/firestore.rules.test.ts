@@ -92,6 +92,9 @@ describe('append-only game event rules', () => {
     await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-interactive-power'), {
       ...validEvent(), type: 'power/activated', payload: { gameId: 'MOON42', powerId: 'little-mermaid', suit: 'queens', cards: [{ suit: 'pets', rank: 3 }] }
     }));
+    await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-round-action'), {
+      ...validEvent(), type: 'round/card-set-aside', payload: { gameId: 'MOON42', card: { suit: 'pets', rank: 3 } }
+    }));
   });
 
   it('never permits mutation or deletion of an existing event', async () => {

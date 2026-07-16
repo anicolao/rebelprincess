@@ -43,7 +43,7 @@ describe('append-only game events', () => {
       completedTricks: 0,
       roundIndex: 0,
       roundComplete: false,
-      roundScores: { host: { princes: 0, frog: 0, total: 0 }, guest: { princes: 0, frog: 0, total: 0 } },
+      roundScores: { host: { princes: 0, frog: 0, roundRule: 0, total: 0 }, guest: { princes: 0, frog: 0, roundRule: 0, total: 0 } },
       totalScores: { host: 0, guest: 0 },
       nextLeaderUid: 'host',
       princessOptions: princessOptionsForPlayers(['host', 'guest'], 'MOON42'),
@@ -55,7 +55,9 @@ describe('append-only game events', () => {
       powerIdsThisTrick: [],
       pendingMulanUid: null,
       pendingPower: null,
-      forcedCards: {}
+      forcedCards: {},
+      awaitingRoundAction: null,
+      roundActionSubmissions: {}
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
@@ -110,6 +112,13 @@ describe('append-only game events', () => {
     })).toBe(true);
   });
 
+  it('accepts attributed Round-action card envelopes', () => {
+    for (const type of ['round/card-set-aside', 'round/pass-submitted'] as const) expect(isGameEvent({
+      type, payload: { gameId: 'MOON42', card: { suit: 'queens', rank: 4 } }, actorUid: 'host',
+      clientSeq: 9, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    })).toBe(true);
+  });
+
   it('scores Princes and the Frog and carries the last winner into the next round', () => {
     let sequence = 0;
     const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
@@ -137,7 +146,7 @@ describe('append-only game events', () => {
     ];
     const scored = deriveGame(events);
     expect(scored.roundComplete).toBe(true);
-    expect(scored.roundScores.a).toEqual({ princes: 1, frog: 5, total: 6 });
+    expect(scored.roundScores.a).toEqual({ princes: 1, frog: 5, roundRule: 0, total: 6 });
     expect(scored.totalScores.a).toBe(6);
     expect(scored.nextLeaderUid).toBe('b');
 
