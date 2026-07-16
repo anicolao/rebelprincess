@@ -6,7 +6,7 @@ const IDS = { phone: 'RMB00001', desktop: 'RMB00002' } as const;
 
 test('Magic Beans permits only suit extremes entirely through clicks', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo); steps.setMetadata('Magic Beans', 'Reveal the rule, compare enabled extremes with a disabled middle card, then click a complete constrained trick and review it.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Magic Beans');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Magic Beans', undefined, [], { steps, direction: 'left', count: 3 });
   const hand = page.getByRole('region', { name: 'Your hand' });
   const labels = await hand.getByRole('button').evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label') ?? ''));
   const grouped = Object.groupBy(labels, (label) => label.split(' ')[0]);
