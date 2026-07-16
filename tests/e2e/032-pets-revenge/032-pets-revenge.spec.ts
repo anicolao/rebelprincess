@@ -7,7 +7,7 @@ const IDS = { phone: 'PET00032', desktop: 'PET10032' } as const;
 test('Pets’ Revenge scores every Pet after a complete UI-played round', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Pets’ Revenge', 'Count the nine Pets in the shared deal, play all twelve tricks through card clicks, and reconcile every Pet in the scoring panel.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Pets’ Revenge');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Pets’ Revenge', undefined, [], { steps, direction: 'split', count: 2 });
   const petLocators = game.players.map((player) => player.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: /^Pets / }));
   await steps.step('pets-ready', { description: 'The round begins with all nine three-player Pets present and a visible one-proposal rule', verifications: [
     { spec: 'The exact Pet scoring rule is readable', check: async () => expect(page.getByText('At the end of the round, every Pet scores one proposal, including the Frog.')).toBeVisible() },
