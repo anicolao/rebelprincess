@@ -1,10 +1,14 @@
 import { cardLabel, type Card } from './setup';
 
 export interface TrickPlay { uid: string; card: Card; effectiveRank?: number }
-export interface TrickState { leaderUid: string; plays: TrickPlay[]; reversed?: boolean }
+export interface TrickState { leaderUid: string; plays: TrickPlay[]; reversed?: boolean; requiredSuit?: Card['suit'] }
 
 export function legalCards(hand: Card[], trick: TrickState, princesBroken: boolean): Card[] {
   if (trick.plays.length === 0) {
+    if (trick.requiredSuit && (trick.requiredSuit !== 'princes' || princesBroken || hand.every((card) => card.suit === 'princes'))) {
+      const required = hand.filter((card) => card.suit === trick.requiredSuit);
+      if (required.length) return required;
+    }
     const nonPrinces = hand.filter((card) => card.suit !== 'princes');
     return princesBroken || nonPrinces.length === 0 ? hand : nonPrinces;
   }

@@ -53,7 +53,9 @@ describe('append-only game events', () => {
       winnerUids: [],
       exhaustedPrincessUids: [],
       powerIdsThisTrick: [],
-      pendingMulanUid: null
+      pendingMulanUid: null,
+      pendingPower: null,
+      forcedCards: {}
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
@@ -97,6 +99,10 @@ describe('append-only game events', () => {
     expect(isGameEvent({
       type: 'power/activated', payload: { gameId: 'MOON42', powerId: 'pocahontas', targetUid: 'guest' }, actorUid: 'host',
       clientSeq: 6, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    })).toBe(true);
+    expect(isGameEvent({
+      type: 'power/contributed', payload: { gameId: 'MOON42', powerId: 'sleeping-beauty', card: { suit: 'fairies', rank: 2 } }, actorUid: 'guest',
+      clientSeq: 8, createdAt: null, schemaVersion: 1, reducerVersion: 1
     })).toBe(true);
     expect(isGameEvent({
       type: 'power/declined', payload: { gameId: 'MOON42', powerId: 'mulan' }, actorUid: 'host',

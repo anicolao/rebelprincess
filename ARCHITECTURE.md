@@ -82,6 +82,13 @@ Mulan holds a filled trick at an observable decision point until she swaps a
 valid same-suit card or declines. Princess precedence is applied after base legality
 is established and before winner resolution.
 
+Increment 9 keeps interactive Princess choices in that same readable stream. A
+multi-step power projects one public `pendingPower`; trustworthy clients render
+its card data only for the player who should review it. Sleeping Beauty uses
+authenticated `power/contributed` events from every player before her ordered
+redistribution resolves. Ice Princess forced cards remain projected until their
+owner plays them. This adds no mutable side channel or private backend state.
+
 Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt` (server
 timestamp), `schemaVersion`, and `reducerVersion`. Event documents are immutable.
 Increment 2 uses `{actorUid}-{zero-padded clientSeq}` as the stable event ID and

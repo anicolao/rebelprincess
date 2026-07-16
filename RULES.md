@@ -79,6 +79,25 @@ The first implemented direct powers follow the Deluxe rules:
   every player to play a card above 5 whenever one is available among that
   player's otherwise legal choices. Following suit still takes precedence.
 
+The interactive powers follow these Deluxe rules:
+
+- **The Little Mermaid — Hypnotic Song:** before a trick, choose a suit the
+  leader must play if they hold it. An unopened Prince suit cannot be compelled
+  unless the leader holds only Princes.
+- **Sleeping Beauty — The Spindle of Fate:** before a trick, every player
+  contributes one visible card. Sleeping Beauty keeps one and assigns each
+  remaining card to a different other player.
+- **Alice — Cheshire’s Challenge:** after winning a trick that contains no
+  Frog, shuffle that trick and deal one card back into every player’s hand.
+  Any Princes in that trick remain considered broken.
+- **Scheherazade — Barter in the Bazaar:** before a trick, inspect one random
+  card from another player. Either exchange it for a card from her own hand or
+  return it.
+- **The Ice Princess — Freezing:** before a trick, inspect two random cards from
+  any player, return one, and place the other in front of its owner. That card
+  must be their next play even when it violates follow-suit or another ordinary
+  play restriction; choosing a Prince breaks Princes.
+
 ## Scoring and winning
 
 At the end of each round:

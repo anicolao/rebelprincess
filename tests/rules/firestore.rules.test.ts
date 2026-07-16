@@ -86,6 +86,12 @@ describe('append-only game event rules', () => {
     await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-decline'), {
       ...validEvent(), type: 'power/declined', payload: { gameId: 'MOON42', powerId: 'mulan' }
     }));
+    await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-contribution'), {
+      ...validEvent(), type: 'power/contributed', payload: { gameId: 'MOON42', powerId: 'sleeping-beauty', card: { suit: 'fairies', rank: 2 } }
+    }));
+    await assertSucceeds(setDoc(doc(host, 'games/MOON42/events/host-interactive-power'), {
+      ...validEvent(), type: 'power/activated', payload: { gameId: 'MOON42', powerId: 'little-mermaid', suit: 'queens', cards: [{ suit: 'pets', rank: 3 }] }
+    }));
   });
 
   it('never permits mutation or deletion of an existing event', async () => {
