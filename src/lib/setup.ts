@@ -12,22 +12,31 @@ export const PRINCESSES = [
 ] as const;
 
 export const ROUND_RULES = [
-  ['once-upon-a-time', 'Once Upon a Time…'], ['invitation', 'Invitation'],
-  ['masquerade-ball', 'Masquerade Ball'], ['royal-decree', 'Royal Decree'],
-  ['musical-chairs', 'Musical Chairs'], ['pets-revenge', 'Pets’ Revenge'],
-  ['late-to-the-ball', 'Late to the Ball'], ['poisoned-apple', 'Poisoned Apple'],
-  ['crystal-clear', 'Crystal Clear'], ['upside-down', 'Upside Down'],
-  ['dancing-queens', 'Dancing Queens'], ['prince-rings-twice', 'The Prince Always Rings Twice'],
-  ['wedding-gift', 'Wedding Gift'], ['after-party', 'After-party'],
-  ['bathroom-break', 'Bathroom Break'], ['single-fairy', 'Single Fairy'],
-  ['midnight-makeover', 'Midnight Makeover'], ['blind-mans-bluff', 'Blind Man’s Bluff'],
-  ['odds-and-evens', 'Odds and Evens'], ['pass-the-bouquet', 'Pass the Bouquet!'],
-  ['haggle-with-the-hag', 'Haggle with the Hag']
+  ['once-upon-a-time', 'Once Upon a Time…'], ['late-to-the-ball', 'Late to the Ball'],
+  ['magic-beans', 'Magic Beans'], ['three-times-a-lady', 'Three Times a Lady'],
+  ['arranged-marriage', 'Arranged Marriage'], ['royal-decree', 'Royal Decree'],
+  ['always-the-bridesmaid', 'Always the Bridesmaid'], ['crystal-clear', 'Crystal Clear'],
+  ['masquerade-ball', 'Masquerade Ball'], ['pets-revenge', 'Pets’ Revenge'],
+  ['musical-chairs', 'Musical Chairs'], ['sisterhood', 'Sisterhood'],
+  ['after-party', 'After Party'], ['late-for-a-very-important-date', 'Late for a Very Important Date'],
+  ['wedding-gift', 'Wedding Gift'], ['haggle-with-the-hag', 'Haggle with the Hag'],
+  ['blind-mans-bluff', 'Blind Man’s Bluff'], ['poisoned-apple', 'Poisoned Apple'],
+  ['odds-and-evens', 'Odds and Evens'], ['single-fairy', 'Single Fairy'],
+  ['prince-rings-twice', 'The Prince Always Rings Twice'], ['midnight-makeover', 'Midnight Makeover'],
+  ['pass-the-bouquet', 'Pass the Bouquet'], ['upside-down', 'Upside Down'],
+  ['bathroom-break', 'Bathroom Break'], ['dancing-queens', 'Dancing Queens'],
+  ['invitation', 'Invitation']
 ] as const;
 
 export const ROUND_RULE_TEXT: Record<string, string> = {
   'once-upon-a-time': 'No additional rule.',
   invitation: 'No additional rule.',
+  'magic-beans': 'Play only the highest or lowest card of the suit you must play.',
+  'three-times-a-lady': 'Each 3 scores −3 proposals; the Prince 3 scores −2 proposals.',
+  'arranged-marriage': 'A player with no tricks at round end receives 5 proposals.',
+  'always-the-bridesmaid': 'The second-highest card of the led suit wins; if every follower is void, the leader wins.',
+  sisterhood: 'The card farthest from the led number wins; if every follower is void, use the farthest value in any suit.',
+  'late-for-a-very-important-date': 'Each player’s last three hand cards are kept and scored as captured cards.',
   'masquerade-ball': 'Except for the lead, play cards face down. Reveal them together to determine the trick winner.',
   'royal-decree': 'Queens always win the trick; the highest Queen wins if several are played.',
   'musical-chairs': 'After every trick, everyone simultaneously passes one card face down to the player on their right.',

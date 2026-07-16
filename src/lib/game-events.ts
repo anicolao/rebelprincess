@@ -12,9 +12,9 @@ import {
 import { cardLabel, princessOptionsForPlayers, SUITS, type Card } from './setup';
 import { passInstruction, resolvePasses } from './passing';
 import { breaksPrinces, trickWinner, type TrickPlay, type TrickState } from './trick-taking';
-import { legalCardsWithPeaPower, mulanReplacements, snowWhiteCanZero, thumbelinaCanPlay } from './princess-powers';
+import { mulanReplacements, snowWhiteCanZero, thumbelinaCanPlay } from './princess-powers';
 import { deterministicCards, exchangeCards, redistributeCards, returnedTrickCards } from './interactive-princess-powers';
-import { roundCardScore, roundTrickWinner } from './round-rules';
+import { roundCardScore, roundLegalCards, roundTrickWinner } from './round-rules';
 
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
@@ -332,7 +332,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         }
         if (powerId === 'snow-white') {
           if (turnUid !== player.uid || !event.payload.card || !snowWhiteCanZero(event.payload.card)) continue;
-          if (!legalCardsWithPeaPower(roundHands[player.uid], roundTrick, broken, peaActive).some((card) => cardLabel(card) === cardLabel(event.payload.card!))) continue;
+          if (!roundLegalCards(roundHands[player.uid], roundTrick, broken, roundId, peaActive).some((card) => cardLabel(card) === cardLabel(event.payload.card!))) continue;
           snowZero.set(player.uid, cardLabel(event.payload.card));
         } else if (powerId === 'thumbelina') {
           if (turnUid !== player.uid || roundTrick.plays.length === 0 || !event.payload.card || !thumbelinaCanPlay(event.payload.card)) continue;
@@ -368,7 +368,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       const card = event.payload.card;
       const forced = forcedCards[event.actorUid];
       const thumbelina = card && thumbelinaPlays.get(event.actorUid) === cardLabel(card);
-      if (awaitingRoundAction || pendingMulanUid || pendingPower || !card || event.actorUid !== turnUid || !roundHands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || (forced ? cardLabel(forced) !== cardLabel(card) : !thumbelina && !legalCardsWithPeaPower(roundHands[event.actorUid], roundTrick, broken, peaActive).some((held) => cardLabel(held) === cardLabel(card)))) continue;
+      if (awaitingRoundAction || pendingMulanUid || pendingPower || !card || event.actorUid !== turnUid || !roundHands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || (forced ? cardLabel(forced) !== cardLabel(card) : !thumbelina && !roundLegalCards(roundHands[event.actorUid], roundTrick, broken, roundId, peaActive).some((held) => cardLabel(held) === cardLabel(card)))) continue;
       broken ||= breaksPrinces(roundTrick, card);
       roundHands[event.actorUid] = roundHands[event.actorUid].filter((held) => held.suit !== card.suit || held.rank !== card.rank);
       delete forcedCards[event.actorUid];

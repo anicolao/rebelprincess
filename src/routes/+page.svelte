@@ -7,6 +7,7 @@
   import { replaceState } from '$app/navigation';
   import suitAtlas from '../../assets/generated/suited-card-families.png';
   import roundAtlas from '../../assets/generated/round-rule-vignettes.png';
+  import deluxeRoundAtlas from '../../assets/generated/round-rule-vignettes-deluxe.png';
   import princessAtlas from '../../assets/generated/princess-portraits.png';
   import deluxePrincessAtlas from '../../assets/generated/princess-portraits-deluxe.png';
   import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
@@ -19,8 +20,8 @@
   } from '$lib/game-events';
   import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, ROUND_RULE_TEXT, SUITS, type Card } from '$lib/setup';
   import { passInstruction } from '$lib/passing';
-  import { legalCardsWithPeaPower, mulanReplacements, PRINCESS_POWER_TEXT, snowWhiteCanZero, thumbelinaCanPlay } from '$lib/princess-powers';
-  import { isMasqueradeHidden } from '$lib/round-rules';
+  import { mulanReplacements, PRINCESS_POWER_TEXT, snowWhiteCanZero, thumbelinaCanPlay } from '$lib/princess-powers';
+  import { isMasqueradeHidden, roundLegalCards } from '$lib/round-rules';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -184,7 +185,10 @@
   function winnerNames() { return game?.winnerUids.map((uid) => game?.players.find((player) => player.uid === uid)?.displayName).filter(Boolean).join(' and ') ?? ''; }
   function suitIndex(card: Card) { return SUITS.indexOf(card.suit); }
   function roundStyle(id: string) {
-    const index = Math.max(0, ROUND_RULES.findIndex(([key]) => key === id));
+    const deluxeIndex = ['magic-beans', 'three-times-a-lady', 'arranged-marriage', 'always-the-bridesmaid', 'sisterhood', 'late-for-a-very-important-date'].indexOf(id);
+    if (deluxeIndex >= 0) return `--round-x: ${(deluxeIndex % 3) * 50}%; --round-y: ${Math.floor(deluxeIndex / 3) * 100}%; background-size: 300% 200%; background-image: url(${deluxeRoundAtlas})`;
+    const originalIds = ['once-upon-a-time', 'invitation', 'masquerade-ball', 'royal-decree', 'musical-chairs', 'pets-revenge', 'late-to-the-ball', 'poisoned-apple', 'crystal-clear', 'upside-down', 'dancing-queens', 'prince-rings-twice', 'wedding-gift', 'after-party', 'bathroom-break', 'single-fairy', 'midnight-makeover', 'blind-mans-bluff', 'odds-and-evens', 'pass-the-bouquet', 'haggle-with-the-hag'];
+    const index = Math.max(0, originalIds.indexOf(id));
     return `--round-x: ${(index % 7) * 100 / 6}%; --round-y: ${Math.floor(index / 7) * 50}%; background-image: url(${roundAtlas})`;
   }
   function playOrigin(uid: string) {
@@ -265,7 +269,7 @@
     if (!game?.hands || !game.trick || game.pendingPower || game.awaitingRoundAction || game.currentTurnUid !== currentUid) return false;
     const forced = game.forcedCards[currentUid];
     if (thumbelinaArmed && localPlayer()?.princessId === 'thumbelina') return thumbelinaCanPlay(card);
-    return forced ? cardLabel(forced) === cardLabel(card) : legalCardsWithPeaPower(game.hands[currentUid], game.trick, game.princesBroken, game.powerIdsThisTrick.includes('pea-princess')).some((candidate) => cardLabel(candidate) === cardLabel(card));
+    return forced ? cardLabel(forced) === cardLabel(card) : roundLegalCards(game.hands[currentUid], game.trick, game.princesBroken, activeRoundId(), game.powerIdsThisTrick.includes('pea-princess')).some((candidate) => cardLabel(candidate) === cardLabel(card));
   }
 
   async function submitRoundAction(card: Card) {

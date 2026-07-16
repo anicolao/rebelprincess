@@ -1,5 +1,15 @@
 import type { Card } from './setup';
 import { trickWinner, type TrickState } from './trick-taking';
+import { legalCardsWithPeaPower } from './princess-powers';
+
+export function roundLegalCards(hand: Card[], trick: TrickState, princesBroken: boolean, roundId: string, peaActive = false): Card[] {
+  const legal = legalCardsWithPeaPower(hand, trick, princesBroken, peaActive);
+  if (roundId !== 'magic-beans') return legal;
+  return legal.filter((card) => {
+    const ranks = legal.filter((candidate) => candidate.suit === card.suit).map((candidate) => candidate.rank);
+    return card.rank === Math.min(...ranks) || card.rank === Math.max(...ranks);
+  });
+}
 
 export function roundTrickWinner(trick: TrickState, roundId: string): string {
   if (roundId !== 'royal-decree') return trickWinner(trick);
