@@ -48,7 +48,7 @@ test('three clients submit simultaneously and resolve a conserved split pass', a
   await ready(page, 'Snow White');
   await ready(guest, 'The Little Mermaid');
   await ready(third, 'Cinderella');
-  for (const round of ['Masquerade Ball', 'Once Upon a Time…', 'Magic Beans', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
+  for (const round of ['Arranged Marriage', 'Once Upon a Time…', 'Magic Beans', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
 
   const passButton = page.getByRole('button', { name: 'Pass 2 split to Jo and Sam' });
@@ -56,7 +56,7 @@ test('three clients submit simultaneously and resolve a conserved split pass', a
     description: 'The host is prompted to choose one card for each neighbor',
     verifications: [
       { spec: 'The pass action names Jo and Sam and is disabled until two cards are chosen', check: async () => expect(passButton).toBeDisabled() },
-      { spec: 'The center card states the round rule in text', check: async () => expect(page.getByLabel('Current Round card')).toContainText('Except for the lead, play cards face down.') },
+      { spec: 'The center card states the round rule in text', check: async () => expect(page.getByLabel('Current Round card')).toContainText('A player with no tricks at round end receives 5 proposals.') },
       { spec: 'The center card places one arrow on each side of the single-card count', check: async () => expect(page.getByLabel('Pass 2 split')).toHaveText(/↻\s*1\s*↺/) }
     ]
   });

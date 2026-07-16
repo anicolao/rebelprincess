@@ -7,7 +7,7 @@ const IDS = { phone: 'MBA00031', desktop: 'MBA10031' } as const;
 test('Masquerade Ball conceals followers until the complete trick reveals them', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Masquerade Ball', 'Watch the lead face up, both followers commit hidden cards through clicks, then review every revealed card in the awarded trick.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Masquerade Ball');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Masquerade Ball', undefined, [], { steps, direction: 'left', count: 1 });
   await steps.step('masquerade-ready', { description: 'The round card announces that only the lead stays face up while followers commit', verifications: [
     { spec: 'The conceal-and-reveal rule is readable', check: async () => expect(page.getByText('Except for the lead, play cards face down. Reveal them together to determine the trick winner.')).toBeVisible() },
     { spec: 'A leader is visibly ready to click', check: async () => expect(page.locator('.playing-card.playable:not(:disabled)').first()).toBeVisible() }
