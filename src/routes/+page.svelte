@@ -148,6 +148,20 @@
     return `--princess-x: ${(Math.max(0, index) % 5) * 25}%; --princess-y: ${Math.floor(Math.max(0, index) / 5) * 100}%; --princess-size: 500% 200%; background-image: url(${princessAtlas})`;
   }
   function localPlayer() { return game?.players.find((player) => player.uid === currentUid); }
+  function playerName(uid?: string | null) { return game?.players.find((player) => player.uid === uid)?.displayName ?? 'the active player'; }
+  function clockwiseOpponents() {
+    if (!game) return [];
+    const localIndex = game.players.findIndex((player) => player.uid === currentUid);
+    return Array.from({ length: game.players.length - 1 }, (_, offset) => game!.players[(localIndex + offset + 1) % game!.players.length]);
+  }
+  function seatStyle(index: number, count: number) {
+    const layouts: Record<number, Array<[number, number]>> = {
+      2: [[28, 3], [72, 3]], 3: [[9, 34], [50, 3], [91, 34]],
+      4: [[8, 35], [30, 3], [70, 3], [92, 35]], 5: [[8, 35], [27, 5], [50, 1], [73, 5], [92, 35]]
+    };
+    const [x, y] = layouts[count]?.[index] ?? [50, 3];
+    return `--seat-x: ${x}%; --seat-y: ${y}%`;
+  }
   function powerAvailable(id?: string) { return Boolean(id && game?.passComplete && !game.roundComplete && !game.exhaustedPrincessUids.includes(currentUid)); }
   function princessUsable(id?: string) {
     if (!id || !powerAvailable(id) || game?.awaitingRoundAction) return false;
@@ -361,8 +375,8 @@
         <section class="table" aria-label="Dealt game">
           <div class="table-board">
             <div class="opponents" aria-label="Opponents">
-              {#each game.players.filter((player) => player.uid !== currentUid) as player, index}
-                <section class="opponent-seat" class:seat-0={index === 0} class:seat-1={index === 1} class:seat-2={index === 2} class:seat-3={index === 3} class:seat-4={index === 4} aria-label={`${player.displayName}'s hand`}>
+              {#each clockwiseOpponents() as player, index}
+                <section class="opponent-seat" style={seatStyle(index, game.players.length - 1)} data-clockwise-seat={index + 1} aria-label={`${player.displayName}'s hand`}>
                   <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0} {#if game.trick?.leaderUid === player.uid}<span class="lead-marker">Leads</span>{/if}</strong>
                   <div class="seat-princess" class:exhausted={game.exhaustedPrincessUids.includes(player.uid)} aria-label={`${player.displayName}'s Princess: ${princessName(player.princessId)}`}>
                     <div class="princess-card" style={princessStyle(player.princessId)}></div>
@@ -483,7 +497,9 @@
                 {:else if game.passComplete}
                   {#if game.awaitingRoundAction === 'set-aside'}<p class="pass-waiting" role="alert">Late to the Ball · {game.roundActionSubmissions[currentUid] ? 'Card reserved for the final trick' : 'Choose one card to reserve for the final trick'}</p>
                   {:else if game.awaitingRoundAction === 'musical-pass'}<p class="pass-waiting" role="alert">Musical Chairs · {game.roundActionSubmissions[currentUid] ? 'Waiting for the other chairs' : 'Choose one card to pass right'}</p>
-                  {:else}<p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${game.players.find((player) => player.uid === game?.currentTurnUid)?.displayName}`} · Trick {game.completedTricks + 1}</p>{/if}
+                  {:else if game.pendingMulanUid}<p class="pass-waiting" role="alert">{game.pendingMulanUid === currentUid ? 'Tap Mulan to swap her played card or keep it' : `Waiting for ${playerName(game.pendingMulanUid)} to resolve Mulan`}</p>
+                  {:else if game.pendingPower}<p class="pass-waiting" role="alert">Waiting for {playerName(game.pendingPower.actorUid)} to resolve {princessName(game.pendingPower.powerId)}</p>
+                  {:else}<p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${playerName(game.currentTurnUid)}`} · Trick {game.completedTricks + 1}</p>{/if}
                 {:else if game.passSubmissions[currentUid]}
                   <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(activeRoundId()).direction} to {passRecipient()} · {waitingForPasses()} Select a raised card to take it back.</p>
                 {:else}
@@ -798,7 +814,7 @@
   .pass-icon { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 4px; color: #ffc75f; font-size: clamp(17px, 2.5vh, 24px); line-height: 1; }
   .pass-icon strong { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: .72em; }
   .round-center .round-count { margin-top: 4px; }
-  .opponent-seat { position: absolute; z-index: 2; min-width: 105px; color: #e9deeb; text-align: center; }
+  .opponent-seat { position: absolute; z-index: 2; top: var(--seat-y); left: var(--seat-x); min-width: 105px; color: #e9deeb; text-align: center; transform: translateX(-50%); }
   .opponent-seat > strong { display: block; margin-bottom: 4px; font-size: 12px; }
   .seat-princess { position: absolute; top: 18px; left: -52px; display: grid; justify-items: center; width: 50px; color: #e9deeb; font-size: 7px; line-height: 1.05; }
   .seat-princess .princess-card { width: 38px; aspect-ratio: 3 / 5; min-height: 0; padding: 0; border: 1px solid rgba(255, 226, 163, .65); border-radius: 4px; background-color: #150d1d; background-position: var(--princess-x) var(--princess-y); background-size: var(--princess-size); box-shadow: 0 5px 12px rgba(0, 0, 0, .45); transform-origin: bottom center; transition: filter .2s ease, transform .2s ease; }
@@ -812,11 +828,6 @@
   .local-princess.armed .princess-card { border-color: #7de2a7; box-shadow: 0 0 0 2px #7de2a7, 0 5px 12px rgba(0, 0, 0, .45); }
   .local-princess .princess-card:disabled { cursor: default; opacity: 1; }
   .lead-marker { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 999px; color: #211329; background: #ffc75f; font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 9px; text-transform: uppercase; }
-  .seat-0 { top: 12px; left: 18%; }
-  .seat-1 { top: 12px; right: 18%; }
-  .seat-2 { top: 34%; left: 12px; }
-  .seat-3 { top: 34%; right: 12px; }
-  .seat-4 { top: 12px; left: 50%; transform: translateX(-50%); }
   .card-backs { display: flex; justify-content: center; height: 46px; }
   .card-backs i { width: 30px; height: 44px; margin-left: -18px; border: 1px solid #b88cdf; border-radius: 3px; background: repeating-linear-gradient(135deg, #251638 0 4px, #604077 4px 6px); box-shadow: 0 3px 7px rgba(0, 0, 0, .35); }
   .card-backs i:first-child { margin-left: 0; }

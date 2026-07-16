@@ -42,9 +42,20 @@ Five deterministic games activate Snow White, Cinderella, Pocahontas, Mulan, and
 
 ---
 
+## The trick pauses on an explicit Mulan decision instead of losing the active player
+
+![The trick pauses on an explicit Mulan decision instead of losing the active player](./screenshots/004-mulan-pauses-the-trick-desktop.png)
+
+**Verifications:**
+- [x] Mulan’s owner is told how to resolve the decision
+- [x] Every observer is told who must resolve Mulan
+- [x] No client displays an undefined player name
+
+---
+
 ## Mulan replaces her played card after everyone commits
 
-![Mulan replaces her played card after everyone commits](./screenshots/004-mulan-swaps-played-card-desktop.png)
+![Mulan replaces her played card after everyone commits](./screenshots/005-mulan-swaps-played-card-desktop.png)
 
 **Verifications:**
 - [x] The original played card returns to Mulan’s hand
