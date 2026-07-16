@@ -31,3 +31,13 @@ Click the Little Mermaid and click a visible suit choice.
 - [x] Observers see the Mermaid exhausted
 
 ---
+
+## Alex clicks Fairies 3, visibly leading the requested fairies suit
+
+![Alex clicks Fairies 3, visibly leading the requested fairies suit](./screenshots/003-little-mermaid-requested-suit-led-desktop.png)
+
+**Verifications:**
+- [x] The played card belongs to the requested suit
+- [x] Every player sees the requested-suit lead in the center
+
+---

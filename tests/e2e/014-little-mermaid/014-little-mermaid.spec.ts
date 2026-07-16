@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { closePrincessGame, setupPrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
 
 const IDS = { phone: 'CLM0000A', desktop: 'CLM0000B' } as const;
 
@@ -24,6 +24,11 @@ test('The Little Mermaid requests a suit entirely through clicks', async ({ page
   await steps.step('little-mermaid-clicks-suit', { description: 'The clicked suit constrains the leader’s visible cards', verifications: [
     { spec: 'Every legal lead matches the clicked suit', check: async () => expect(legalSuits.every((entry) => entry === requested)).toBe(true) },
     { spec: 'Observers see the Mermaid exhausted', check: async () => expect(game.jo.getByLabel("Alex's Princess: The Little Mermaid")).toHaveClass(/exhausted/) }
+  ] });
+  const lead = await playOneClick(game.players);
+  await steps.step('little-mermaid-requested-suit-led', { description: `Alex clicks ${lead}, visibly leading the requested ${requested} suit`, verifications: [
+    { spec: 'The played card belongs to the requested suit', check: async () => expect(lead.toLowerCase().startsWith(`${requested.trim().toLowerCase()} `)).toBe(true) },
+    { spec: 'Every player sees the requested-suit lead in the center', check: async () => { for (const player of game.players) await expect(player.getByLabel(`Alex played ${lead}`)).toBeVisible(); } }
   ] });
   steps.generateDocs(); await closePrincessGame(game);
 });

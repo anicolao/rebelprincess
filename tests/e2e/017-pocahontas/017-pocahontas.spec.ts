@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { closePrincessGame, setupPrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
 
 const IDS = { phone: 'CPO00005', desktop: 'CPO00006' } as const;
 
@@ -18,6 +18,11 @@ test('Pocahontas transfers the lead entirely through clicks', async ({ page, bro
   await steps.step('pocahontas-clicks-new-leader', { description: 'The chooser click changes the shared leader immediately', verifications: [
     { spec: 'Jo receives the prominent local lead indicator', check: async () => expect(game.jo.getByText('You lead', { exact: true })).toBeVisible() },
     { spec: 'Pocahontas is exhausted for every client', check: async () => { await expect(page.locator('.local-princess.exhausted')).toBeVisible(); await expect(game.sam.getByLabel("Alex's Princess: Pocahontas")).toHaveClass(/exhausted/); } }
+  ] });
+  const lead = await playOneClick(game.players);
+  await steps.step('pocahontas-new-leader-plays', { description: `Jo—not Alex—clicks ${lead} to lead the next trick`, verifications: [
+    { spec: 'Every player sees Jo’s lead card in the center', check: async () => { for (const player of game.players) await expect(player.getByLabel(`Jo played ${lead}`)).toBeVisible(); } },
+    { spec: 'Turn order continues clockwise from Jo to Sam', check: async () => expect(game.sam.getByRole('alert')).toContainText('Your turn') }
   ] });
   steps.generateDocs(); await closePrincessGame(game);
 });

@@ -21,3 +21,13 @@ Click Pocahontas, then click Jo in the visible lead chooser.
 - [x] Pocahontas is exhausted for every client
 
 ---
+
+## Jo—not Alex—clicks Fairies 3 to lead the next trick
+
+![Jo—not Alex—clicks Fairies 3 to lead the next trick](./screenshots/002-pocahontas-new-leader-plays-desktop.png)
+
+**Verifications:**
+- [x] Every player sees Jo’s lead card in the center
+- [x] Turn order continues clockwise from Jo to Sam
+
+---

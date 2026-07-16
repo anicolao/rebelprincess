@@ -32,9 +32,19 @@ Click Sleeping Beauty, collection, every contribution, their order, and redistri
 
 ---
 
-## Every participant and final assignment uses visible clicks
+## The three clicks visibly number which card Alex keeps and which cards Jo and Sam receive
 
-![Every participant and final assignment uses visible clicks](./screenshots/003-sleeping-beauty-clicks-redistribution-desktop.png)
+![The three clicks visibly number which card Alex keeps and which cards Jo and Sam receive](./screenshots/003-sleeping-beauty-order-complete-desktop.png)
+
+**Verifications:**
+- [x] All three contributed cards have an assignment number
+- [x] Redistribute becomes enabled only after the order is complete
+
+---
+
+## The final hands show Alex kept Fairies 3, Jo received Fairies 2, and Sam received Fairies 4
+
+![The final hands show Alex kept Fairies 3, Jo received Fairies 2, and Sam received Fairies 4](./screenshots/004-sleeping-beauty-clicks-redistribution-desktop.png)
 
 **Verifications:**
 - [x] Sleeping Beauty keeps the first clicked contribution
