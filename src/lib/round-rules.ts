@@ -101,10 +101,15 @@ export function cardsPerTrick(roundId: string): number { return roundId === 'pri
 export function roundCardScore(cards: Card[], roundId: string, bathroomExempt = false): { princes: number; frog: number; roundRule: number; total: number } {
   const princes = cards.filter((card) => card.suit === 'princes').length;
   const frog = cards.some((card) => card.suit === 'pets' && card.rank === 8) ? 5 : 0;
+  const princeRanks = cards.filter((card) => card.suit === 'princes').map((card) => card.rank);
+  const queenRanks = cards.filter((card) => card.suit === 'queens').map((card) => card.rank);
+  const matchingCouples = princeRanks.filter((rank) => queenRanks.includes(rank)).length;
+  const unmatchedCouples = Math.min(princeRanks.length - matchingCouples, queenRanks.length - matchingCouples);
   const roundRule = roundId === 'pets-revenge' ? cards.filter((card) => card.suit === 'pets').length
     : roundId === 'three-times-a-lady' ? -3 * cards.filter((card) => card.rank === 3).length
     : roundId === 'single-fairy' ? -cards.filter((card) => card.suit === 'fairies').length
     : roundId === 'bathroom-break' && !bathroomExempt ? princes
+    : roundId === 'dancing-queens' ? matchingCouples * 2 + unmatchedCouples
     : roundId === 'arranged-marriage' && cards.length === 0 ? 5 : 0;
   return { princes, frog, roundRule, total: princes + frog + roundRule };
 }
