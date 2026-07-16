@@ -98,7 +98,11 @@ export function roundTrickWinner(trick: TrickState, roundId: string): string {
 
 export function cardsPerTrick(roundId: string): number { return roundId === 'prince-rings-twice' ? 2 : 1; }
 
-export function roundCardScore(cards: Card[], roundId: string, bathroomExempt = false): { princes: number; frog: number; roundRule: number; total: number } {
+export function isRebelOfBall(cards: Card[], roundId: string, princeCountInDeck: number): boolean {
+  return roundId !== 'wedding-gift' && princeCountInDeck >= 9 && cards.filter((card) => card.suit === 'princes').length === princeCountInDeck && cards.some((card) => card.suit === 'pets' && card.rank === 8);
+}
+
+export function roundCardScore(cards: Card[], roundId: string, bathroomExempt = false, princeCountInDeck = Number.POSITIVE_INFINITY): { princes: number; frog: number; roundRule: number; total: number } {
   const princes = cards.filter((card) => card.suit === 'princes').length;
   const frog = cards.some((card) => card.suit === 'pets' && card.rank === 8) ? 5 : 0;
   const princeRanks = cards.filter((card) => card.suit === 'princes').map((card) => card.rank);
@@ -111,6 +115,7 @@ export function roundCardScore(cards: Card[], roundId: string, bathroomExempt = 
     : roundId === 'bathroom-break' && !bathroomExempt ? princes
     : roundId === 'dancing-queens' ? matchingCouples * 2 + unmatchedCouples
     : roundId === 'arranged-marriage' && cards.length === 0 ? 5 : 0;
+  if (isRebelOfBall(cards, roundId, princeCountInDeck)) return { princes, frog, roundRule: -10 - princes - frog, total: -10 };
   return { princes, frog, roundRule, total: princes + frog + roundRule };
 }
 

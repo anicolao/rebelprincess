@@ -108,6 +108,11 @@ describe('introductory Round cards', () => {
     ];
     expect(roundCardScore(cards, 'dancing-queens')).toEqual({ princes: 3, frog: 0, roundRule: 3, total: 6 });
   });
+  it('overrides all scoring with Rebel of the Ball except during Wedding Gift', () => {
+    const cards = [...Array.from({ length: 9 }, (_, index) => ({ suit: 'princes' as const, rank: index + 2 })), { suit: 'pets' as const, rank: 8 }, { suit: 'pets' as const, rank: 2 }];
+    expect(roundCardScore(cards, 'pets-revenge', false, 9)).toEqual({ princes: 9, frog: 5, roundRule: -24, total: -10 });
+    expect(roundCardScore(cards, 'wedding-gift', false, 9).total).toBe(14);
+  });
 
   it('hides a Masquerade follower only until the trick is complete', () => {
     const partial = { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'fairies' as const, rank: 2 } }, { uid: 'b', card: { suit: 'fairies' as const, rank: 3 } }] };
