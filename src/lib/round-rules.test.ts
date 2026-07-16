@@ -101,6 +101,13 @@ describe('introductory Round cards', () => {
     expect(roundCardScore(cards, 'bathroom-break')).toEqual({ princes: 2, frog: 0, roundRule: 2, total: 4 });
     expect(roundCardScore(cards, 'bathroom-break', true)).toEqual({ princes: 2, frog: 0, roundRule: 0, total: 2 });
   });
+  it('pairs Dancing Queens by exact rank before unmatched couples', () => {
+    const cards = [
+      { suit: 'princes' as const, rank: 2 }, { suit: 'princes' as const, rank: 7 }, { suit: 'princes' as const, rank: 9 },
+      { suit: 'queens' as const, rank: 2 }, { suit: 'queens' as const, rank: 5 }
+    ];
+    expect(roundCardScore(cards, 'dancing-queens')).toEqual({ princes: 3, frog: 0, roundRule: 3, total: 6 });
+  });
 
   it('hides a Masquerade follower only until the trick is complete', () => {
     const partial = { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'fairies' as const, rank: 2 } }, { uid: 'b', card: { suit: 'fairies' as const, rank: 3 } }] };
