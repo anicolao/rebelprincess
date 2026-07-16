@@ -32,7 +32,7 @@ export function firebaseDatabase(): Firestore {
     connectFirestoreEmulator(
       database,
       import.meta.env.VITE_FIRESTORE_EMULATOR_HOST ?? '127.0.0.1',
-      Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT ?? '8085')
+      Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT ?? '8185')
     );
   }
 
@@ -46,7 +46,7 @@ export function firebaseAuth(): Auth {
   if (import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true') {
     connectAuthEmulator(
       authentication,
-      `http://${import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1'}:${import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_PORT ?? '9099'}`,
+      `http://${import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1'}:${import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_PORT ?? '9199'}`,
       { disableWarnings: true }
     );
   }
