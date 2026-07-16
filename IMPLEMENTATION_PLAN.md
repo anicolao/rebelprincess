@@ -88,11 +88,11 @@ otherwise add the next scenario number.
 008-princess-powers-basic
 009-princess-powers-interactive
 010-round-rules-introductory
-011-round-rules-scoring
-012-round-rules-trick-order
-013-round-rules-hand-manipulation
-014-reconnect-and-conflicts
-015-responsive-complete-game
+011-alice through 022-thumbelina (one detailed scenario per Deluxe Princess)
+023-once-upon-a-time through 048-dancing-queens (one detailed scenario per a–z Deluxe Round card)
+049-rebel-of-the-ball
+050-reconnect-and-conflicts
+051-responsive-complete-game
 ```
 
 Multiplayer scenarios use one isolated browser context per player and the real
@@ -193,48 +193,82 @@ proof.
 - Add `009-princess-powers-interactive` with deterministic selections and
   observer-visible resolution for every power.
 
-### 10. Introductory Round cards
+### 10. Deluxe Princess completion
 
-- Implement Once Upon a Time, Invitation, Masquerade Ball, Royal Decree,
-  Musical Chairs, Pets' Revenge, and Late to the Ball.
-- Add `010-round-rules-introductory`, covering each rule from reveal through a
-  consequential trick or scoring result.
+- Retain the aggregate introductory Princess scenarios, and add one numbered,
+  step-by-step scenario for each of the twelve Deluxe Princesses. Each scenario
+  activates the Princess only through ordinary UI events and visibly follows
+  the consequence through play, hand movement, trick resolution, or scoring.
+- Completed as `011-alice` through `022-thumbelina`.
 
-### 11. Scoring and rank Round cards
+### 11–36. Complete a–z Deluxe Round deck
 
-- Implement Poisoned Apple, Crystal Clear, Upside Down, Dancing Queens,
-  Bathroom Break, and Single Fairy.
-- Add `011-round-rules-scoring` with semantic assertions for every changed
-  winner, public reveal, positive score, and negative score.
+Implement or remediate exactly one Round card per commit, in official letter
+order. Every commit owns one new numbered scenario with a complete narrative:
+reveal and setup choices, all consequential card clicks, the altered legal
+choice/winner/hand/score state, observer convergence, and the final resolved
+result. Existing aggregate coverage does not substitute for these scenarios.
 
-### 12. Trick-order Round cards
+| Increment | Scenario | Deluxe Round card |
+| --- | --- | --- |
+| 11 | `023-once-upon-a-time` | a. Once Upon a Time |
+| 12 | `024-late-to-the-ball` | b. Late to the Ball |
+| 13 | `025-magic-beans` | c. Magic Beans |
+| 14 | `026-three-times-a-lady` | d. Three Times a Lady |
+| 15 | `027-arranged-marriage` | e. Arranged Marriage |
+| 16 | `028-royal-decree` | f. Royal Decree |
+| 17 | `029-always-the-bridesmaid` | g. Always the Bridesmaid |
+| 18 | `030-crystal-clear` | h. Crystal Clear |
+| 19 | `031-masquerade-ball` | i. Masquerade Ball |
+| 20 | `032-pets-revenge` | j. Pets' Revenge |
+| 21 | `033-musical-chairs` | k. Musical Chairs |
+| 22 | `034-sisterhood` | l. Sisterhood |
+| 23 | `035-after-party` | m. After Party |
+| 24 | `036-late-for-a-very-important-date` | n. Late for a Very Important Date |
+| 25 | `037-wedding-gift` | o. Wedding Gift |
+| 26 | `038-haggle-with-the-hag` | p. Haggle with the Hag |
+| 27 | `039-blind-mans-bluff` | q. Blind Man's Bluff |
+| 28 | `040-poisoned-apple` | r. Poisoned Apple |
+| 29 | `041-odds-and-evens` | s. Odds and Evens |
+| 30 | `042-single-fairy` | t. Single Fairy |
+| 31 | `043-prince-always-rings-twice` | u. The Prince Always Rings Twice |
+| 32 | `044-midnight-makeover` | v. Midnight Makeover |
+| 33 | `045-pass-the-bouquet` | w. Pass the Bouquet |
+| 34 | `046-upside-down` | x. Upside Down |
+| 35 | `047-bathroom-break` | y. Bathroom Break |
+| 36 | `048-dancing-queens` | z. Dancing Queens |
 
-- Implement The Prince Always Rings Twice, Midnight Makeover, Odds and Evens,
-  and Pass the Bouquet.
-- Add `012-round-rules-trick-order` with exact legal-choice sets and winners.
+Remove the non-Deluxe Invitation card from new-game selection. Preserve old
+event replay compatibility by treating its stable ID as the former no-rule
+teaching card until a reducer-version migration intentionally removes it.
 
-### 13. Hand-manipulation Round cards
+### 37. Rebel of the Ball
 
-- Implement Wedding Gift, After-party, Blind Man's Bluff, and Haggle with the
-  Hag, including odd interaction/Princess precedence cases.
-- Add `013-round-rules-hand-manipulation` from setup through resolved hands and
-  captured piles for every rule.
+- Detect a player who captures every Prince in the active player-count deck and
+  the Frog. Their score for that round is exactly -10, ignoring every other
+  positive or negative scoring modifier that would apply to them; other players
+  still use the active Round card's scoring.
+- Disable this achievement during Wedding Gift, as required by that card.
+- Add `049-rebel-of-the-ball`: play a complete deterministic round through the
+  real UI without shortcuts, visibly review the last required proposal trick,
+  show the Rebel declaration and -10 breakdown, and verify cumulative scoring
+  from every client.
 
-### 14. Replay, reconnect, conflicts, and versioning
+### 38. Replay, reconnect, conflicts, and versioning
 
 - Rehydrate from cache plus cursor, replay from scratch, handle duplicate local
   submissions, deterministically resolve concurrent/stale events, and present a
   clear incompatible reducer/schema state.
-- Add `014-reconnect-and-conflicts`: disconnect a context, advance the game,
+- Add `050-reconnect-and-conflicts`: disconnect a context, advance the game,
   reconnect/replay, attempt duplicates and conflicting actions, then verify all
   trustworthy clients converge.
 
-### 15. Complete responsive and accessibility pass
+### 39. Complete responsive and accessibility pass
 
 - Finish keyboard and touch interaction, focus order, live announcements,
   contrast, reduced motion, safe areas, reconnection affordances, and installable
   static-site metadata.
-- Add `015-responsive-complete-game` across mobile portrait, mobile landscape,
+- Add `051-responsive-complete-game` across mobile portrait, mobile landscape,
   tablet, and desktop, using clipping/overlap checks at every visual step.
 - Audit all earlier baselines; changes are accepted only when semantically
   justified and rerun without snapshot-update mode.
@@ -325,9 +359,10 @@ References:
 
 ## Definition of complete
 
-The game is complete when every rule in `RULES.md` and every selected Princess
-and Round card has a deterministic reducer specification, unit edge-case tests,
-and at least one real multiplayer E2E path; all fifteen scenarios pass with zero
+The game is complete when every rule in `RULES.md`, all twelve Deluxe
+Princesses, all twenty-six a–z Deluxe Round cards, and Rebel of the Ball have a
+deterministic reducer specification, unit edge-case tests, and at least one real
+multiplayer E2E path; all numbered scenarios pass with zero
 pixel differences; production Security Rules and Rules tests agree; reload and
 concurrency converge; and the exact commit is playable both at its PR preview
 and at the production GitHub Pages URL after merge.
