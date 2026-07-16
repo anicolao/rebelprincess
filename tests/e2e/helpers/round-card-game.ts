@@ -26,7 +26,7 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
     for (let index = 0; index < passCount; index += 1) await hand.getByRole('button').nth(index).click();
     await page.locator('.pass-submit').click();
   }
-  for (const page of players) await expect(page.getByRole('alert')).toContainText('Passing complete');
+  for (const page of players) await expect(page.locator('.pass-submit')).toHaveCount(0);
   return { host, jo, sam, players, contexts };
 }
 
