@@ -69,6 +69,11 @@ describe('introductory Round cards', () => {
     expect(roundCardScore([{ suit: 'fairies', rank: 2 }], 'arranged-marriage')).toEqual({ princes: 0, frog: 0, roundRule: 0, total: 0 });
   });
 
+  it('subtracts one proposal for every captured Fairy under Single Fairy', () => {
+    expect(roundCardScore([{ suit: 'fairies', rank: 2 }, { suit: 'fairies', rank: 9 }, { suit: 'princes', rank: 4 }], 'single-fairy'))
+      .toEqual({ princes: 1, frog: 0, roundRule: -2, total: -1 });
+  });
+
   it('hides a Masquerade follower only until the trick is complete', () => {
     const partial = { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'fairies' as const, rank: 2 } }, { uid: 'b', card: { suit: 'fairies' as const, rank: 3 } }] };
     expect(isMasqueradeHidden('masquerade-ball', partial, 'b', 3)).toBe(true);

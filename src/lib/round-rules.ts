@@ -67,6 +67,7 @@ export function roundCardScore(cards: Card[], roundId: string): { princes: numbe
   const frog = cards.some((card) => card.suit === 'pets' && card.rank === 8) ? 5 : 0;
   const roundRule = roundId === 'pets-revenge' ? cards.filter((card) => card.suit === 'pets').length
     : roundId === 'three-times-a-lady' ? -3 * cards.filter((card) => card.rank === 3).length
+    : roundId === 'single-fairy' ? -cards.filter((card) => card.suit === 'fairies').length
     : roundId === 'arranged-marriage' && cards.length === 0 ? 5 : 0;
   return { princes, frog, roundRule, total: princes + frog + roundRule };
 }
