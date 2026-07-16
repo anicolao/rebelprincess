@@ -1,13 +1,13 @@
-# Little Mermaid click activation
+# Ice Princess click activation
 
-Click the Little Mermaid and click a visible suit choice.
+Click the Ice Princess, Jo, and one inspected card, then click the lead.
 
-## The clicked suit constrains the leader’s visible cards
+## Every stage is clicked and Jo receives one forced card
 
-![The clicked suit constrains the leader’s visible cards](./screenshots/000-little-mermaid-clicks-suit-desktop.png)
+![Every stage is clicked and Jo receives one forced card](./screenshots/000-ice-princess-clicks-frozen-card-desktop.png)
 
 **Verifications:**
-- [x] Every legal lead matches the clicked suit
-- [x] Observers see the Mermaid exhausted
+- [x] Only the clicked inspected card is playable for Jo
+- [x] The Ice Princess is exhausted
 
 ---
