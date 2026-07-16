@@ -57,7 +57,8 @@ describe('append-only game events', () => {
       pendingPower: null,
       forcedCards: {},
       awaitingRoundAction: null,
-      roundActionSubmissions: {}
+      roundActionSubmissions: {},
+      revealedSuits: {}
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
   });
