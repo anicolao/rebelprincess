@@ -82,7 +82,7 @@ service cloud.firestore {
           'type', 'payload', 'actorUid', 'clientSeq', 'createdAt',
           'schemaVersion', 'reducerVersion'
         ])
-        && request.resource.data.type in ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-revealed', 'round/half-selected']
+        && request.resource.data.type in ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted']
         && request.resource.data.actorUid == request.auth.uid
         && request.resource.data.clientSeq is int
         && request.resource.data.clientSeq > 0
@@ -97,7 +97,7 @@ service cloud.firestore {
           || (request.resource.data.type == 'pass/submitted' && validPassPayload(gameId))
           || (request.resource.data.type == 'pass/retracted' && validRetractionPayload(gameId))
           || (request.resource.data.type == 'card/played' && validPlayPayload(gameId))
-          || (request.resource.data.type in ['round/card-set-aside', 'round/pass-submitted'] && validRoundActionPayload(gameId))
+          || (request.resource.data.type in ['round/card-set-aside', 'round/pass-submitted', 'round/gift-submitted'] && validRoundActionPayload(gameId))
           || (request.resource.data.type == 'round/suit-revealed' && validSuitRevealPayload(gameId))
           || (request.resource.data.type == 'round/half-selected' && validHalfSelectionPayload(gameId))
           || (request.resource.data.type in ['power/activated', 'power/contributed', 'power/declined'] && validPowerPayload(gameId))
