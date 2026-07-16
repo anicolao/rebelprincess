@@ -242,6 +242,10 @@ Remove the non-Deluxe Invitation card from new-game selection. Preserve old
 event replay compatibility by treating its stable ID as the former no-rule
 teaching card until a reducer-version migration intentionally removes it.
 
+**Implemented:** scenarios `023`–`048` now cover all twenty-six cards in order,
+and new-game setup exposes exactly that a–z deck. Legacy Invitation events still
+replay as a no-rule teaching round.
+
 ### 37. Rebel of the Ball
 
 - Detect a player who captures every Prince in the active player-count deck and
@@ -253,6 +257,10 @@ teaching card until a reducer-version migration intentionally removes it.
   real UI without shortcuts, visibly review the last required proposal trick,
   show the Rebel declaration and -10 breakdown, and verify cumulative scoring
   from every client.
+
+**Implemented:** `049-rebel-of-the-ball` plays the complete round and verifies
+the exact −10 override plus the Wedding Gift exclusion through ordinary UI
+actions.
 
 ### 38. Replay, reconnect, conflicts, and versioning
 

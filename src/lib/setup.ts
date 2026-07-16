@@ -24,8 +24,7 @@ export const ROUND_RULES = [
   ['odds-and-evens', 'Odds and Evens'], ['single-fairy', 'Single Fairy'],
   ['prince-rings-twice', 'The Prince Always Rings Twice'], ['midnight-makeover', 'Midnight Makeover'],
   ['pass-the-bouquet', 'Pass the Bouquet'], ['upside-down', 'Upside Down'],
-  ['bathroom-break', 'Bathroom Break'], ['dancing-queens', 'Dancing Queens'],
-  ['invitation', 'Invitation']
+  ['bathroom-break', 'Bathroom Break'], ['dancing-queens', 'Dancing Queens']
 ] as const;
 
 export const ROUND_RULE_TEXT: Record<string, string> = {

@@ -63,7 +63,7 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   await ready(page, 'Snow White');
   await ready(jo, 'The Little Mermaid');
   await ready(sam, 'Cinderella');
-  for (const round of ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
+  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
   await passCards(page, ['Fairies 2', 'Fairies 3'], 'left');
   await passCards(jo, ['Fairies 8', 'Fairies 9'], 'left');
@@ -104,16 +104,17 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   const deal = page.getByRole('button', { name: 'Deal round 2' });
   await expect(deal).toBeEnabled();
   await deal.click();
-  await passCards(page, ['Fairies 7', 'Fairies 10'], 'right');
-  await passCards(jo, ['Fairies 6', 'Queens 2'], 'right');
-  await passCards(sam, ['Fairies 2', 'Fairies 3'], 'right');
+  for (const client of players) {
+    await client.getByRole('region', { name: 'Your hand' }).getByRole('button').first().click();
+    await client.locator('.pass-submit').click();
+  }
   for (const client of players) await expect(client.getByRole('alert')).toContainText('Passing complete');
 
   await steps.step('next-round-playable', {
     description: 'Fresh hands begin round two under the lowest scorer’s lead',
     verifications: [
       { spec: 'The next Round card and round count are revealed', check: async () => {
-        await expect(page.getByLabel('Current Round card')).toContainText('Invitation');
+        await expect(page.getByLabel('Current Round card')).toContainText('Magic Beans');
         await expect(page.getByLabel('Current Round card')).toContainText('Round 2 of 5');
       } },
       { spec: 'Every client has a fresh twelve-card hand after the right pass', check: async () => {

@@ -73,7 +73,7 @@ test('three players complete every pass, card, trick, and score across all five 
   await join(jo, gameId, `full-jo-${suffix}`, 'Jo');
   await join(sam, gameId, `full-sam-${suffix}`, 'Sam');
   for (const player of players) await ready(player);
-  for (const round of ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
+  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
 
   for (let round = 1; round <= 5; round += 1) {

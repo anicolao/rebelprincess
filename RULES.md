@@ -103,23 +103,52 @@ The interactive powers follow these Deluxe rules:
 - **Thumbelina — Ignorance is Bliss:** when she is not leading, she may play any
   card except a Prince or the Frog without following suit.
 
-## Introductory Round cards
+## Deluxe Round cards
 
-- **Once Upon a Time…** and **Invitation** are teaching rounds with no rule
-  beyond their printed pass instructions.
-- **Masquerade Ball:** only the leader’s card is face up during a trick. Every
-  follower plays face down, then all cards are revealed together to resolve the
-  winner. Players still make legal choices from their own visible hands.
-- **Royal Decree:** any Queen defeats every non-Queen; the highest Queen wins
-  when several are played.
-- **Musical Chairs:** after each non-final trick, every player simultaneously
-  passes one card face down to the player on their right. Princess powers that
-  occur before a trick wait until this exchange has resolved.
-- **Pets’ Revenge:** every captured Pet adds one proposal. The Frog therefore
-  scores six in total: its ordinary five plus the Round-card proposal.
-- **Late to the Ball:** after the opening pass and before the first trick, every
-  player sets aside one card face down. Those cards return to their owners as
-  the only cards in the final trick and are played under the normal rules.
+The selectable deck contains the official twenty-six a–z Deluxe Round cards.
+Each card also supplies its printed opening-pass instruction.
+
+- **Once Upon a Time…:** no additional rule.
+- **Late to the Ball:** after the opening pass, set aside one card face down;
+  return it as its owner’s only card for the final trick.
+- **Magic Beans:** when following a suit, play only its highest or lowest card.
+- **Three Times a Lady:** each 3 scores −3 proposals, so Prince 3 scores −2 net.
+- **Arranged Marriage:** a player who captures no tricks scores +5 proposals.
+- **Royal Decree:** Queens are trump; the highest Queen played wins.
+- **Always the Bridesmaid:** the second-highest led-suit card wins.
+- **Crystal Clear:** after passing, choose a suit and reveal every card of that
+  suit in your hand for the round.
+- **Masquerade Ball:** followers play face down, then reveal together.
+- **Pets’ Revenge:** every captured Pet scores +1 proposal, including the Frog.
+- **Musical Chairs:** after each non-final trick, simultaneously pass one card
+  face down to the player on the right.
+- **Sisterhood:** the card numerically farthest from the lead value wins.
+- **After Party:** split the hand into equal chosen halves and finish the first
+  half before picking up the second.
+- **Late for a Very Important Date:** keep and score the final three hand cards.
+- **Wedding Gift:** before each trick, every player contributes one face-down
+  card to a gift pile captured by that trick’s winner.
+- **Haggle with the Hag:** a trick winner may exchange one shown hand card for
+  any card in that trick except their own play.
+- **Blind Man’s Bluff:** after playing half a hand, pass the remaining half to
+  the player on the right to play.
+- **Poisoned Apple:** a void player wins; highest void value wins, with the
+  earliest play breaking an exact tie.
+- **Odds and Evens:** follow suit and the lead card’s parity when possible; suit
+  has priority, and a void player follows parity when possible.
+- **Single Fairy:** every captured Fairy removes one proposal; scores may be
+  negative.
+- **The Prince Always Rings Twice:** play two cards per trick and sum led-suit
+  values; highest led-suit card breaks a tied sum.
+- **Midnight Makeover:** Fairies are wild for following suit and for winning;
+  the latest play breaks a tied highest value.
+- **Pass the Bouquet:** every newly introduced suit becomes the led suit; the
+  highest card of the last introduced suit wins.
+- **Upside Down:** every played 6 toggles the rank hierarchy for that trick.
+- **Bathroom Break:** Princes score double except for each player tied for the
+  highest cumulative score before the round.
+- **Dancing Queens:** pair captured Princes and Queens. A same-value pair scores
+  3, a mismatched pair 2, and an unpaired Prince 1; unpaired Queens score 0.
 
 ## Scoring and winning
 
@@ -129,15 +158,23 @@ At the end of each round:
 - The captured Frog (Pet 8) is 5 proposals.
 - Apply any scoring change on the current Round card.
 
+If one player captures every Prince present in the player-count deck and the
+Frog, they are the **Rebel of the Ball** and score exactly −10 for the round,
+ignoring all other additions or subtractions that would affect them. Other
+players retain their ordinary Round-card scoring. The achievement cannot be
+earned during Wedding Gift because proposal cards in gift piles are not won as
+ordinary trick cards.
+
 Add the round score to each player's running total. After five rounds, the
 lowest total wins. Break a tie in favor of the tied player with more rounds in
 which they scored zero proposals; if still tied, share the victory.
 
 ## Edition note
 
-The implementation follows the Deluxe Edition rules where explicitly recorded
-above. Additional Deluxe content, including more Princesses, Round cards and the
-“Rebel of the Ball” catch-up rule, remains future work.
+This implementation uses the complete Deluxe roster of twelve Princesses,
+twenty-six Round cards, and Rebel of the Ball. The removed non-Deluxe
+**Invitation** ID remains understood only when replaying an older event stream;
+it is not available when creating a new game.
 
 ## Source
 
