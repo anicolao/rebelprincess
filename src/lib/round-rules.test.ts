@@ -12,6 +12,10 @@ describe('introductory Round cards', () => {
     expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'fairies', rank: 9 } }] }, false, 'odds-and-evens')).toEqual([hand[1]]);
     expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'queens', rank: 9 } }] }, false, 'odds-and-evens')).toEqual([hand[1], hand[2]]);
   });
+  it('lets Fairies follow as Midnight Makeover wild cards', () => {
+    const hand = [{ suit: 'queens' as const, rank: 2 }, { suit: 'fairies' as const, rank: 8 }, { suit: 'pets' as const, rank: 12 }];
+    expect(roundLegalCards(hand, { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'queens', rank: 5 } }] }, false, 'midnight-makeover')).toEqual([hand[0], hand[1]]);
+  });
   it('leaves teaching rounds unchanged and makes Queens trump under Royal Decree', () => {
     const trick = { leaderUid: 'a', plays: [
       { uid: 'a', card: { suit: 'fairies' as const, rank: 10 } },
@@ -60,6 +64,10 @@ describe('introductory Round cards', () => {
     ] };
     expect(cardsPerTrick('prince-rings-twice')).toBe(2);
     expect(roundTrickWinner(trick, 'prince-rings-twice')).toBe('a');
+  });
+  it('counts Midnight Makeover Fairies in the leading suit and gives equal values to the latest play', () => {
+    const trick = { leaderUid: 'a', plays: [{ uid: 'a', card: { suit: 'queens' as const, rank: 8 } }, { uid: 'b', card: { suit: 'fairies' as const, rank: 8 } }, { uid: 'c', card: { suit: 'queens' as const, rank: 7 } }] };
+    expect(roundTrickWinner(trick, 'midnight-makeover')).toBe('b');
   });
 
   it('adds one proposal per Pet while retaining the Frog’s five', () => {
