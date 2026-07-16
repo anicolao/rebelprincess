@@ -1,13 +1,13 @@
-# Cinderella click activation
+# Pocahontas click activation
 
-Click Cinderella, then click every card in the reversed trick.
+Click Pocahontas, then click Jo in the visible lead chooser.
 
-## The clicked card visibly activates and reverses a complete clicked trick
+## The chooser click changes the shared leader immediately
 
-![The clicked card visibly activates and reverses a complete clicked trick](./screenshots/000-cinderella-clicks-reversal-desktop.png)
+![The chooser click changes the shared leader immediately](./screenshots/000-pocahontas-clicks-new-leader-desktop.png)
 
 **Verifications:**
-- [x] All clients see Cinderella exhausted
-- [x] The reversed trick is awarded
+- [x] Jo receives the prominent local lead indicator
+- [x] Pocahontas is exhausted for every client
 
 ---
