@@ -8,7 +8,8 @@ const hands = { a: [card(2), card(3), card(4)], b: [card(5), card(6), card(7)], 
 describe('simultaneous passing', () => {
   it.each([
     ['once-upon-a-time', 'right', 3],
-    ['late-to-the-ball', 'right', 1]
+    ['late-to-the-ball', 'right', 1],
+    ['magic-beans', 'left', 3]
   ] as const)('uses %s’s printed pass', (roundId, direction, count) => {
     expect(passInstruction(roundId)).toEqual({ direction, count });
   });

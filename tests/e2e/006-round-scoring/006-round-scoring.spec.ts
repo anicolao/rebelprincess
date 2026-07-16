@@ -105,10 +105,7 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   const deal = page.getByRole('button', { name: 'Deal round 2' });
   await expect(deal).toBeEnabled();
   await deal.click();
-  for (const client of players) {
-    await client.getByRole('region', { name: 'Your hand' }).getByRole('button').first().click();
-    await client.locator('.pass-submit').click();
-  }
+  for (const client of players) await passCards(client);
   for (const client of players) await expect(client.getByRole('alert')).toContainText('Passing complete');
 
   await steps.step('next-round-playable', {
