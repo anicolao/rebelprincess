@@ -19,10 +19,30 @@ test('Cinderella reverses a trick entirely through clicks', async ({ page, brows
     { spec: 'The active power is exposed as shared status text', check: async () => expect(page.getByText('Princess power: Cinderella')).toBeVisible() },
     { spec: 'Observer projection records Cinderella as exhausted', check: async () => expect(game.jo.getByLabel("Alex's Princess: Cinderella")).toHaveClass(/exhausted/) }
   ] });
-  for (let card = 0; card < 3; card += 1) await playOneClick(game.players);
-  await steps.step('cinderella-clicks-reversal', { description: 'The clicked card visibly activates and reverses a complete clicked trick', verifications: [
+  const plays: string[] = [];
+  plays.push(await playOneClick(game.players));
+  await steps.step('cinderella-lead-played', { description: `Alex leads ${plays[0]} into Cinderella’s reversed trick`, verifications: [
+    { spec: 'The center contains exactly the lead card record', check: async () => expect(page.getByLabel('Current trick').locator('.trick-play')).toHaveCount(1) },
+    { spec: 'The active Cinderella rule remains visible', check: async () => expect(page.getByText('Princess power: Cinderella')).toBeVisible() }
+  ] });
+  plays.push(await playOneClick(game.players));
+  await steps.step('cinderella-second-card-played', { description: `Jo follows with ${plays[1]} and both ranks remain visible`, verifications: [
+    { spec: 'The center contains two played card records', check: async () => expect(page.getByLabel('Current trick').locator('.trick-play')).toHaveCount(2) },
+    { spec: 'Both exact card graphics are labelled in the trick', check: async () => { await expect(page.getByLabel(`Alex played ${plays[0]}`)).toBeVisible(); await expect(page.getByLabel(`Jo played ${plays[1]}`)).toBeVisible(); } }
+  ] });
+  plays.push(await playOneClick(game.players));
+  const names = ['Alex', 'Jo', 'Sam'];
+  const ledSuit = plays[0].split(' ')[0];
+  const eligible = plays.map((card, index) => ({ card, index, suit: card.split(' ')[0], rank: Number(card.split(' ')[1]) })).filter((play) => play.suit === ledSuit);
+  const lowest = eligible.reduce((winner, play) => play.rank < winner.rank ? play : winner);
+  const winnerName = names[lowest.index];
+  await page.getByLabel(`${winnerName} tricks`).click();
+  await steps.step('cinderella-lowest-card-wins', { description: `${winnerName} takes the reversed trick with the lowest led-suit card, ${lowest.card}`, verifications: [
+    { spec: 'The winner’s open review contains all three played card records', check: async () => { const review = page.getByLabel(`${winnerName} last trick`); await expect(review).toBeVisible(); await expect(review.locator('.review-card')).toHaveCount(3); } },
+    { spec: 'The reviewed cards exactly match the three clicked plays', check: async () => { const labels = await page.getByLabel(`${winnerName} last trick`).locator('.review-card').evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label'))); expect(labels).toEqual(plays); } },
+    { spec: `${lowest.card} is the lowest card of the led suit`, check: async () => expect(eligible.every((play) => lowest.rank <= play.rank)).toBe(true) },
     { spec: 'All clients see Cinderella exhausted', check: async () => { await expect(page.locator('.local-princess.exhausted')).toBeVisible(); await expect(game.sam.getByLabel("Alex's Princess: Cinderella")).toHaveClass(/exhausted/); } },
-    { spec: 'The reversed trick is awarded', check: async () => expect(page.locator('.trick-counter summary').filter({ hasText: /^1$/ })).toHaveCount(1) }
+    { spec: `${winnerName} has one awarded trick`, check: async () => expect(page.getByLabel(`${winnerName} tricks`)).toHaveText('1') }
   ] });
   steps.generateDocs(); await closePrincessGame(game);
 });
