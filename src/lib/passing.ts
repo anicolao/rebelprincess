@@ -10,6 +10,7 @@ const PASS_BY_ROUND: Record<string, PassInstruction> = {
   'three-times-a-lady': { direction: 'right', count: 3 },
   'arranged-marriage': { direction: 'split', count: 2 },
   'royal-decree': { direction: 'right', count: 3 },
+  'always-the-bridesmaid': { direction: 'right', count: 1 },
   invitation: { direction: 'right', count: 2 },
   'masquerade-ball': { direction: 'split', count: 2 }
 };

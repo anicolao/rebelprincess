@@ -7,7 +7,7 @@ const IDS = { phone: 'ABR00029', desktop: 'ABR10029' } as const;
 test('Always the Bridesmaid visibly awards the second-highest led-suit card', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Always the Bridesmaid', 'Play a complete visible trick and prove the second-highest card—not the highest—takes it.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Always the Bridesmaid');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Always the Bridesmaid', undefined, [], { steps, direction: 'right', count: 1 });
   await steps.step('bridesmaid-ready', { description: 'The center announces the second-highest winning rule before anyone plays', verifications: [
     { spec: 'The exact rule is readable', check: async () => expect(page.getByText('The second-highest card of the led suit wins; if every follower is void, the leader wins.')).toBeVisible() },
     { spec: 'The leader has a playable card', check: async () => expect(page.locator('.playing-card.playable:not(:disabled)').first()).toBeVisible() }
