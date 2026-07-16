@@ -2,32 +2,25 @@
 
 Click every card until Alice wins a Frog-free trick, then click Alice.
 
-## Alice has won a reviewable Frog-free trick
+## Alice opens the trick she just won and reviews all three cards
 
-![Alice has won a reviewable Frog-free trick](./screenshots/000-frog-free-trick-won-desktop.png)
+![Alice opens the trick she just won and reviews all three cards](./screenshots/000-frog-free-trick-opened-desktop.png)
 
 **Verifications:**
 - [x] Alice’s power button is semantically enabled
-- [x] The captured trick contains three card records and no Frog
+- [x] The open review contains three card records
+- [x] None of the reviewed cards is the Frog
 
 ---
 
-## Alice is clicked and the won trick leaves her captured collection
+## Alice returns the reviewed trick; Pets 7 is now visible in her hand
 
-![Alice is clicked and the won trick leaves her captured collection](./screenshots/001-alice-card-clicked-desktop.png)
-
-**Verifications:**
-- [x] Alice’s card is semantically disabled after use
-- [x] Alice’s captured trick counter decreases
-
----
-
-## After ordinary clicked play, clicking Alice returns the won cards
-
-![After ordinary clicked play, clicking Alice returns the won cards](./screenshots/002-alice-clicks-return-trick-desktop.png)
+![Alice returns the reviewed trick; Pets 7 is now visible in her hand](./screenshots/001-alice-clicks-return-trick-desktop.png)
 
 **Verifications:**
 - [x] Every player receives one returned card
+- [x] Each newly added hand card came from the reviewed trick
+- [x] Alice’s returned card is a visible hand button
 - [x] Alice is visibly exhausted
 
 ---

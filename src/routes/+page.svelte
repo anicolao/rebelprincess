@@ -840,7 +840,7 @@
   .review-card strong { position: absolute; top: 1px; left: 3px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 13px; text-shadow: 0 1px 2px #000; }
   .local-seat { position: absolute; z-index: 3; inset: auto 8px 8px; }
   .local-counter { top: 0; right: 8px; }
-  .local-counter .trick-review { top: auto; bottom: 27px; }
+  .local-counter .trick-review { top: auto; right: 0; bottom: 27px; left: auto; transform: none; }
   .local-heading { display: flex; justify-content: center; gap: 12px; margin-bottom: 5px; color: #fff4d0; font-size: 12px; }
   .local-heading span { color: #b88cdf; }
   .local-heading.local-leader { width: max-content; margin-right: auto; margin-left: auto; padding: 4px 9px; border: 1px solid #ffc75f; border-radius: 999px; color: #ffc75f; box-shadow: 0 0 14px rgba(255, 199, 95, .3); }

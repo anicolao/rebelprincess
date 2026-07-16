@@ -15,18 +15,23 @@ test('Alice returns a won trick entirely through clicks', async ({ page, browser
     ready = after > before && await page.locator('.local-counter .review-card[aria-label="Pets 8"]').count() === 0;
   }
   expect(ready).toBe(true);
-  await steps.step('frog-free-trick-won', { description: 'Alice has won a reviewable Frog-free trick', verifications: [
+  const reviewedCards = await page.locator('.local-counter .review-card').evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label') ?? ''));
+  await page.locator('.local-counter summary').click();
+  await steps.step('frog-free-trick-opened', { description: 'Alice opens the trick she just won and reviews all three cards', verifications: [
     { spec: 'Alice’s power button is semantically enabled', check: async () => expect(page.getByRole('button', { name: 'Use Alice power' })).toBeEnabled() },
-    { spec: 'The captured trick contains three card records and no Frog', check: async () => { await expect(page.locator('.local-counter .review-card')).toHaveCount(3); await expect(page.locator('.local-counter .review-card[aria-label="Pets 8"]')).toHaveCount(0); } }
+    { spec: 'The open review contains three card records', check: async () => { await expect(page.locator('.local-counter')).toHaveAttribute('open', ''); await expect(page.locator('.local-counter .review-card')).toHaveCount(3); } },
+    { spec: 'None of the reviewed cards is the Frog', check: async () => expect(reviewedCards).not.toContain('Pets 8') }
   ] });
   const counts = await Promise.all(game.players.map((player) => player.getByRole('region', { name: 'Your hand' }).getByRole('button').count()));
+  const handsBefore = await Promise.all(game.players.map((player) => player.getByRole('region', { name: 'Your hand' }).getByRole('button').evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label') ?? ''))));
   const princess = page.getByRole('button', { name: 'Use Alice power' }); await expect(princess).toBeEnabled(); await princess.click();
-  await steps.step('alice-card-clicked', { description: 'Alice is clicked and the won trick leaves her captured collection', verifications: [
-    { spec: 'Alice’s card is semantically disabled after use', check: async () => expect(princess).toBeDisabled() },
-    { spec: 'Alice’s captured trick counter decreases', check: async () => expect(page.locator('.local-princess')).toHaveClass(/exhausted/) }
-  ] });
-  await steps.step('alice-clicks-return-trick', { description: 'After ordinary clicked play, clicking Alice returns the won cards', verifications: [
+  for (let index = 0; index < game.players.length; index += 1) await expect(game.players[index].getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(counts[index] + 1);
+  const handsAfter = await Promise.all(game.players.map((player) => player.getByRole('region', { name: 'Your hand' }).getByRole('button').evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label') ?? ''))));
+  const returnedCards = handsAfter.map((hand, index) => hand.filter((card) => !handsBefore[index].includes(card)));
+  await steps.step('alice-clicks-return-trick', { description: `Alice returns the reviewed trick; ${returnedCards[0][0]} is now visible in her hand`, verifications: [
     { spec: 'Every player receives one returned card', check: async () => { for (let index = 0; index < game.players.length; index += 1) await expect(game.players[index].getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(counts[index] + 1); } },
+    { spec: 'Each newly added hand card came from the reviewed trick', check: async () => { expect(returnedCards.every((cards) => cards.length === 1 && reviewedCards.includes(cards[0]))).toBe(true); } },
+    { spec: 'Alice’s returned card is a visible hand button', check: async () => expect(page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: returnedCards[0][0], exact: true })).toBeVisible() },
     { spec: 'Alice is visibly exhausted', check: async () => expect(game.jo.getByLabel("Alex's Princess: Alice")).toHaveClass(/exhausted/) }
   ] });
   steps.generateDocs(); await closePrincessGame(game);
