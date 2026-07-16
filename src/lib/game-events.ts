@@ -80,6 +80,7 @@ export interface GameProjection {
   roundActionSubmissions: Record<string, Card>;
   roundCardSubmissions: Record<string, Card[]>;
   revealedSuits: Record<string, Card['suit']>;
+  retainedCards: Record<string, Card[]>;
 }
 
 export function nextRoundLeader(playerUids: string[], totalScores: Record<string, number>, lastLeaderUid: string): string | null {
@@ -185,7 +186,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   const deals = ordered.map((event, index) => ({ event, index })).filter(({ event, index }) => event.type === 'game/dealt' && index > lastRematchIndex);
   const emptyCounts = () => Object.fromEntries(playerList.map((player) => [player.uid, 0]));
   const emptyTricks = () => Object.fromEntries(playerList.map((player) => [player.uid, [] as TrickPlay[][]]));
-  type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores' | 'exhaustedPrincessUids' | 'powerIdsThisTrick' | 'pendingMulanUid' | 'pendingPower' | 'forcedCards' | 'awaitingRoundAction' | 'roundActionSubmissions' | 'roundCardSubmissions' | 'revealedSuits'> & { lastWinnerUid: string | null };
+  type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores' | 'exhaustedPrincessUids' | 'powerIdsThisTrick' | 'pendingMulanUid' | 'pendingPower' | 'forcedCards' | 'awaitingRoundAction' | 'roundActionSubmissions' | 'roundCardSubmissions' | 'revealedSuits' | 'retainedCards'> & { lastWinnerUid: string | null };
   const replayRound = (deal: GameEvent, segment: GameEvent[], leaderUid: string): RoundProjection => {
     let roundHands = deal.payload.hands
       ? Object.fromEntries(Object.entries(deal.payload.hands).map(([uid, cards]) => [uid, cards.map((card) => ({ ...card }))]))
@@ -218,6 +219,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     let roundActionSubmissions: Record<string, Card> = {};
     let roundCardSubmissions: Record<string, Card[]> = {};
     const revealedSuits: Record<string, Card['suit']> = {};
+    const retainedCards: Record<string, Card[]> = Object.fromEntries(playerList.map((player) => [player.uid, []]));
     const afterPartyReserves: Record<string, Card[]> = {};
     let afterPartyReleased = false;
     const setAsideCards: Record<string, Card> = {};
@@ -249,6 +251,8 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         playerList.forEach((player) => roundHands![player.uid].push(...afterPartyReserves[player.uid]));
         playerList.forEach((player) => sortHand(player.uid));
         afterPartyReleased = true;
+      } else if (roundId === 'late-for-a-very-important-date' && playerList.every((player) => roundHands?.[player.uid].length === 3)) {
+        playerList.forEach((player) => { retainedCards[player.uid] = roundHands![player.uid].map((card) => ({ ...card })); roundHands![player.uid] = []; });
       }
     };
     const randomCards = (uid: string, count: number, powerId: string) => {
@@ -416,13 +420,13 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     }
     const finished = Boolean(roundHands && Object.values(roundHands).every((hand) => hand.length === 0));
     const scores = Object.fromEntries(playerList.map((player) => {
-      const cards = tricks[player.uid].flat().map((play) => play.card);
+      const cards = [...tricks[player.uid].flat().map((play) => play.card), ...retainedCards[player.uid]];
       return [player.uid, roundCardScore(cards, roundId)];
     }));
-    return { hands: roundHands, passSubmissions: submissions, passComplete: completePass, trick: roundTrick, currentTurnUid: finished ? null : turnUid || null, princesBroken: broken, capturedCounts: counts, capturedTricks: tricks, lastCompletedTrick: latest, completedTricks: trickCount, roundComplete: finished, roundScores: scores, lastWinnerUid, exhaustedPrincessUids: [...exhausted], powerIdsThisTrick: powersThisTrick, pendingMulanUid, pendingPower, forcedCards, awaitingRoundAction, roundActionSubmissions, roundCardSubmissions, revealedSuits };
+    return { hands: roundHands, passSubmissions: submissions, passComplete: completePass, trick: roundTrick, currentTurnUid: finished ? null : turnUid || null, princesBroken: broken, capturedCounts: counts, capturedTricks: tricks, lastCompletedTrick: latest, completedTricks: trickCount, roundComplete: finished, roundScores: scores, lastWinnerUid, exhaustedPrincessUids: [...exhausted], powerIdsThisTrick: powersThisTrick, pendingMulanUid, pendingPower, forcedCards, awaitingRoundAction, roundActionSubmissions, roundCardSubmissions, revealedSuits, retainedCards };
   };
   let leaderUid = playerList[0]?.uid ?? '';
-  let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, roundRule: 0, total: 0 }])), lastWinnerUid: null, exhaustedPrincessUids: [], powerIdsThisTrick: [], pendingMulanUid: null, pendingPower: null, forcedCards: {}, awaitingRoundAction: null, roundActionSubmissions: {}, roundCardSubmissions: {}, revealedSuits: {} };
+  let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, roundRule: 0, total: 0 }])), lastWinnerUid: null, exhaustedPrincessUids: [], powerIdsThisTrick: [], pendingMulanUid: null, pendingPower: null, forcedCards: {}, awaitingRoundAction: null, roundActionSubmissions: {}, roundCardSubmissions: {}, revealedSuits: {}, retainedCards: Object.fromEntries(playerList.map((player) => [player.uid, []])) };
   const totalScores = emptyCounts();
   const zeroRounds = emptyCounts();
   deals.forEach(({ event: deal, index }, dealIndex) => {

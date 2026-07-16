@@ -565,7 +565,7 @@
                 {/if}
                 <ul>
                   {#each game.players as player}
-                    <li class:winner={game.winnerUids.includes(player.uid)}><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog{#if game.roundScores[player.uid].roundRule} + {game.roundScores[player.uid].roundRule} Round rule{/if} = {game.roundScores[player.uid].total}</span><b>{game.totalScores[player.uid]} total · {game.zeroRounds[player.uid]} zero rounds</b></li>
+                    <li class:winner={game.winnerUids.includes(player.uid)}><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog{#if game.roundScores[player.uid].roundRule} + {game.roundScores[player.uid].roundRule} Round rule{/if} = {game.roundScores[player.uid].total}</span>{#if game.retainedCards[player.uid]?.length}<small aria-label={`${player.displayName} kept cards`}>Kept: {game.retainedCards[player.uid].map(cardLabel).join(', ')}</small>{/if}<b>{game.totalScores[player.uid]} total · {game.zeroRounds[player.uid]} zero rounds</b></li>
                   {/each}
                 </ul>
                 {#if game.gameComplete}
