@@ -7,7 +7,7 @@ const IDS = { phone: 'MCH00033', desktop: 'MCH10033' } as const;
 test('Musical Chairs passes one clicked card right after every trick', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Musical Chairs', 'Play a complete trick, select the exchange cards one client at a time, observe waiting, and prove each exact card reaches the player on its right.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Musical Chairs');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Musical Chairs', undefined, [], { steps, direction: 'right', count: 1 });
   await steps.step('chairs-ready', { description: 'The center announces a simultaneous one-card pass to the right after every trick', verifications: [
     { spec: 'The exact exchange rule is readable', check: async () => expect(page.getByText('After every trick, everyone simultaneously passes one card face down to the player on their right.')).toBeVisible() },
     { spec: 'No exchange prompt appears before a trick', check: async () => expect(page.getByText(/Choose one card to pass right/)).toHaveCount(0) }
