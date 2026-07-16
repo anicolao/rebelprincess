@@ -1,13 +1,13 @@
-# Sleeping Beauty click activation
+# Snow White click activation
 
-Click Sleeping Beauty, collection, every contribution, their order, and redistribution.
+A player clicks Snow White and then clicks a legal low card; no keyboard or direct backend action is used.
 
-## Every participant and final assignment uses visible clicks
+## Clicking the Princess arms her and clicking the card applies zero
 
-![Every participant and final assignment uses visible clicks](./screenshots/000-sleeping-beauty-clicks-redistribution-desktop.png)
+![Clicking the Princess arms her and clicking the card applies zero](./screenshots/000-snow-white-clicks-zero-desktop.png)
 
 **Verifications:**
-- [x] Sleeping Beauty keeps the first clicked contribution
-- [x] Jo and Sam receive the next clicked cards
+- [x] The played card visibly counts as zero
+- [x] Observers see Snow White exhausted
 
 ---
