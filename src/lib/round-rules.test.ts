@@ -29,6 +29,16 @@ describe('introductory Round cards', () => {
     expect(roundTrickWinner({ ...trick, plays: [trick.plays[0], { uid: 'b', card: { suit: 'pets' as const, rank: 12 } }, { uid: 'c', card: { suit: 'queens' as const, rank: 11 } }] }, 'always-the-bridesmaid')).toBe('a');
   });
 
+  it('awards Sisterhood to the value farthest from the lead and compares all cards when followers are void', () => {
+    const followed = { leaderUid: 'a', plays: [
+      { uid: 'a', card: { suit: 'fairies' as const, rank: 6 } },
+      { uid: 'b', card: { suit: 'fairies' as const, rank: 2 } },
+      { uid: 'c', card: { suit: 'fairies' as const, rank: 10 } }
+    ] };
+    expect(roundTrickWinner(followed, 'sisterhood')).toBe('c');
+    expect(roundTrickWinner({ ...followed, plays: [followed.plays[0], { uid: 'b', card: { suit: 'pets' as const, rank: 1 } }, { uid: 'c', card: { suit: 'queens' as const, rank: 12 } }] }, 'sisterhood')).toBe('c');
+  });
+
   it('adds one proposal per Pet while retaining the Frog’s five', () => {
     expect(roundCardScore([{ suit: 'pets', rank: 2 }, { suit: 'pets', rank: 8 }, { suit: 'princes', rank: 4 }], 'pets-revenge'))
       .toEqual({ princes: 1, frog: 5, roundRule: 2, total: 8 });
