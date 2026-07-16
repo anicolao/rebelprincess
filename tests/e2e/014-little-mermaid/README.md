@@ -32,9 +32,9 @@ Click the Little Mermaid and click a visible suit choice.
 
 ---
 
-## Alex clicks Fairies 3, visibly leading the requested fairies suit
+## Alex clicks Fairies 5, visibly leading the requested fairies suit
 
-![Alex clicks Fairies 3, visibly leading the requested fairies suit](./screenshots/003-little-mermaid-requested-suit-led-desktop.png)
+![Alex clicks Fairies 5, visibly leading the requested fairies suit](./screenshots/003-little-mermaid-requested-suit-led-desktop.png)
 
 **Verifications:**
 - [x] The played card belongs to the requested suit

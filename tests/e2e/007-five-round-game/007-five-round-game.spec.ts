@@ -25,7 +25,10 @@ async function ready(page: Page) {
 async function submitRequiredPass(page: Page) {
   const submit = page.locator('.pass-submit');
   const count = Number((await submit.textContent())?.match(/Pass (\d+)/)?.[1]);
-  for (let index = 0; index < count; index += 1) await page.getByRole('region', { name: 'Your hand' }).getByRole('button').nth(index).click();
+  for (let index = 0; index < count; index += 1) {
+    await page.getByRole('region', { name: 'Your hand' }).locator('.playing-card:not(.selected)').first().click();
+    await expect(page.locator('.playing-card.selected')).toHaveCount(index + 1);
+  }
   await expect(submit).toBeEnabled();
   await submit.click();
 }

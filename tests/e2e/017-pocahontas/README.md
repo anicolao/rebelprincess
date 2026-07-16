@@ -22,9 +22,9 @@ Click Pocahontas, then click Jo in the visible lead chooser.
 
 ---
 
-## Jo—not Alex—clicks Fairies 3 to lead the next trick
+## Jo—not Alex—clicks Fairies 2 to lead the next trick
 
-![Jo—not Alex—clicks Fairies 3 to lead the next trick](./screenshots/002-pocahontas-new-leader-plays-desktop.png)
+![Jo—not Alex—clicks Fairies 2 to lead the next trick](./screenshots/002-pocahontas-new-leader-plays-desktop.png)
 
 **Verifications:**
 - [x] Every player sees Jo’s lead card in the center

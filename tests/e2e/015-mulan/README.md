@@ -22,9 +22,9 @@ Click all three trick cards, click Mulan, then click a replacement.
 
 ---
 
-## The awarded trick opens for review: Alex’s Fairies 5 replaced Fairies 3
+## The awarded trick opens for review: Alex’s Fairies 7 replaced Fairies 4
 
-![The awarded trick opens for review: Alex’s Fairies 5 replaced Fairies 3](./screenshots/002-mulan-clicks-swap-desktop.png)
+![The awarded trick opens for review: Alex’s Fairies 7 replaced Fairies 4](./screenshots/002-mulan-clicks-swap-desktop.png)
 
 **Verifications:**
 - [x] The open trick review contains the replacement graphic

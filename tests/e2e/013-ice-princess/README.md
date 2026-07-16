@@ -42,9 +42,9 @@ Click the Ice Princess, Jo, and one inspected card, then click the lead.
 
 ---
 
-## Jo clicks the only available card, Fairies 2, and it appears in the trick
+## Jo clicks the only available card, Fairies 3, and it appears in the trick
 
-![Jo clicks the only available card, Fairies 2, and it appears in the trick](./screenshots/004-ice-princess-forced-card-played-desktop.png)
+![Jo clicks the only available card, Fairies 3, and it appears in the trick](./screenshots/004-ice-princess-forced-card-played-desktop.png)
 
 **Verifications:**
 - [x] Jo plays the exact card Alex froze
