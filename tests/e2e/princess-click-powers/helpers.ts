@@ -34,7 +34,7 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
   return { host, jo, sam, players, contexts };
 }
 
-export async function playOneClick(players: Page[], observer = players[0], chooseLast = false): Promise<string> {
+export async function playOneClick(players: Page[], observer = players[0], chooseLast: boolean | Page = false): Promise<string> {
   const names = ['Alex', 'Jo', 'Sam'];
   await expect.poll(async () => {
     const statuses = await Promise.all(players.map((page) => page.getByRole('alert').textContent()));
@@ -44,7 +44,7 @@ export async function playOneClick(players: Page[], observer = players[0], choos
   const actor = (await Promise.all(players.map(async (page) => ({ page, active: (await page.getByRole('alert').textContent())?.includes('Your turn') })))).find((entry) => entry.active)?.page;
   if (!actor) throw new Error('No player has an observable legal play');
   const cards = actor.locator('.playing-card.playable:not(:disabled)');
-  const card = chooseLast ? cards.last() : cards.first();
+  const card = chooseLast === true || chooseLast === actor ? cards.last() : cards.first();
   await expect(card).toBeEnabled();
   const label = await card.getAttribute('aria-label') ?? '';
   const before = Number((await observer.getByTestId('stream-card-count').textContent())?.match(/(\d+)/)?.[1]);
