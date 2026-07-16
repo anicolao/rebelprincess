@@ -1,13 +1,13 @@
-# Pea Princess click activation
+# Mulan click activation
 
-Click the Pea Princess, then click through the constrained trick.
+Click all three trick cards, click Mulan, then click a replacement.
 
-## The clicked Princess constrains visible legal cards and a constrained card is clicked
+## Clicking Mulan and a replacement visibly changes the full trick
 
-![The clicked Princess constrains visible legal cards and a constrained card is clicked](./screenshots/000-pea-princess-clicks-restriction-desktop.png)
+![Clicking Mulan and a replacement visibly changes the full trick](./screenshots/000-mulan-clicks-swap-desktop.png)
 
 **Verifications:**
-- [x] Every initially legal card is above five
-- [x] Observers see the active exhausted Princess
+- [x] The replacement graphic is in the resolved trick
+- [x] The original card returns to Mulan’s hand
 
 ---

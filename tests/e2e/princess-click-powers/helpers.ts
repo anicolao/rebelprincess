@@ -35,15 +35,26 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
 }
 
 export async function playOneClick(players: Page[], observer = players[0], chooseLast = false): Promise<string> {
-  await expect.poll(async () => (await Promise.all(players.map((page) => page.locator('.playing-card.playable:not(:disabled)').count()))).filter(Boolean).length).toBe(1);
-  const actor = (await Promise.all(players.map(async (page) => ({ page, count: await page.locator('.playing-card.playable:not(:disabled)').count() })))).find((entry) => entry.count)?.page;
+  const names = ['Alex', 'Jo', 'Sam'];
+  await expect.poll(async () => {
+    const statuses = await Promise.all(players.map((page) => page.getByRole('alert').textContent()));
+    const active = statuses.findIndex((status) => status?.includes('Your turn'));
+    return active >= 0 && statuses.every((status, index) => index === active || status?.includes(`Waiting for ${names[active]}`)) ? active : -1;
+  }).toBeGreaterThanOrEqual(0);
+  const actor = (await Promise.all(players.map(async (page) => ({ page, active: (await page.getByRole('alert').textContent())?.includes('Your turn') })))).find((entry) => entry.active)?.page;
   if (!actor) throw new Error('No player has an observable legal play');
   const cards = actor.locator('.playing-card.playable:not(:disabled)');
   const card = chooseLast ? cards.last() : cards.first();
+  await expect(card).toBeEnabled();
   const label = await card.getAttribute('aria-label') ?? '';
   const before = Number((await observer.getByTestId('stream-card-count').textContent())?.match(/(\d+)/)?.[1]);
+  const beforeStatuses = JSON.stringify(await Promise.all(players.map((page) => page.getByRole('alert').textContent())));
   await card.click();
   await expect(observer.getByTestId('stream-card-count')).toHaveText(`Shared stream contains ${before - 1} cards`);
+  await expect(actor.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: label, exact: true })).toHaveCount(0);
+  const actorName = names[players.indexOf(actor)];
+  for (const player of players) await expect(player.getByLabel(`${actorName} played ${label}`)).toBeVisible();
+  await expect.poll(async () => JSON.stringify(await Promise.all(players.map((page) => page.getByRole('alert').textContent())))).not.toBe(beforeStatuses);
   return label;
 }
 
