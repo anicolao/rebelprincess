@@ -4,6 +4,11 @@ import { legalCardsWithPeaPower } from './princess-powers';
 
 export function roundLegalCards(hand: Card[], trick: TrickState, princesBroken: boolean, roundId: string, peaActive = false): Card[] {
   const legal = legalCardsWithPeaPower(hand, trick, princesBroken, peaActive);
+  if (roundId === 'odds-and-evens' && trick.plays.length) {
+    const parity = trick.plays[0].card.rank % 2;
+    const matching = legal.filter((card) => card.rank % 2 === parity);
+    return matching.length ? matching : legal;
+  }
   if (roundId !== 'magic-beans') return legal;
   return legal.filter((card) => {
     const ranks = legal.filter((candidate) => candidate.suit === card.suit).map((candidate) => candidate.rank);
