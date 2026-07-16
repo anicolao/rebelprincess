@@ -32,6 +32,7 @@ describe('introductory Round cards', () => {
     expect(roundTrickWinner(trick, 'invitation')).toBe('a');
     expect(roundTrickWinner(trick, 'royal-decree')).toBe('b');
     expect(roundTrickWinner({ ...trick, plays: [...trick.plays, { uid: 'd', card: { suit: 'queens', rank: 8 } }], reversed: true }, 'royal-decree')).toBe('b');
+    expect(roundTrickWinner({ ...trick, reversed: true }, 'upside-down')).toBe('c');
   });
 
   it('awards Always the Bridesmaid to the second-highest led-suit card', () => {

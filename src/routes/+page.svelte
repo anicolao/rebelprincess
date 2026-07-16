@@ -465,6 +465,7 @@
               </div>
               <p class="round-count">Round {game.roundIndex + 1} of 5</p>
               {#if game.blindTransferComplete}<p class="active-power" role="status">Blind Man’s Bluff · second hands passed right</p>{/if}
+              {#if activeRoundId() === 'upside-down' && game.trick?.reversed}<p class="active-power" role="status">Upside Down · low cards currently win</p>{/if}
               {#if game.powerIdsThisTrick.length}<p class="active-power" role="status">Princess power: {game.powerIdsThisTrick.map(princessName).join(', ')}</p>{/if}
             </article>
 
