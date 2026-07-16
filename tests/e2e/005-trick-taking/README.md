@@ -9,6 +9,7 @@ Three trustworthy clients play complete synchronized tricks through follow-suit,
 **Verifications:**
 - [x] Alex is prompted to lead the first trick
 - [x] Every client identifies Alex as the leader
+- [x] Every client sees the remaining players clockwise in play order
 - [x] The leader sees a prominent highlighted lead badge
 - [x] A Prince is disabled before the suit is broken
 - [x] A Fairy is a legal opening lead

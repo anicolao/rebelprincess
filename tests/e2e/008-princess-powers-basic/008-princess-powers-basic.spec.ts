@@ -126,6 +126,14 @@ test('the five direct Princess powers activate, modify play, and exhaust for the
   await page.getByRole('button', { name: lead, exact: true }).press('Enter');
   await expect(page.getByTestId('stream-card-count')).toHaveText('Shared stream contains 35 cards');
   await playCards(players, 2);
+  await steps.step('mulan-pauses-the-trick', {
+    description: 'The trick pauses on an explicit Mulan decision instead of losing the active player',
+    verifications: [
+      { spec: 'Mulan’s owner is told how to resolve the decision', check: async () => expect(page.getByRole('alert')).toHaveText('Tap Mulan to swap her played card or keep it') },
+      { spec: 'Every observer is told who must resolve Mulan', check: async () => { for (const client of players.slice(1)) await expect(client.getByRole('alert')).toHaveText('Waiting for Alex to resolve Mulan'); } },
+      { spec: 'No client displays an undefined player name', check: async () => { for (const client of players) await expect(client.getByRole('alert')).not.toContainText('undefined'); } }
+    ]
+  });
   await page.getByRole('button', { name: 'Use Mulan power' }).click();
   const replacement = page.getByRole('group', { name: 'Mulan power' }).getByRole('button', { name: /^Swap for / }).first();
   const replacementLabel = (await replacement.textContent())?.replace('Swap for ', '') ?? '';

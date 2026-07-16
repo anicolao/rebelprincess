@@ -58,6 +58,12 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
         await expect(jo.getByLabel("Alex's hand").getByText('Leads', { exact: true })).toBeVisible();
         await expect(sam.getByLabel("Alex's hand").getByText('Leads', { exact: true })).toBeVisible();
       } },
+      { spec: 'Every client sees the remaining players clockwise in play order', check: async () => {
+        const seatLabels = async (client: typeof page) => client.locator('[data-clockwise-seat]').evaluateAll((seats) => seats.map((seat) => seat.getAttribute('aria-label')));
+        expect(await seatLabels(page)).toEqual(["Jo's hand", "Sam's hand"]);
+        expect(await seatLabels(jo)).toEqual(["Sam's hand", "Alex's hand"]);
+        expect(await seatLabels(sam)).toEqual(["Alex's hand", "Jo's hand"]);
+      } },
       { spec: 'The leader sees a prominent highlighted lead badge', check: async () => expect(page.locator('.local-heading')).toHaveClass(/local-leader/) },
       { spec: 'A Prince is disabled before the suit is broken', check: async () => expect(page.getByRole('button', { name: 'Princes 4', exact: true })).toBeDisabled() },
       { spec: 'A Fairy is a legal opening lead', check: async () => expect(page.getByRole('button', { name: 'Fairies 4', exact: true })).toBeEnabled() }
