@@ -191,7 +191,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   const emptyCounts = () => Object.fromEntries(playerList.map((player) => [player.uid, 0]));
   const emptyTricks = () => Object.fromEntries(playerList.map((player) => [player.uid, [] as TrickPlay[][]]));
   type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores' | 'exhaustedPrincessUids' | 'powerIdsThisTrick' | 'pendingMulanUid' | 'pendingPower' | 'forcedCards' | 'awaitingRoundAction' | 'roundActionSubmissions' | 'roundCardSubmissions' | 'revealedSuits' | 'retainedCards' | 'haggleWinnerUid' | 'blindTransferComplete'> & { lastWinnerUid: string | null };
-  const replayRound = (deal: GameEvent, segment: GameEvent[], leaderUid: string): RoundProjection => {
+  const replayRound = (deal: GameEvent, segment: GameEvent[], leaderUid: string, priorTotals: Record<string, number>): RoundProjection => {
     let roundHands = deal.payload.hands
       ? Object.fromEntries(Object.entries(deal.payload.hands).map(([uid, cards]) => [uid, cards.map((card) => ({ ...card }))]))
       : null;
@@ -466,7 +466,9 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     const finished = Boolean(roundHands && Object.values(roundHands).every((hand) => hand.length === 0));
     const scores = Object.fromEntries(playerList.map((player) => {
       const cards = [...tricks[player.uid].flat().map((play) => play.card), ...retainedCards[player.uid]];
-      return [player.uid, roundCardScore(cards, roundId)];
+      const highestPrior = Math.max(...playerList.map((candidate) => priorTotals[candidate.uid] ?? 0));
+      const bathroomExempt = roundId === 'bathroom-break' && (priorTotals[player.uid] ?? 0) === highestPrior;
+      return [player.uid, roundCardScore(cards, roundId, bathroomExempt)];
     }));
     return { hands: roundHands, passSubmissions: submissions, passComplete: completePass, trick: roundTrick, currentTurnUid: finished ? null : turnUid || null, princesBroken: broken, capturedCounts: counts, capturedTricks: tricks, lastCompletedTrick: latest, completedTricks: trickCount, roundComplete: finished, roundScores: scores, lastWinnerUid, exhaustedPrincessUids: [...exhausted], powerIdsThisTrick: powersThisTrick, pendingMulanUid, pendingPower, forcedCards, awaitingRoundAction, roundActionSubmissions, roundCardSubmissions, revealedSuits, retainedCards, haggleWinnerUid, blindTransferComplete };
   };
@@ -477,7 +479,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   deals.forEach(({ event: deal, index }, dealIndex) => {
     const nextIndex = deals[dealIndex + 1]?.index ?? ordered.length;
     const segment = ordered.slice(index + 1, nextIndex);
-    active = replayRound(deal, segment, leaderUid);
+    active = replayRound(deal, segment, leaderUid, totalScores);
     roundIds = deal.payload.roundIds ?? roundIds;
     seed = deal.payload.seed ?? seed;
     if (active.roundComplete) {

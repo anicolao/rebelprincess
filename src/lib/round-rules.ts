@@ -98,12 +98,13 @@ export function roundTrickWinner(trick: TrickState, roundId: string): string {
 
 export function cardsPerTrick(roundId: string): number { return roundId === 'prince-rings-twice' ? 2 : 1; }
 
-export function roundCardScore(cards: Card[], roundId: string): { princes: number; frog: number; roundRule: number; total: number } {
+export function roundCardScore(cards: Card[], roundId: string, bathroomExempt = false): { princes: number; frog: number; roundRule: number; total: number } {
   const princes = cards.filter((card) => card.suit === 'princes').length;
   const frog = cards.some((card) => card.suit === 'pets' && card.rank === 8) ? 5 : 0;
   const roundRule = roundId === 'pets-revenge' ? cards.filter((card) => card.suit === 'pets').length
     : roundId === 'three-times-a-lady' ? -3 * cards.filter((card) => card.rank === 3).length
     : roundId === 'single-fairy' ? -cards.filter((card) => card.suit === 'fairies').length
+    : roundId === 'bathroom-break' && !bathroomExempt ? princes
     : roundId === 'arranged-marriage' && cards.length === 0 ? 5 : 0;
   return { princes, frog, roundRule, total: princes + frog + roundRule };
 }

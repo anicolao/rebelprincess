@@ -3,7 +3,7 @@ import { ROUND_RULES } from '../../../src/lib/setup';
 
 export type RoundCardGame = { host: Page; jo: Page; sam: Page; players: Page[]; contexts: BrowserContext[] };
 
-export async function setupRoundCardGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, roundName: string, dealSeed = gameId): Promise<RoundCardGame> {
+export async function setupRoundCardGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, roundName: string, dealSeed = gameId, followingRounds: string[] = []): Promise<RoundCardGame> {
   const options = { viewport: host.viewportSize() ?? undefined, reducedMotion: 'reduce' as const, serviceWorkers: 'block' as const, deviceScaleFactor: 1 };
   const contexts = [await browser.newContext(options), await browser.newContext(options)];
   const jo = await contexts[0].newPage(); const sam = await contexts[1].newPage();
@@ -18,7 +18,8 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
     await page.getByRole('button', { name: 'Ready for the ball' }).click();
   }
   const fallback = ROUND_RULES.map(([, name]) => name).filter((name) => name !== roundName).slice(0, 4);
-  for (const name of [roundName, ...fallback]) await host.getByRole('button', { name, exact: true }).click();
+  const selected = [roundName, ...followingRounds, ...fallback].filter((name, index, names) => names.indexOf(name) === index).slice(0, 5);
+  for (const name of selected) await host.getByRole('button', { name, exact: true }).click();
   await host.getByRole('button', { name: 'Shuffle and deal' }).click();
   for (const page of players) {
     const hand = page.getByRole('region', { name: 'Your hand' }); await expect(hand.getByRole('button')).toHaveCount(12);
