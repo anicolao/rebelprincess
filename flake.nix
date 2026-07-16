@@ -12,6 +12,9 @@
       in {
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [ bun git jdk ];
+          shellHook = ''
+            export XDG_CACHE_HOME="''${TMPDIR:-/tmp}/rebel-princess-firebase-cache"
+          '';
         };
       });
 }
