@@ -1,13 +1,13 @@
-# Scheherazade click activation
+# Sleeping Beauty click activation
 
-Click Scheherazade, Jo, and the card to exchange.
+Click Sleeping Beauty, collection, every contribution, their order, and redistribution.
 
-## The three UI clicks exchange the displayed cards
+## Every participant and final assignment uses visible clicks
 
-![The three UI clicks exchange the displayed cards](./screenshots/000-scheherazade-clicks-exchange-desktop.png)
+![Every participant and final assignment uses visible clicks](./screenshots/000-sleeping-beauty-clicks-redistribution-desktop.png)
 
 **Verifications:**
-- [x] The inspected card appears in Scheherazade’s hand
-- [x] The clicked exchange card leaves her hand
+- [x] Sleeping Beauty keeps the first clicked contribution
+- [x] Jo and Sam receive the next clicked cards
 
 ---
