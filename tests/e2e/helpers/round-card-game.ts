@@ -30,12 +30,13 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
   return { host, jo, sam, players, contexts };
 }
 
-export async function clickCurrentCard(players: Page[], chooseLast = false): Promise<{ actor: string; card: string }> {
+export async function clickCurrentCard(players: Page[], chooseLast: boolean | ((actor: string) => boolean) = false): Promise<{ actor: string; card: string }> {
   const names = ['Alex', 'Jo', 'Sam'];
   await expect.poll(async () => (await Promise.all(players.map((page) => page.locator('.playing-card.playable:not(:disabled)').count()))).findIndex((count) => count > 0)).toBeGreaterThanOrEqual(0);
   const counts = await Promise.all(players.map((page) => page.locator('.playing-card.playable:not(:disabled)').count()));
   const index = counts.findIndex((count) => count > 0); const cards = players[index].locator('.playing-card.playable:not(:disabled)');
-  const card = chooseLast ? cards.last() : cards.first(); const label = await card.getAttribute('aria-label') ?? '';
+  const pickLast = typeof chooseLast === 'function' ? chooseLast(names[index]) : chooseLast;
+  const card = pickLast ? cards.last() : cards.first(); const label = await card.getAttribute('aria-label') ?? '';
   await card.click();
   for (const page of players) await expect(page.getByLabel(`${names[index]} played ${label}`)).toBeVisible();
   return { actor: names[index], card: label };
