@@ -40,6 +40,7 @@
   let thumbelinaArmed = false;
   let openPrincessPower = '';
   let selectedPowerCards: Card[] = [];
+  let selectedRoundCards: string[] = [];
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
 
@@ -259,7 +260,8 @@
   }
 
   function handleHandCard(card: Card) {
-    if (game?.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit') void submitRoundAction(card);
+    if (game?.awaitingRoundAction === 'split-hand') toggleRoundCard(card);
+    else if (game?.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit') void submitRoundAction(card);
     else if (game?.passComplete) void playCard(card);
     else if (game?.passSubmissions[currentUid]) void reclaimPassCard(card);
     else togglePassCard(card);
@@ -280,6 +282,19 @@
   async function revealCrystalSuit(suit: Card['suit']) {
     if (game?.awaitingRoundAction !== 'reveal-suit' || game.revealedSuits[currentUid] || !game.hands?.[currentUid]?.some((card) => card.suit === suit)) return;
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'round/suit-revealed', { suit });
+  }
+
+  function toggleRoundCard(card: Card) {
+    if (game?.awaitingRoundAction !== 'split-hand' || game.roundCardSubmissions[currentUid]) return;
+    const label = cardLabel(card);
+    selectedRoundCards = selectedRoundCards.includes(label) ? selectedRoundCards.filter((entry) => entry !== label) : selectedRoundCards.length < Math.floor((game.hands?.[currentUid]?.length ?? 0) / 2) ? [...selectedRoundCards, label] : selectedRoundCards;
+  }
+
+  async function submitAfterPartyHalf() {
+    if (game?.awaitingRoundAction !== 'split-hand' || game.roundCardSubmissions[currentUid]) return;
+    const cards = (game.hands?.[currentUid] ?? []).filter((card) => selectedRoundCards.includes(cardLabel(card)));
+    if (cards.length * 2 !== (game.hands?.[currentUid]?.length ?? 0)) return;
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'round/half-selected', { cards });
   }
 
   async function playCard(card: Card) {
@@ -510,8 +525,9 @@
               <div class="hand" role="region" aria-label="Your hand">
                 {#each game.hands[currentUid] ?? [] as card}
                   {@const committed = !game.passComplete && game.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card))}
-                  {@const roundActionAvailable = Boolean(game.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit' && !game.roundActionSubmissions[currentUid])}
-                  <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} class:committed class:playable={game.passComplete && playable(card)} class:contributable={roundActionAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))} disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}>
+                  {@const roundActionAvailable = Boolean(game.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit' && game.awaitingRoundAction !== 'split-hand' && !game.roundActionSubmissions[currentUid])}
+                  {@const splitAvailable = game.awaitingRoundAction === 'split-hand' && !game.roundCardSubmissions[currentUid]}
+                  <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card))} class:committed class:playable={game.passComplete && playable(card)} class:contributable={roundActionAvailable || splitAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))} disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !splitAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}>
                     <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
                     <strong>{card.rank}</strong><small>{card.suit}</small>
                     {#if committed}<em>To {passRecipient(card)}</em>{/if}
@@ -526,6 +542,8 @@
                   {:else if game.awaitingRoundAction === 'musical-pass'}<p class="pass-waiting" role="alert">Musical Chairs · {game.roundActionSubmissions[currentUid] ? 'Waiting for the other chairs' : 'Choose one card to pass right'}</p>
                   {:else if game.awaitingRoundAction === 'reveal-suit'}
                     <div class="power-controls" role="group" aria-label="Crystal Clear suit choice"><strong>{game.revealedSuits[currentUid] ? `Revealed ${game.revealedSuits[currentUid]} · waiting for everyone` : 'Choose one suit in your hand to reveal'}</strong>{#if !game.revealedSuits[currentUid]}{#each SUITS.filter((suit) => game?.hands?.[currentUid]?.some((card) => card.suit === suit)) as suit}<button type="button" on:click={() => revealCrystalSuit(suit)}>{suit}</button>{/each}{/if}</div>
+                  {:else if game.awaitingRoundAction === 'split-hand'}
+                    <div class="power-controls" role="group" aria-label="After Party first hand"><strong>{game.roundCardSubmissions[currentUid] ? 'First hand chosen · waiting for everyone' : `Choose 6 cards for your first hand (${selectedRoundCards.length}/6)`}</strong>{#if !game.roundCardSubmissions[currentUid]}<button type="button" disabled={selectedRoundCards.length !== 6} on:click={submitAfterPartyHalf}>Set first hand</button>{/if}</div>
                   {:else if game.pendingMulanUid}<p class="pass-waiting" role="alert">{game.pendingMulanUid === currentUid ? 'Tap Mulan to swap her played card or keep it' : `Waiting for ${playerName(game.pendingMulanUid)} to resolve Mulan`}</p>
                   {:else if game.pendingPower}<p class="pass-waiting" role="alert">Waiting for {playerName(game.pendingPower.actorUid)} to resolve {princessName(game.pendingPower.powerId)}</p>
                   {:else}<p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${playerName(game.currentTurnUid)}`} · Trick {game.completedTricks + 1}</p>{/if}
