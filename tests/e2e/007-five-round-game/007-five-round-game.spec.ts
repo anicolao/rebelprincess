@@ -6,7 +6,7 @@ const EXPECTED_SCORES = [
   [[0, 0, 0, 7, 1], [4, 0, 4, 4, 1], [5, 5, 10, 17, 0]],
   [[4, 0, 4, 11, 1], [5, 5, 10, 14, 1], [0, 0, 0, 17, 1]],
   [[1, 5, 6, 17, 1], [8, 0, 8, 22, 1], [0, 0, 0, 17, 2]],
-  [[0, 0, 0, 17, 2], [3, 0, 3, 25, 1], [6, 5, 11, 28, 2]]
+  [[0, 0, 0, 17, 2], [7, 0, 7, 29, 1], [2, 5, 7, 24, 2]]
 ] as const;
 
 async function join(page: Page, gameId: string, uid: string, name: string) {
@@ -31,7 +31,13 @@ async function submitRequiredPass(page: Page) {
 }
 
 async function playCompleteRound(players: Page[], observer: Page) {
-  for (let remaining = 36; remaining > 0; remaining -= 1) {
+  let remaining = 36;
+  while (remaining > 0) {
+    if (await observer.getByRole('alert').filter({ hasText: 'Musical Chairs' }).count()) {
+      for (const player of players) await player.locator('.playing-card.contributable').first().press('Enter');
+      await expect(observer.getByRole('alert')).toContainText('Trick');
+      continue;
+    }
     await expect.poll(async () => (await Promise.all(players.map((player) => player.locator('.playing-card.playable').count()))).filter((count) => count > 0).length).toBe(1);
     let playable: ReturnType<Page['locator']> | null = null;
     for (const player of players) {
@@ -41,6 +47,7 @@ async function playCompleteRound(players: Page[], observer: Page) {
     if (!playable) throw new Error(`No legal play with ${remaining} cards remaining`);
     await playable.click();
     await expect(observer.getByTestId('stream-card-count')).toHaveText(`Shared stream contains ${remaining - 1} cards`);
+    remaining -= 1;
   }
 }
 

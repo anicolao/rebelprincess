@@ -20,6 +20,7 @@
   import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, ROUND_RULE_TEXT, SUITS, type Card } from '$lib/setup';
   import { passInstruction } from '$lib/passing';
   import { legalCardsWithPeaPower, mulanReplacements, PRINCESS_POWER_TEXT, snowWhiteCanZero } from '$lib/princess-powers';
+  import { isMasqueradeHidden } from '$lib/round-rules';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -149,7 +150,8 @@
   function localPlayer() { return game?.players.find((player) => player.uid === currentUid); }
   function powerAvailable(id?: string) { return Boolean(id && game?.passComplete && !game.roundComplete && !game.exhaustedPrincessUids.includes(currentUid)); }
   function princessUsable(id?: string) {
-    if (!id || !powerAvailable(id)) return false;
+    if (!id || !powerAvailable(id) || game?.awaitingRoundAction) return false;
+    if (activeRoundId() === 'late-to-the-ball' && game?.completedTricks === 11 && (id === 'sleeping-beauty' || id === 'scheherazade')) return false;
     if (id === 'mulan') return game?.pendingMulanUid === currentUid;
     if (id === 'alice') return game?.lastCompletedTrick?.winnerUid === currentUid && !game.lastCompletedTrick.plays.some((play) => play.card.suit === 'pets' && play.card.rank === 8);
     if (id === 'snow-white') return game?.currentTurnUid === currentUid && game.hands?.[currentUid]?.some((card) => playable(card) && snowWhiteCanZero(card));
@@ -237,15 +239,21 @@
   }
 
   function handleHandCard(card: Card) {
-    if (game?.passComplete) void playCard(card);
+    if (game?.awaitingRoundAction) void submitRoundAction(card);
+    else if (game?.passComplete) void playCard(card);
     else if (game?.passSubmissions[currentUid]) void reclaimPassCard(card);
     else togglePassCard(card);
   }
 
   function playable(card: Card): boolean {
-    if (!game?.hands || !game.trick || game.pendingPower || game.currentTurnUid !== currentUid) return false;
+    if (!game?.hands || !game.trick || game.pendingPower || game.awaitingRoundAction || game.currentTurnUid !== currentUid) return false;
     const forced = game.forcedCards[currentUid];
     return forced ? cardLabel(forced) === cardLabel(card) : legalCardsWithPeaPower(game.hands[currentUid], game.trick, game.princesBroken, game.powerIdsThisTrick.includes('pea-princess')).some((candidate) => cardLabel(candidate) === cardLabel(card));
+  }
+
+  async function submitRoundAction(card: Card) {
+    if (!game?.awaitingRoundAction || game.roundActionSubmissions[currentUid]) return;
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, game.awaitingRoundAction === 'set-aside' ? 'round/card-set-aside' : 'round/pass-submitted', { card });
   }
 
   async function playCard(card: Card) {
@@ -394,11 +402,13 @@
               {@const visiblePlays = collecting ? game.lastCompletedTrick?.plays ?? [] : game.trick?.plays ?? []}
               <section class="live-trick" class:collecting aria-label={collecting ? 'Completed trick' : 'Current trick'}>
                 {#each visiblePlays as play}
-                  <article class="trick-play" style={collectDestination(game.lastCompletedTrick?.winnerUid ?? play.uid)} aria-label={`${game.players.find((player) => player.uid === play.uid)?.displayName} played ${cardLabel(play.card)}`}>
+                  {@const masqueradeHidden = !collecting && play.uid !== currentUid && isMasqueradeHidden(activeRoundId(), game.trick!, play.uid, game.players.length)}
+                  <article class="trick-play" style={collectDestination(game.lastCompletedTrick?.winnerUid ?? play.uid)} aria-label={`${game.players.find((player) => player.uid === play.uid)?.displayName} played ${masqueradeHidden ? 'a face-down card' : cardLabel(play.card)}`}>
                     <span>{game.players.find((player) => player.uid === play.uid)?.displayName}</span>
-                    <div class="trick-card" style={`${playOrigin(play.uid)}; --suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}>
-                      <strong>{play.card.rank}</strong><small>{play.card.suit}</small>
-                      {#if play.effectiveRank === 0}<em>Counts as 0</em>{/if}
+                    <div class="trick-card" class:face-down={masqueradeHidden} style={masqueradeHidden ? playOrigin(play.uid) : `${playOrigin(play.uid)}; --suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}>
+                      {#if !masqueradeHidden}<strong>{play.card.rank}</strong><small>{play.card.suit}</small>
+                        {#if play.effectiveRank === 0}<em>Counts as 0</em>{/if}
+                      {/if}
                     </div>
                   </article>
                 {/each}
@@ -459,7 +469,8 @@
               <div class="hand" role="region" aria-label="Your hand">
                 {#each game.hands[currentUid] ?? [] as card}
                   {@const committed = !game.passComplete && game.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card))}
-                  <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} class:committed class:playable={game.passComplete && playable(card)} class:contributable={game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid)} disabled={game.passComplete ? (!playable(card) && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}>
+                  {@const roundActionAvailable = Boolean(game.awaitingRoundAction && !game.roundActionSubmissions[currentUid])}
+                  <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card))} class:committed class:playable={game.passComplete && playable(card)} class:contributable={roundActionAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))} disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}>
                     <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
                     <strong>{card.rank}</strong><small>{card.suit}</small>
                     {#if committed}<em>To {passRecipient(card)}</em>{/if}
@@ -470,7 +481,9 @@
                 {#if game.roundComplete}
                   <p class="pass-complete" role="alert">Round {game.roundIndex + 1} complete · scoring revealed</p>
                 {:else if game.passComplete}
-                  <p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${game.players.find((player) => player.uid === game?.currentTurnUid)?.displayName}`} · Trick {game.completedTricks + 1}</p>
+                  {#if game.awaitingRoundAction === 'set-aside'}<p class="pass-waiting" role="alert">Late to the Ball · {game.roundActionSubmissions[currentUid] ? 'Card reserved for the final trick' : 'Choose one card to reserve for the final trick'}</p>
+                  {:else if game.awaitingRoundAction === 'musical-pass'}<p class="pass-waiting" role="alert">Musical Chairs · {game.roundActionSubmissions[currentUid] ? 'Waiting for the other chairs' : 'Choose one card to pass right'}</p>
+                  {:else}<p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${game.players.find((player) => player.uid === game?.currentTurnUid)?.displayName}`} · Trick {game.completedTricks + 1}</p>{/if}
                 {:else if game.passSubmissions[currentUid]}
                   <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(activeRoundId()).direction} to {passRecipient()} · {waitingForPasses()} Select a raised card to take it back.</p>
                 {:else}
@@ -489,7 +502,7 @@
                 {/if}
                 <ul>
                   {#each game.players as player}
-                    <li class:winner={game.winnerUids.includes(player.uid)}><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog = {game.roundScores[player.uid].total}</span><b>{game.totalScores[player.uid]} total · {game.zeroRounds[player.uid]} zero rounds</b></li>
+                    <li class:winner={game.winnerUids.includes(player.uid)}><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog{#if game.roundScores[player.uid].roundRule} + {game.roundScores[player.uid].roundRule} Round rule{/if} = {game.roundScores[player.uid].total}</span><b>{game.totalScores[player.uid]} total · {game.zeroRounds[player.uid]} zero rounds</b></li>
                   {/each}
                 </ul>
                 {#if game.gameComplete}
@@ -846,6 +859,7 @@
   .live-trick { position: absolute; z-index: 4; top: 61%; left: 50%; display: flex; justify-content: center; align-items: flex-end; gap: 8px; width: min(90%, 440px); color: #fff4d0; font-size: 10px; pointer-events: none; transform: translateX(-50%); }
   .trick-play { display: grid; justify-items: center; gap: 2px; }
   .trick-card { position: relative; width: clamp(42px, 5vw, 62px); aspect-ratio: 1717 / 3664; overflow: hidden; border: 1px solid rgba(255, 226, 163, .7); border-radius: 4px; background-color: #150d1d; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; box-shadow: 0 8px 18px rgba(0, 0, 0, .5); animation: play-to-table .35s ease-out both; }
+  .trick-card.face-down { background: repeating-linear-gradient(135deg, #251638 0 7px, #604077 7px 10px); }
   .trick-card strong { position: absolute; top: 2px; left: 5px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 20px; text-shadow: 0 1px 3px #000; }
   .trick-card small { position: absolute; inset: auto 3px 3px; color: #fff4d0; font-size: 7px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
   .trick-card em { position: absolute; inset: auto 0 14px; color: #211329; background: #ffc75f; font-size: 8px; font-style: normal; font-weight: 700; text-align: center; }
