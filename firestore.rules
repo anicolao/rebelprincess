@@ -62,6 +62,14 @@ service cloud.firestore {
         && request.resource.data.payload.suit in ['fairies', 'queens', 'princes', 'pets'];
     }
 
+    function validHalfSelectionPayload(gameId) {
+      return request.resource.data.payload.keys().hasOnly(['gameId', 'cards'])
+        && request.resource.data.payload.gameId == gameId
+        && request.resource.data.payload.cards is list
+        && request.resource.data.payload.cards.size() >= 5
+        && request.resource.data.payload.cards.size() <= 6;
+    }
+
     function validPowerPayload(gameId) {
       return request.resource.data.payload.keys().hasOnly(['gameId', 'powerId', 'targetUid', 'card', 'cards', 'suit'])
         && request.resource.data.payload.keys().hasAll(['gameId', 'powerId'])
@@ -74,7 +82,7 @@ service cloud.firestore {
           'type', 'payload', 'actorUid', 'clientSeq', 'createdAt',
           'schemaVersion', 'reducerVersion'
         ])
-        && request.resource.data.type in ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-revealed']
+        && request.resource.data.type in ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-revealed', 'round/half-selected']
         && request.resource.data.actorUid == request.auth.uid
         && request.resource.data.clientSeq is int
         && request.resource.data.clientSeq > 0
@@ -91,6 +99,7 @@ service cloud.firestore {
           || (request.resource.data.type == 'card/played' && validPlayPayload(gameId))
           || (request.resource.data.type in ['round/card-set-aside', 'round/pass-submitted'] && validRoundActionPayload(gameId))
           || (request.resource.data.type == 'round/suit-revealed' && validSuitRevealPayload(gameId))
+          || (request.resource.data.type == 'round/half-selected' && validHalfSelectionPayload(gameId))
           || (request.resource.data.type in ['power/activated', 'power/contributed', 'power/declined'] && validPowerPayload(gameId))
         );
     }
