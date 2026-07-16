@@ -11,7 +11,9 @@ export const PRINCESS_POWER_TEXT: Record<string, string> = {
   cinderella: 'Before a trick, lower cards win the led suit.',
   pocahontas: 'Before a trick, choose any player to lead.',
   mulan: 'After a trick fills, swap your card for another of the same suit.',
-  'pea-princess': 'Before a trick, everyone must play above 5 when legally able.'
+  'pea-princess': 'Before a trick, everyone must play above 5 when legally able.',
+  rapunzel: 'Before a trick, require the leader to lead a Prince if able.',
+  thumbelina: 'When following, play any card except a Prince or the Frog.'
 };
 
 export function legalCardsWithPeaPower(hand: Card[], trick: TrickState, princesBroken: boolean, active: boolean): Card[] {
@@ -28,4 +30,8 @@ export function snowWhiteCanZero(card: Card): boolean {
 export function mulanReplacements(hand: Card[], play: TrickPlay): Card[] {
   if (play.card.suit === 'pets' && play.card.rank === 8) return [];
   return hand.filter((card) => card.suit === play.card.suit && cardLabel(card) !== cardLabel(play.card));
+}
+
+export function thumbelinaCanPlay(card: Card): boolean {
+  return card.suit !== 'princes' && !(card.suit === 'pets' && card.rank === 8);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { legalCardsWithPeaPower, mulanReplacements, snowWhiteCanZero } from './princess-powers';
+import { legalCardsWithPeaPower, mulanReplacements, snowWhiteCanZero, thumbelinaCanPlay } from './princess-powers';
 import type { Card } from './setup';
 
 const card = (suit: Card['suit'], rank: number): Card => ({ suit, rank });
@@ -20,5 +20,12 @@ describe('direct Princess powers', () => {
     const hand = [card('queens', 2), card('queens', 8), card('pets', 4)];
     expect(mulanReplacements(hand, { uid: 'a', card: card('queens', 5) })).toEqual(hand.slice(0, 2));
     expect(mulanReplacements(hand, { uid: 'a', card: card('pets', 8) })).toEqual([]);
+  });
+
+  it('lets Thumbelina ignore suit with any card except a Prince or the Frog', () => {
+    expect(thumbelinaCanPlay(card('fairies', 2))).toBe(true);
+    expect(thumbelinaCanPlay(card('pets', 7))).toBe(true);
+    expect(thumbelinaCanPlay(card('pets', 8))).toBe(false);
+    expect(thumbelinaCanPlay(card('princes', 2))).toBe(false);
   });
 });

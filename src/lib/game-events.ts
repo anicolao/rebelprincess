@@ -12,7 +12,7 @@ import {
 import { cardLabel, princessOptionsForPlayers, SUITS, type Card } from './setup';
 import { passInstruction, resolvePasses } from './passing';
 import { breaksPrinces, trickWinner, type TrickPlay, type TrickState } from './trick-taking';
-import { legalCardsWithPeaPower, mulanReplacements, snowWhiteCanZero } from './princess-powers';
+import { legalCardsWithPeaPower, mulanReplacements, snowWhiteCanZero, thumbelinaCanPlay } from './princess-powers';
 import { deterministicCards, exchangeCards, redistributeCards, returnedTrickCards } from './interactive-princess-powers';
 import { roundCardScore, roundTrickWinner } from './round-rules';
 
@@ -215,6 +215,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     const setAsideCards: Record<string, Card> = {};
     let lateCardsReleased = false;
     const snowZero = new Map<string, string>();
+    const thumbelinaPlays = new Map<string, string>();
     const resolveTrick = () => {
       if (!roundTrick || roundTrick.plays.length !== playerList.length) return;
       const winner = roundTrickWinner(roundTrick, roundId);
@@ -333,12 +334,18 @@ export function deriveGame(events: GameEvent[]): GameProjection {
           if (turnUid !== player.uid || !event.payload.card || !snowWhiteCanZero(event.payload.card)) continue;
           if (!legalCardsWithPeaPower(roundHands[player.uid], roundTrick, broken, peaActive).some((card) => cardLabel(card) === cardLabel(event.payload.card!))) continue;
           snowZero.set(player.uid, cardLabel(event.payload.card));
+        } else if (powerId === 'thumbelina') {
+          if (turnUid !== player.uid || roundTrick.plays.length === 0 || !event.payload.card || !thumbelinaCanPlay(event.payload.card)) continue;
+          if (!roundHands[player.uid].some((card) => cardLabel(card) === cardLabel(event.payload.card!))) continue;
+          thumbelinaPlays.set(player.uid, cardLabel(event.payload.card));
         } else {
           if (roundTrick.plays.length) continue;
           if (powerId === 'little-mermaid' && powerTargets['ice-princess'] === roundTrick.leaderUid) continue;
-          if (powerId === 'pocahontas' && powersThisTrick.includes('little-mermaid')) continue;
-          if (powerId === 'sleeping-beauty' && powersThisTrick.some((id) => id === 'little-mermaid' || id === 'ice-princess')) continue;
-          if (powerId === 'scheherazade' && event.payload.targetUid === roundTrick.leaderUid && powersThisTrick.some((id) => id === 'little-mermaid' || id === 'ice-princess')) continue;
+          if (powerId === 'rapunzel' && powersThisTrick.some((id) => id === 'little-mermaid' || id === 'ice-princess')) continue;
+          if (powerId === 'little-mermaid' && powersThisTrick.some((id) => id === 'rapunzel')) continue;
+          if (powerId === 'pocahontas' && powersThisTrick.some((id) => id === 'little-mermaid' || id === 'rapunzel')) continue;
+          if (powerId === 'sleeping-beauty' && powersThisTrick.some((id) => id === 'little-mermaid' || id === 'ice-princess' || id === 'rapunzel')) continue;
+          if (powerId === 'scheherazade' && event.payload.targetUid === roundTrick.leaderUid && powersThisTrick.some((id) => id === 'little-mermaid' || id === 'ice-princess' || id === 'rapunzel')) continue;
           if (powerId === 'cinderella') roundTrick.reversed = true;
         else if (powerId === 'little-mermaid' && event.payload.suit && SUITS.includes(event.payload.suit)) { roundTrick.requiredSuit = event.payload.suit; powerTargets[powerId] = roundTrick.leaderUid; }
         else if (powerId === 'ice-princess' && event.payload.targetUid && playerList.some((candidate) => candidate.uid === event.payload.targetUid)) { pendingPower = { powerId, actorUid: player.uid, targetUid: event.payload.targetUid, cards: randomCards(event.payload.targetUid, 2, powerId).map((card) => ({ uid: event.payload.targetUid!, card })) }; continue; }
@@ -348,6 +355,9 @@ export function deriveGame(events: GameEvent[]): GameProjection {
           if (!playerList.some((candidate) => candidate.uid === event.payload.targetUid)) continue;
           roundTrick.leaderUid = event.payload.targetUid!;
           turnUid = event.payload.targetUid!;
+          } else if (powerId === 'rapunzel') {
+            roundTrick.requiredSuit = 'princes';
+            roundTrick.forcePrinceLead = true;
           } else if (powerId === 'pea-princess') peaActive = true;
           else continue;
         }
@@ -357,13 +367,15 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       }
       const card = event.payload.card;
       const forced = forcedCards[event.actorUid];
-      if (awaitingRoundAction || pendingMulanUid || pendingPower || !card || event.actorUid !== turnUid || !roundHands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || (forced ? cardLabel(forced) !== cardLabel(card) : !legalCardsWithPeaPower(roundHands[event.actorUid], roundTrick, broken, peaActive).some((held) => cardLabel(held) === cardLabel(card)))) continue;
+      const thumbelina = card && thumbelinaPlays.get(event.actorUid) === cardLabel(card);
+      if (awaitingRoundAction || pendingMulanUid || pendingPower || !card || event.actorUid !== turnUid || !roundHands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || (forced ? cardLabel(forced) !== cardLabel(card) : !thumbelina && !legalCardsWithPeaPower(roundHands[event.actorUid], roundTrick, broken, peaActive).some((held) => cardLabel(held) === cardLabel(card)))) continue;
       broken ||= breaksPrinces(roundTrick, card);
       roundHands[event.actorUid] = roundHands[event.actorUid].filter((held) => held.suit !== card.suit || held.rank !== card.rank);
       delete forcedCards[event.actorUid];
       const zero = snowZero.get(event.actorUid) === cardLabel(card);
       roundTrick.plays.push({ uid: event.actorUid, card, ...(zero ? { effectiveRank: 0 } : {}) });
       snowZero.delete(event.actorUid);
+      thumbelinaPlays.delete(event.actorUid);
       if (roundTrick.plays.length === playerList.length) {
         const mulan = playerList.find((candidate) => candidate.princessId === 'mulan' && !exhausted.has(candidate.uid));
         const mulanPlay = mulan ? roundTrick.plays.find((play) => play.uid === mulan.uid) : undefined;
