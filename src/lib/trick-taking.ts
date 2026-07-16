@@ -1,11 +1,11 @@
 import { cardLabel, type Card } from './setup';
 
 export interface TrickPlay { uid: string; card: Card; effectiveRank?: number }
-export interface TrickState { leaderUid: string; plays: TrickPlay[]; reversed?: boolean; requiredSuit?: Card['suit'] }
+export interface TrickState { leaderUid: string; plays: TrickPlay[]; reversed?: boolean; requiredSuit?: Card['suit']; forcePrinceLead?: boolean }
 
 export function legalCards(hand: Card[], trick: TrickState, princesBroken: boolean): Card[] {
   if (trick.plays.length === 0) {
-    if (trick.requiredSuit && (trick.requiredSuit !== 'princes' || princesBroken || hand.every((card) => card.suit === 'princes'))) {
+    if (trick.requiredSuit && (trick.forcePrinceLead || trick.requiredSuit !== 'princes' || princesBroken || hand.every((card) => card.suit === 'princes'))) {
       const required = hand.filter((card) => card.suit === trick.requiredSuit);
       if (required.length) return required;
     }

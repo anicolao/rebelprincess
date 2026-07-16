@@ -97,6 +97,11 @@ The interactive powers follow these Deluxe rules:
   any player, return one, and place the other in front of its owner. That card
   must be their next play even when it violates follow-suit or another ordinary
   play restriction; choosing a Prince breaks Princes.
+- **Rapunzel — Royal Hair Climb:** before a trick, require the player with the
+  lead to lead a Prince if they hold one, even when Princes have not yet snuck
+  into the party. This play does not itself allow Princes to be led later.
+- **Thumbelina — Ignorance is Bliss:** when she is not leading, she may play any
+  card except a Prince or the Frog without following suit.
 
 ## Introductory Round cards
 

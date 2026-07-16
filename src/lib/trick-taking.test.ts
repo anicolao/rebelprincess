@@ -24,6 +24,14 @@ describe('base trick taking', () => {
     expect(legalCards(hand, { leaderUid: 'a', plays: [], requiredSuit: 'princes' }, true)).toEqual([card('princes', 9)]);
   });
 
+  it('lets Rapunzel require an unopened Prince without breaking Princes afterward', () => {
+    const hand = [card('fairies', 2), card('princes', 9)];
+    const trick: TrickState = { leaderUid: 'a', plays: [], requiredSuit: 'princes', forcePrinceLead: true };
+    expect(legalCards(hand, trick, false)).toEqual([card('princes', 9)]);
+    expect(breaksPrinces(trick, card('princes', 9))).toBe(false);
+    expect(legalCards(hand, { leaderUid: 'a', plays: [] }, false)).toEqual([card('fairies', 2)]);
+  });
+
   it('awards the trick to the highest led suit and only breaks on a void Prince', () => {
     const trick: TrickState = { leaderUid: 'a', plays: [
       { uid: 'a', card: card('queens', 4) }, { uid: 'b', card: card('princes', 10) }, { uid: 'c', card: card('queens', 7) }

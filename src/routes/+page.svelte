@@ -19,7 +19,7 @@
   } from '$lib/game-events';
   import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, ROUND_RULE_TEXT, SUITS, type Card } from '$lib/setup';
   import { passInstruction } from '$lib/passing';
-  import { legalCardsWithPeaPower, mulanReplacements, PRINCESS_POWER_TEXT, snowWhiteCanZero } from '$lib/princess-powers';
+  import { legalCardsWithPeaPower, mulanReplacements, PRINCESS_POWER_TEXT, snowWhiteCanZero, thumbelinaCanPlay } from '$lib/princess-powers';
   import { isMasqueradeHidden } from '$lib/round-rules';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
@@ -36,6 +36,7 @@
   let selectedPassCards: Array<string | null> = [];
   let observedRoundIndex = -1;
   let snowWhiteArmed = false;
+  let thumbelinaArmed = false;
   let openPrincessPower = '';
   let selectedPowerCards: Card[] = [];
 
@@ -169,6 +170,7 @@
     if (id === 'mulan') return game?.pendingMulanUid === currentUid;
     if (id === 'alice') return game?.lastCompletedTrick?.winnerUid === currentUid && !game.lastCompletedTrick.plays.some((play) => play.card.suit === 'pets' && play.card.rank === 8);
     if (id === 'snow-white') return game?.currentTurnUid === currentUid && game.hands?.[currentUid]?.some((card) => playable(card) && snowWhiteCanZero(card));
+    if (id === 'thumbelina') return game?.currentTurnUid === currentUid && Boolean(game.trick?.plays.length) && game.hands?.[currentUid]?.some(thumbelinaCanPlay);
     return game?.trick?.plays.length === 0 && !game.pendingPower;
   }
   function roundName(id: string) { return ROUND_RULES.find(([key]) => key === id)?.[1] ?? id; }
@@ -262,6 +264,7 @@
   function playable(card: Card): boolean {
     if (!game?.hands || !game.trick || game.pendingPower || game.awaitingRoundAction || game.currentTurnUid !== currentUid) return false;
     const forced = game.forcedCards[currentUid];
+    if (thumbelinaArmed && localPlayer()?.princessId === 'thumbelina') return thumbelinaCanPlay(card);
     return forced ? cardLabel(forced) === cardLabel(card) : legalCardsWithPeaPower(game.hands[currentUid], game.trick, game.princesBroken, game.powerIdsThisTrick.includes('pea-princess')).some((candidate) => cardLabel(candidate) === cardLabel(card));
   }
 
@@ -277,6 +280,10 @@
     if (snowWhiteArmed && localPlayer()?.princessId === 'snow-white' && snowWhiteCanZero(card)) {
       await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activated', { powerId: 'snow-white', card });
       snowWhiteArmed = false;
+    }
+    if (thumbelinaArmed && localPlayer()?.princessId === 'thumbelina' && thumbelinaCanPlay(card)) {
+      await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activated', { powerId: 'thumbelina', card });
+      thumbelinaArmed = false;
     }
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'card/played', { card });
   }
@@ -294,7 +301,11 @@
       if (game?.currentTurnUid === currentUid && game.hands?.[currentUid]?.some((card) => playable(card) && snowWhiteCanZero(card))) snowWhiteArmed = !snowWhiteArmed;
       return;
     }
-    if (powerId === 'cinderella' || powerId === 'pea-princess') {
+    if (powerId === 'thumbelina') {
+      if (game?.currentTurnUid === currentUid && game.trick?.plays.length && game.hands?.[currentUid]?.some(thumbelinaCanPlay)) thumbelinaArmed = !thumbelinaArmed;
+      return;
+    }
+    if (powerId === 'cinderella' || powerId === 'pea-princess' || powerId === 'rapunzel') {
       if (game?.trick?.plays.length === 0) await activatePower(powerId);
       return;
     }
@@ -435,8 +446,8 @@
             <section class="local-seat" aria-label="Your seat">
               <div class="local-heading" class:local-leader={game.trick?.leaderUid === currentUid}><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You {#if game.trick?.leaderUid === currentUid}<span class="lead-marker">You lead</span>{/if}</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
               {#if game.passComplete && localPlayer()?.princessId}
-                <div class="seat-princess local-princess" class:exhausted={game.exhaustedPrincessUids.includes(currentUid)} class:armed={snowWhiteArmed}>
-                  <button type="button" class="princess-card" style={princessStyle(localPlayer()?.princessId)} aria-label={`Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={snowWhiteArmed || openPrincessPower === localPlayer()?.princessId} disabled={!princessUsable(localPlayer()?.princessId)} on:click={usePrincessCard}></button>
+                <div class="seat-princess local-princess" class:exhausted={game.exhaustedPrincessUids.includes(currentUid)} class:armed={snowWhiteArmed || thumbelinaArmed}>
+                  <button type="button" class="princess-card" style={princessStyle(localPlayer()?.princessId)} aria-label={`Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={snowWhiteArmed || thumbelinaArmed || openPrincessPower === localPlayer()?.princessId} disabled={!princessUsable(localPlayer()?.princessId)} on:click={usePrincessCard}></button>
                   <strong>{princessName(localPlayer()?.princessId)}</strong>
                   <span>{PRINCESS_POWER_TEXT[localPlayer()?.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
                 </div>
