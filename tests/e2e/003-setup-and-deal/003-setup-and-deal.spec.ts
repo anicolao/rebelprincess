@@ -58,7 +58,15 @@ test('three clients choose setup and receive a deterministic selective deal', as
   await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Jo · ${guestPrincess}`);
   await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Sam · ${thirdPrincess}`);
 
-  for (const round of ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) {
+  await steps.step('deluxe-round-deck', {
+    description: 'The host chooses only from the twenty-six a–z Deluxe Round cards',
+    verifications: [
+      { spec: 'Exactly twenty-six Deluxe Round cards are offered', check: async () => expect(page.getByLabel('Choose exactly five Round cards').getByRole('button')).toHaveCount(26) },
+      { spec: 'The obsolete Invitation teaching card is not offered', check: async () => expect(page.getByRole('button', { name: 'Invitation', exact: true })).toHaveCount(0) }
+    ]
+  });
+
+  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) {
     await page.getByRole('button', { name: round, exact: true }).click();
   }
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();

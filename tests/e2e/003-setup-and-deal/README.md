@@ -12,9 +12,19 @@ Three players choose from two deterministically dealt Princesses, ready themselv
 
 ---
 
+## The host chooses only from the twenty-six a–z Deluxe Round cards
+
+![The host chooses only from the twenty-six a–z Deluxe Round cards](./screenshots/001-deluxe-round-deck-desktop.png)
+
+**Verifications:**
+- [x] Exactly twenty-six Deluxe Round cards are offered
+- [x] The obsolete Invitation teaching card is not offered
+
+---
+
 ## The first round is ready with the host’s exact twelve-card hand
 
-![The first round is ready with the host’s exact twelve-card hand](./screenshots/001-fixed-three-player-deal-desktop.png)
+![The first round is ready with the host’s exact twelve-card hand](./screenshots/002-fixed-three-player-deal-desktop.png)
 
 **Verifications:**
 - [x] The selected first Round card is illustrated at the center of Round 1 of 5

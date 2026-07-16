@@ -43,7 +43,7 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
   await ready(page, 'Snow White');
   await ready(jo, 'The Little Mermaid');
   await ready(sam, 'Cinderella');
-  for (const round of ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
+  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
   await pass(page, ['Fairies 3', 'Princes 2']);
   await pass(jo, ['Fairies 2', 'Fairies 8']);

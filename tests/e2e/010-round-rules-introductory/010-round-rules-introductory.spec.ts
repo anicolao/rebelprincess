@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
 const ROYAL = { phone: { id: 'PR000067', lead: 'Pets 7' }, desktop: { id: 'DR000090', lead: 'Pets 3' } } as const;
-const FILLER_ROUNDS = ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs', 'Pets’ Revenge', 'Late to the Ball'];
+const FILLER_ROUNDS = ['Once Upon a Time…', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs', 'Pets’ Revenge', 'Late to the Ball'];
 
 async function enter(page: Page, gameId: string, uid: string, name: string, create: boolean) {
   await page.goto(`/?gameId=${gameId}&seed=round-${gameId}&e2eUid=${uid}`);
@@ -44,9 +44,9 @@ async function playTurn(players: Page[], observer = players[0], page?: Page, lab
 
 async function playTrick(players: Page[]) { for (let index = 0; index < 3; index += 1) await playTurn(players); }
 
-test('seven introductory Round cards apply from reveal through resolution', async ({ page, browser }, testInfo) => {
+test('six introductory Round cards apply from reveal through resolution', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
-  steps.setMetadata('Introductory Round cards', 'Seven deterministic games prove both teaching rounds and every introductory trick, scoring, pass, concealment, and reserved-card rule through real clients and Firestore.');
+  steps.setMetadata('Introductory Round cards', 'Six deterministic games prove the Deluxe teaching round and every introductory trick, scoring, concealment, exchange, and reserved-card rule through real clients and Firestore.');
   const suffix = testInfo.project.name as 'phone' | 'desktop';
   const prefix = suffix === 'phone' ? 'PX' : 'DX';
   const options = { viewport: page.viewportSize() ?? undefined, reducedMotion: 'reduce' as const, serviceWorkers: 'block' as const, deviceScaleFactor: 1 };
@@ -57,12 +57,6 @@ test('seven introductory Round cards apply from reveal through resolution', asyn
   await steps.step('once-upon-a-time-base-trick', { description: 'Once Upon a Time leaves a complete trick unchanged', verifications: [
     { spec: 'The card states there is no additional rule', check: async () => expect(page.getByLabel('Current Round card')).toContainText('No additional rule.') },
     { spec: 'Exactly one ordinary trick is awarded', check: async () => expect(page.locator('.trick-counter summary').filter({ hasText: /^1$/ })).toHaveCount(1) }
-  ] });
-
-  await setupGame(players, `${prefix}000002`, 'Invitation', suffix); await playTrick(players);
-  await steps.step('invitation-base-trick', { description: 'Invitation provides a second no-effect teaching round', verifications: [
-    { spec: 'Invitation explicitly has no additional rule', check: async () => expect(page.getByLabel('Current Round card')).toContainText('No additional rule.') },
-    { spec: 'The normal winner takes the trick', check: async () => expect(page.locator('.trick-counter summary').filter({ hasText: /^1$/ })).toHaveCount(1) }
   ] });
 
   await setupGame(players, `${prefix}000003`, 'Masquerade Ball', suffix);

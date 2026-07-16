@@ -48,7 +48,7 @@ test('three clients submit simultaneously and resolve a conserved split pass', a
   await ready(page, 'Snow White');
   await ready(guest, 'The Little Mermaid');
   await ready(third, 'Cinderella');
-  for (const round of ['Masquerade Ball', 'Once Upon a Time…', 'Invitation', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
+  for (const round of ['Masquerade Ball', 'Once Upon a Time…', 'Magic Beans', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
 
   const passButton = page.getByRole('button', { name: 'Pass 2 split to Jo and Sam' });

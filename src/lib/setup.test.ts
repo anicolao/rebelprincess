@@ -15,6 +15,8 @@ describe('deterministic setup', () => {
   });
 
   it('provides visible rules text for every round card', () => {
+    expect(ROUND_RULES).toHaveLength(26);
+    expect(ROUND_RULES.map(([id]) => id)).not.toContain('invitation');
     expect(ROUND_RULES.map(([id]) => ROUND_RULE_TEXT[id]).every(Boolean)).toBe(true);
   });
 

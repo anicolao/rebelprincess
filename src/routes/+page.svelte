@@ -628,7 +628,7 @@
             <button type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for the ball</button>
           {/if}
           {#if game?.players[0]?.uid === currentUid}
-            <fieldset class="choice-grid rounds">
+            <fieldset class="choice-grid rounds" aria-label="Choose exactly five Round cards">
               <legend>Choose five Round cards · {selectedRounds.length}/5</legend>
               {#each ROUND_RULES as round}
                 <button type="button" class:chosen={selectedRounds.includes(round[0])} on:click={() => toggleRound(round[0])}>{round[1]}</button>
