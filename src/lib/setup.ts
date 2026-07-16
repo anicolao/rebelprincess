@@ -40,7 +40,7 @@ export const ROUND_RULE_TEXT: Record<string, string> = {
   'masquerade-ball': 'Except for the lead, play cards face down. Reveal them together to determine the trick winner.',
   'royal-decree': 'Queens always win the trick; the highest Queen wins if several are played.',
   'musical-chairs': 'After every trick, everyone simultaneously passes one card face down to the player on their right.',
-  'pets-revenge': 'At the end of the round, every Pet scores one proposal, including the Frog 6.',
+  'pets-revenge': 'At the end of the round, every Pet scores one proposal, including the Frog.',
   'late-to-the-ball': 'After passing, set aside one card face down. It must be played normally in the final trick.',
   'poisoned-apple': 'A player who is void wins with the card they play. Highest value wins among multiple void players; latest play breaks ties.',
   'crystal-clear': 'Reveal every card of one suit from your hand. They remain in your hand and may be played normally.',
