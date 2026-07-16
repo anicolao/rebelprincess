@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePasses, type PassDirection } from './passing';
+import { passInstruction, resolvePasses, type PassDirection } from './passing';
 import { cardLabel, type Card } from './setup';
 
 const card = (rank: number): Card => ({ suit: 'fairies', rank });
 const hands = { a: [card(2), card(3), card(4)], b: [card(5), card(6), card(7)], c: [card(8), card(9), card(10)] };
 
 describe('simultaneous passing', () => {
+  it('uses Once Upon a Time’s printed three-card right pass', () => {
+    expect(passInstruction('once-upon-a-time')).toEqual({ direction: 'right', count: 3 });
+  });
+
   it.each([
     ['left', { a: [2, 3, 8], b: [4, 5, 6], c: [7, 9, 10] }],
     ['right', { a: [2, 3, 7], b: [5, 6, 8], c: [4, 9, 10] }]

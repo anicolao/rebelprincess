@@ -42,9 +42,9 @@ Click Sleeping Beauty, collection, every contribution, their order, and redistri
 
 ---
 
-## The final hands show Alex kept Fairies 3, Jo received Fairies 2, and Sam received Fairies 4
+## The final hands show Alex kept Fairies 4, Jo received Fairies 3, and Sam received Fairies 2
 
-![The final hands show Alex kept Fairies 3, Jo received Fairies 2, and Sam received Fairies 4](./screenshots/004-sleeping-beauty-clicks-redistribution-desktop.png)
+![The final hands show Alex kept Fairies 4, Jo received Fairies 3, and Sam received Fairies 2](./screenshots/004-sleeping-beauty-clicks-redistribution-desktop.png)
 
 **Verifications:**
 - [x] Sleeping Beauty keeps the first clicked contribution

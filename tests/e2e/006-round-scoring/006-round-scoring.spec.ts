@@ -14,14 +14,15 @@ async function ready(page: Page, _princess?: string) {
   await page.getByRole('button', { name: 'Ready for the ball' }).click();
 }
 
-async function passCards(page: Page, cards: string[], direction: 'left' | 'right') {
-  for (const card of cards) {
-    const button = page.getByRole('button', { name: card, exact: true });
+async function passCards(page: Page) {
+  const submit = page.locator('.pass-submit');
+  const count = Number((await submit.textContent())?.match(/Pass (\d+)/)?.[1]);
+  for (let index = 0; index < count; index += 1) {
+    const button = page.getByRole('region', { name: 'Your hand' }).locator('.playing-card:not(.selected)').first();
     await button.click();
-    await expect(button).toHaveClass(/selected/);
+    await expect(page.locator('.playing-card.selected')).toHaveCount(index + 1);
   }
-  await expect(page.locator('.playing-card.selected')).toHaveCount(2);
-  const submit = page.getByRole('button', { name: new RegExp(`Pass 2 ${direction} to`) });
+  await expect(page.locator('.playing-card.selected')).toHaveCount(count);
   await expect(submit).toBeEnabled();
   await submit.click();
 }
@@ -65,9 +66,9 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   await ready(sam, 'Cinderella');
   for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
-  await passCards(page, ['Fairies 2', 'Fairies 3'], 'left');
-  await passCards(jo, ['Fairies 8', 'Fairies 9'], 'left');
-  await passCards(sam, ['Fairies 6', 'Fairies 10'], 'left');
+  await passCards(page);
+  await passCards(jo);
+  await passCards(sam);
   for (const client of players) await expect(client.getByRole('alert')).toContainText('Passing complete');
   await expect(page.getByTestId('stream-card-count')).toHaveText('Shared stream contains 36 cards');
 

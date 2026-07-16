@@ -26,7 +26,7 @@ async function setupGame(pages: Page[], gameId: string, round: string, suffix: s
     const hand = page.getByRole('region', { name: 'Your hand' });
     await expect(hand.getByRole('button')).toHaveCount(12);
     const count = Number((await page.locator('.pass-submit').textContent())?.match(/Pass (\d+)/)?.[1]);
-    for (let index = 0; index < count; index += 1) await hand.getByRole('button').nth(index).press('Enter');
+    for (let index = 0; index < count; index += 1) { await hand.locator('.playing-card:not(.selected)').first().press('Enter'); await expect(hand.locator('.playing-card.selected')).toHaveCount(index + 1); }
     await page.locator('.pass-submit').click();
   }
   for (const page of pages) await expect(page.getByRole('alert')).toContainText(round === 'Late to the Ball' ? 'Late to the Ball' : 'Passing complete');

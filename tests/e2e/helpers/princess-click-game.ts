@@ -27,8 +27,10 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
   for (const page of players) {
     const hand = page.getByRole('region', { name: 'Your hand' });
     await expect(hand.getByRole('button')).toHaveCount(12);
-    await hand.getByRole('button').nth(0).click(); await hand.getByRole('button').nth(1).click();
-    await page.locator('.pass-submit').click();
+    const submit = page.locator('.pass-submit');
+    const count = Number((await submit.textContent())?.match(/Pass (\d+)/)?.[1]);
+    for (let index = 0; index < count; index += 1) { await hand.locator('.playing-card:not(.selected)').first().click(); await expect(hand.locator('.playing-card.selected')).toHaveCount(index + 1); }
+    await submit.click();
   }
   for (const page of players) await expect(page.getByRole('alert')).toContainText('Passing complete');
   return { host, jo, sam, players, contexts };

@@ -29,8 +29,10 @@ async function setupGame(pages: Page[], gameId: string, princess: string, suffix
   for (const page of pages) {
     const hand = page.getByRole('region', { name: 'Your hand' });
     await expect(hand.getByRole('button')).toHaveCount(12);
-    await hand.getByRole('button').nth(0).press('Enter'); await hand.getByRole('button').nth(1).press('Enter');
-    await page.locator('.pass-submit').click();
+    const submit = page.locator('.pass-submit');
+    const count = Number((await submit.textContent())?.match(/Pass (\d+)/)?.[1]);
+    for (let index = 0; index < count; index += 1) { await hand.locator('.playing-card:not(.selected)').first().press('Enter'); await expect(hand.locator('.playing-card.selected')).toHaveCount(index + 1); }
+    await submit.click();
   }
   for (const page of pages) await expect(page.getByRole('alert')).toContainText('Passing complete');
 }

@@ -135,7 +135,7 @@ describe('append-only game events', () => {
       make('game/created', 'a', { displayName: 'Alex' }),
       make('player/joined', 'b', { displayName: 'Jo' }),
       make('player/joined', 'c', { displayName: 'Sam' }),
-      make('game/dealt', 'a', { seed: 'one', roundIds: ['once-upon-a-time', 'invitation', 'masquerade-ball', 'royal-decree', 'musical-chairs'], hands: {
+      make('game/dealt', 'a', { seed: 'one', roundIds: ['invitation', 'once-upon-a-time', 'masquerade-ball', 'royal-decree', 'musical-chairs'], hands: {
         a: [{ suit: 'fairies', rank: 2 }, { suit: 'princes', rank: 2 }],
         b: [{ suit: 'fairies', rank: 3 }, { suit: 'pets', rank: 8 }],
         c: [{ suit: 'fairies', rank: 4 }, { suit: 'queens', rank: 2 }]
@@ -143,18 +143,18 @@ describe('append-only game events', () => {
       make('pass/submitted', 'a', { cards: [{ suit: 'fairies', rank: 2 }, { suit: 'princes', rank: 2 }] }),
       make('pass/submitted', 'b', { cards: [{ suit: 'fairies', rank: 3 }, { suit: 'pets', rank: 8 }] }),
       make('pass/submitted', 'c', { cards: [{ suit: 'fairies', rank: 4 }, { suit: 'queens', rank: 2 }] }),
-      make('card/played', 'a', { card: { suit: 'fairies', rank: 4 } }),
-      make('card/played', 'b', { card: { suit: 'fairies', rank: 2 } }),
-      make('card/played', 'c', { card: { suit: 'fairies', rank: 3 } }),
-      make('card/played', 'a', { card: { suit: 'queens', rank: 2 } }),
-      make('card/played', 'b', { card: { suit: 'princes', rank: 2 } }),
-      make('card/played', 'c', { card: { suit: 'pets', rank: 8 } })
+      make('card/played', 'a', { card: { suit: 'fairies', rank: 3 } }),
+      make('card/played', 'b', { card: { suit: 'fairies', rank: 4 } }),
+      make('card/played', 'c', { card: { suit: 'fairies', rank: 2 } }),
+      make('card/played', 'b', { card: { suit: 'queens', rank: 2 } }),
+      make('card/played', 'c', { card: { suit: 'princes', rank: 2 } }),
+      make('card/played', 'a', { card: { suit: 'pets', rank: 8 } })
     ];
     const scored = deriveGame(events);
     expect(scored.roundComplete).toBe(true);
-    expect(scored.roundScores.a).toEqual({ princes: 1, frog: 5, roundRule: 0, total: 6 });
-    expect(scored.totalScores.a).toBe(6);
-    expect(scored.nextLeaderUid).toBe('b');
+    expect(scored.roundScores.b).toEqual({ princes: 1, frog: 5, roundRule: 0, total: 6 });
+    expect(scored.totalScores.b).toBe(6);
+    expect(scored.nextLeaderUid).toBe('c');
 
     const nextHands = {
       a: [{ suit: 'fairies' as const, rank: 2 }, { suit: 'queens' as const, rank: 2 }],
@@ -163,7 +163,7 @@ describe('append-only game events', () => {
     };
     const advanced = deriveGame([...events, make('game/dealt', 'a', { seed: 'two', roundIds: scored.roundIds, hands: nextHands })]);
     expect(advanced.roundIndex).toBe(1);
-    expect(advanced.totalScores.a).toBe(6);
+    expect(advanced.totalScores.b).toBe(6);
     expect(advanced.roundComplete).toBe(false);
     expect(advanced.trick).toBeNull();
   });

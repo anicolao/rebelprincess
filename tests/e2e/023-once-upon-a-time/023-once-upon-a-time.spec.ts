@@ -6,7 +6,7 @@ const IDS = { phone: 'ROA00001', desktop: 'ROA00002' } as const;
 
 test('Once Upon a Time plays one complete ordinary trick through clicks', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo); steps.setMetadata('Once Upon a Time', 'Reveal the no-rule teaching card, then click and display all three ordinary plays before reviewing the awarded trick.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Once Upon a Time…');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Once Upon a Time…', undefined, [], { steps, direction: 'right', count: 3 });
   await steps.step('ordinary-round-ready', { description: 'Once Upon a Time explicitly announces that no special rule changes ordinary play', verifications: [
     { spec: 'The center names the selected Round card', check: async () => expect(page.getByRole('heading', { name: 'Once Upon a Time…' })).toBeVisible() },
     { spec: 'The printed rule says there is no additional rule', check: async () => expect(page.getByText('No additional rule.')).toBeVisible() }
