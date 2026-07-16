@@ -6,7 +6,7 @@ const IDS = { phone: 'RTL00001', desktop: 'RTL00002' } as const;
 
 test('Three Times a Lady scores every 3 negatively through a complete clicked round', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo); steps.setMetadata('Three Times a Lady', 'Reveal the negative-three rule, play every card through the regular UI, and inspect the exact scoring modifiers.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Three Times a Lady');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Three Times a Lady', undefined, [], { steps, direction: 'right', count: 3 });
   const threes = game.players.flatMap((player) => [player.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: / 3$/ })]);
   await steps.step('three-rule-ready', { description: 'The Round card announces that every rank 3 subtracts three proposals', verifications: [
     { spec: 'The exact negative scoring rule is printed', check: async () => expect(page.getByText('Each 3 scores −3 proposals; the Prince 3 scores −2 proposals.')).toBeVisible() },
@@ -17,7 +17,18 @@ test('Three Times a Lady scores every 3 negatively through a complete clicked ro
   await steps.step('three-round-scored', { description: 'After all 36 ordinary card clicks, the scoring panel applies every captured 3 as a negative modifier', verifications: [
     { spec: 'The round completes with all hands empty', check: async () => { for (const player of game.players) await expect(player.getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(0); } },
     { spec: 'The scoring panel visibly contains negative Round modifiers', check: async () => expect(scoring.getByText(/-\d+ Round rule/).first()).toBeVisible() },
-    { spec: 'The negative scores are reflected in cumulative totals', check: async () => expect(scoring.getByText(/-\d+ total/).first()).toBeVisible() }
+    { spec: 'Each negative modifier is arithmetically reflected in the round and cumulative totals', check: async () => {
+      const rows = (await scoring.getByRole('listitem').allTextContents()).filter((row) => row.includes('Round rule'));
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        const values = row.match(/(\d+) Princes \+ (\d+) Frog\+? (-?\d+) Round rule/);
+        if (!values) throw new Error(`Missing Three Times a Lady arithmetic in ${row}`);
+        const [, princes, frog, modifier] = values.map(Number);
+        const expected = princes + frog + modifier;
+        expect(row).toContain(`= ${expected}`);
+        expect(row).toContain(`${expected} total`);
+      }
+    } }
   ] });
   steps.generateDocs(); await closeRoundCardGame(game);
 });
