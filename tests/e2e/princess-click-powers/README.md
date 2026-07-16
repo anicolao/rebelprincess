@@ -1,13 +1,13 @@
-# Pocahontas click activation
+# Pea Princess click activation
 
-Click Pocahontas, then click Jo in the visible lead chooser.
+Click the Pea Princess, then click through the constrained trick.
 
-## The chooser click changes the shared leader immediately
+## The clicked Princess constrains visible legal cards and a constrained card is clicked
 
-![The chooser click changes the shared leader immediately](./screenshots/000-pocahontas-clicks-new-leader-desktop.png)
+![The clicked Princess constrains visible legal cards and a constrained card is clicked](./screenshots/000-pea-princess-clicks-restriction-desktop.png)
 
 **Verifications:**
-- [x] Jo receives the prominent local lead indicator
-- [x] Pocahontas is exhausted for every client
+- [x] Every initially legal card is above five
+- [x] Observers see the active exhausted Princess
 
 ---
