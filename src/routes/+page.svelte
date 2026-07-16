@@ -276,7 +276,8 @@
 
   async function submitRoundAction(card: Card) {
     if (!game?.awaitingRoundAction || game.roundActionSubmissions[currentUid]) return;
-    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, game.awaitingRoundAction === 'set-aside' ? 'round/card-set-aside' : 'round/pass-submitted', { card });
+    const type = game.awaitingRoundAction === 'set-aside' ? 'round/card-set-aside' : game.awaitingRoundAction === 'wedding-gift' ? 'round/gift-submitted' : 'round/pass-submitted';
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, type, { card });
   }
 
   async function revealCrystalSuit(suit: Card['suit']) {
@@ -540,6 +541,7 @@
                 {:else if game.passComplete}
                   {#if game.awaitingRoundAction === 'set-aside'}<p class="pass-waiting" role="alert">Late to the Ball · {game.roundActionSubmissions[currentUid] ? 'Card reserved for the final trick' : 'Choose one card to reserve for the final trick'}</p>
                   {:else if game.awaitingRoundAction === 'musical-pass'}<p class="pass-waiting" role="alert">Musical Chairs · {game.roundActionSubmissions[currentUid] ? 'Waiting for the other chairs' : 'Choose one card to pass right'}</p>
+                  {:else if game.awaitingRoundAction === 'wedding-gift'}<p class="pass-waiting" role="alert">Wedding Gift · {game.roundActionSubmissions[currentUid] ? 'Gift wrapped · waiting for everyone' : 'Choose one face-down card for the gift pile'}</p>
                   {:else if game.awaitingRoundAction === 'reveal-suit'}
                     <div class="power-controls" role="group" aria-label="Crystal Clear suit choice"><strong>{game.revealedSuits[currentUid] ? `Revealed ${game.revealedSuits[currentUid]} · waiting for everyone` : 'Choose one suit in your hand to reveal'}</strong>{#if !game.revealedSuits[currentUid]}{#each SUITS.filter((suit) => game?.hands?.[currentUid]?.some((card) => card.suit === suit)) as suit}<button type="button" on:click={() => revealCrystalSuit(suit)}>{suit}</button>{/each}{/if}</div>
                   {:else if game.awaitingRoundAction === 'split-hand'}
