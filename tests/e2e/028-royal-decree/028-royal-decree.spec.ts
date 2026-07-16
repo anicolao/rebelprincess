@@ -9,7 +9,7 @@ const CASES = {
 
 test('Royal Decree visibly awards a trick to an off-suit Queen', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo); steps.setMetadata('Royal Decree', 'Lead a Pet, click an off-suit Queen, complete the trick, and open Jo’s awarded cards to prove Queens are trump.');
-  const chosen = CASES[testInfo.project.name as keyof typeof CASES]; const game = await setupRoundCardGame(browser, page, testInfo, chosen.id, 'Royal Decree', chosen.dealSeed);
+  const chosen = CASES[testInfo.project.name as keyof typeof CASES]; const game = await setupRoundCardGame(browser, page, testInfo, chosen.id, 'Royal Decree', chosen.dealSeed, [], { steps, direction: 'right', count: 3 });
   await steps.step('decree-ready', { description: `Royal Decree is visible before Alex leads ${chosen.lead}`, verifications: [
     { spec: 'The center states that Queens always win', check: async () => expect(page.getByText('Queens always win the trick; the highest Queen wins if several are played.')).toBeVisible() },
     { spec: `${chosen.lead} is a legal non-Queen lead`, check: async () => expect(page.getByRole('button', { name: chosen.lead, exact: true })).toBeEnabled() }
