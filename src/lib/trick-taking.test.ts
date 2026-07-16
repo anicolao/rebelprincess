@@ -17,6 +17,13 @@ describe('base trick taking', () => {
     expect(legalCards([card('princes', 9)], empty('a'), false)).toEqual([card('princes', 9)]);
   });
 
+  it('enforces the Little Mermaid requested suit without bypassing the unopened Prince restriction', () => {
+    const hand = [card('fairies', 2), card('queens', 4), card('princes', 9)];
+    expect(legalCards(hand, { leaderUid: 'a', plays: [], requiredSuit: 'queens' }, false)).toEqual([card('queens', 4)]);
+    expect(legalCards(hand, { leaderUid: 'a', plays: [], requiredSuit: 'princes' }, false)).toEqual([card('fairies', 2), card('queens', 4)]);
+    expect(legalCards(hand, { leaderUid: 'a', plays: [], requiredSuit: 'princes' }, true)).toEqual([card('princes', 9)]);
+  });
+
   it('awards the trick to the highest led suit and only breaks on a void Prince', () => {
     const trick: TrickState = { leaderUid: 'a', plays: [
       { uid: 'a', card: card('queens', 4) }, { uid: 'b', card: card('princes', 10) }, { uid: 'c', card: card('queens', 7) }

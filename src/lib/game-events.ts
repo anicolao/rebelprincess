@@ -13,11 +13,12 @@ import { cardLabel, princessOptionsForPlayers, SUITS, type Card } from './setup'
 import { passInstruction, resolvePasses } from './passing';
 import { breaksPrinces, trickWinner, type TrickPlay, type TrickState } from './trick-taking';
 import { legalCardsWithPeaPower, mulanReplacements, snowWhiteCanZero } from './princess-powers';
+import { deterministicCards, exchangeCards, redistributeCards, returnedTrickCards } from './interactive-princess-powers';
 
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
 
-export type GameEventType = 'game/created' | 'game/rematched' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played' | 'power/activated' | 'power/declined';
+export type GameEventType = 'game/created' | 'game/rematched' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played' | 'power/activated' | 'power/contributed' | 'power/declined';
 export type GameEventPayload = {
   gameId: string;
   displayName?: string;
@@ -30,6 +31,7 @@ export type GameEventPayload = {
   card?: Card;
   powerId?: string;
   targetUid?: string;
+  suit?: Card['suit'];
 };
 
 export interface GameEvent {
@@ -71,6 +73,8 @@ export interface GameProjection {
   exhaustedPrincessUids: string[];
   powerIdsThisTrick: string[];
   pendingMulanUid: string | null;
+  pendingPower: { powerId: string; actorUid: string; targetUid?: string; cards: Array<{ uid: string; card: Card }> } | null;
+  forcedCards: Record<string, Card>;
 }
 
 export function nextRoundLeader(playerUids: string[], totalScores: Record<string, number>, lastLeaderUid: string): string | null {
@@ -110,7 +114,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   const event = value as Record<string, unknown>;
   const payload = event.payload as Record<string, unknown> | undefined;
   const common = (
-    ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/activated', 'power/declined'].includes(String(event.type)) &&
+    ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/activated', 'power/contributed', 'power/declined'].includes(String(event.type)) &&
     typeof event.actorUid === 'string' &&
     Number.isInteger(event.clientSeq) &&
     event.schemaVersion === SCHEMA_VERSION &&
@@ -125,7 +129,8 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   if (event.type === 'pass/submitted') return Array.isArray(payload.cards) && payload.cards.length > 0;
   if (event.type === 'card/played') return !!payload.card && typeof payload.card === 'object';
   if (event.type === 'power/activated') return typeof payload.powerId === 'string';
-  if (event.type === 'power/declined') return payload.powerId === 'mulan';
+  if (event.type === 'power/contributed') return payload.powerId === 'sleeping-beauty' && !!payload.card;
+  if (event.type === 'power/declined') return payload.powerId === 'mulan' || payload.powerId === 'scheherazade';
   return Object.keys(payload).length === 1;
 }
 
@@ -172,7 +177,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   const deals = ordered.map((event, index) => ({ event, index })).filter(({ event, index }) => event.type === 'game/dealt' && index > lastRematchIndex);
   const emptyCounts = () => Object.fromEntries(playerList.map((player) => [player.uid, 0]));
   const emptyTricks = () => Object.fromEntries(playerList.map((player) => [player.uid, [] as TrickPlay[][]]));
-  type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores' | 'exhaustedPrincessUids' | 'powerIdsThisTrick' | 'pendingMulanUid'> & { lastWinnerUid: string | null };
+  type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores' | 'exhaustedPrincessUids' | 'powerIdsThisTrick' | 'pendingMulanUid' | 'pendingPower' | 'forcedCards'> & { lastWinnerUid: string | null };
   const replayRound = (deal: GameEvent, segment: GameEvent[], leaderUid: string): RoundProjection => {
     let roundHands = deal.payload.hands
       ? Object.fromEntries(Object.entries(deal.payload.hands).map(([uid, cards]) => [uid, cards.map((card) => ({ ...card }))]))
@@ -195,8 +200,11 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     let lastWinnerUid: string | null = null;
     const exhausted = new Set<string>();
     let powersThisTrick: string[] = [];
+    let powerTargets: Record<string, string> = {};
     let peaActive = false;
     let pendingMulanUid: string | null = null;
+    let pendingPower: GameProjection['pendingPower'] = null;
+    const forcedCards: Record<string, Card> = {};
     const snowZero = new Map<string, string>();
     const resolveTrick = () => {
       if (!roundTrick || roundTrick.plays.length !== playerList.length) return;
@@ -212,11 +220,25 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       pendingMulanUid = null;
       peaActive = false;
       powersThisTrick = [];
+      powerTargets = {};
     };
-    if (roundHands && roundTrick) for (const event of segment.filter((entry) => ['card/played', 'power/activated', 'power/declined'].includes(entry.type))) {
+    const randomCards = (uid: string, count: number, powerId: string) => {
+      const hand = roundHands?.[uid] ?? [];
+      return deterministicCards(hand, `${deal.payload.seed}:${trickCount}:${powerId}:${uid}`, count);
+    };
+    const sortHand = (uid: string) => roundHands?.[uid]?.sort((left, right) => SUITS.indexOf(left.suit) - SUITS.indexOf(right.suit) || left.rank - right.rank);
+    if (roundHands && roundTrick) for (const event of segment.filter((entry) => ['card/played', 'power/activated', 'power/contributed', 'power/declined'].includes(entry.type))) {
       const player = playerList.find((candidate) => candidate.uid === event.actorUid);
+      if (event.type === 'power/contributed') {
+        if (pendingPower?.powerId !== 'sleeping-beauty' || !event.payload.card || pendingPower.cards.some((entry) => entry.uid === event.actorUid)) continue;
+        if (!roundHands[event.actorUid]?.some((card) => cardLabel(card) === cardLabel(event.payload.card!))) continue;
+        roundHands[event.actorUid] = roundHands[event.actorUid].filter((card) => cardLabel(card) !== cardLabel(event.payload.card!));
+        pendingPower.cards.push({ uid: event.actorUid, card: event.payload.card });
+        continue;
+      }
       if (event.type === 'power/declined') {
         if (pendingMulanUid === event.actorUid) resolveTrick();
+        if (pendingPower?.powerId === 'scheherazade' && pendingPower.actorUid === event.actorUid) { exhausted.add(event.actorUid); powersThisTrick.push('scheherazade'); pendingPower = null; }
         continue;
       }
       if (event.type === 'power/activated') {
@@ -235,15 +257,56 @@ export function deriveGame(events: GameEvent[]): GameProjection {
           resolveTrick();
           continue;
         }
+        const activePending = pendingPower as GameProjection['pendingPower'];
+        if (activePending?.actorUid === player.uid && activePending.powerId === powerId) {
+          if (powerId === 'ice-princess' && activePending.targetUid && event.payload.card && activePending.cards.some((entry) => cardLabel(entry.card) === cardLabel(event.payload.card!))) {
+            forcedCards[activePending.targetUid] = event.payload.card;
+            if (event.payload.card.suit === 'princes') broken = true;
+            powerTargets[powerId] = activePending.targetUid;
+            exhausted.add(player.uid); powersThisTrick.push(powerId); pendingPower = null;
+          } else if (powerId === 'scheherazade' && activePending.targetUid && event.payload.card && roundHands[player.uid].some((card) => cardLabel(card) === cardLabel(event.payload.card!))) {
+            const taken = activePending.cards[0].card;
+            const exchanged = exchangeCards(roundHands[player.uid], roundHands[activePending.targetUid], taken, event.payload.card);
+            roundHands[player.uid] = exchanged.actor; roundHands[activePending.targetUid] = exchanged.target;
+            exhausted.add(player.uid); powersThisTrick.push(powerId); pendingPower = null;
+          } else if (powerId === 'sleeping-beauty' && event.payload.cards?.length === playerList.length && activePending.cards.length === playerList.length) {
+            const contributed = new Set(activePending.cards.map((entry) => cardLabel(entry.card)));
+            if (event.payload.cards.every((card) => contributed.has(cardLabel(card))) && new Set(event.payload.cards.map(cardLabel)).size === playerList.length) {
+              const recipients = [player.uid, ...playerList.filter((candidate) => candidate.uid !== player.uid).map((candidate) => candidate.uid)];
+              roundHands = redistributeCards(roundHands!, recipients, event.payload.cards);
+              exhausted.add(player.uid); powersThisTrick.push(powerId); pendingPower = null;
+            }
+          }
+          continue;
+        }
+        if (pendingPower) continue;
         if (exhausted.has(player.uid)) continue;
         if (powerId === 'mulan') continue;
+        if (powerId === 'alice') {
+          const completed = latest as { winnerUid: string; plays: TrickPlay[] } | null;
+          if (!completed || completed.winnerUid !== player.uid || completed.plays.some((play) => play.card.suit === 'pets' && play.card.rank === 8)) continue;
+          const won = tricks[player.uid].pop(); if (!won) continue;
+          if (won.some((play) => play.card.suit === 'princes')) broken = true;
+          counts[player.uid] -= won.length;
+          const returned = returnedTrickCards(won, playerList.length, `${deal.payload.seed}:alice:${trickCount}`);
+          playerList.forEach((recipient, index) => roundHands![recipient.uid].push(returned[index])); playerList.forEach((recipient) => sortHand(recipient.uid));
+          exhausted.add(player.uid); powersThisTrick.push(powerId); latest = null; continue;
+        }
         if (powerId === 'snow-white') {
           if (turnUid !== player.uid || !event.payload.card || !snowWhiteCanZero(event.payload.card)) continue;
           if (!legalCardsWithPeaPower(roundHands[player.uid], roundTrick, broken, peaActive).some((card) => cardLabel(card) === cardLabel(event.payload.card!))) continue;
           snowZero.set(player.uid, cardLabel(event.payload.card));
         } else {
           if (roundTrick.plays.length) continue;
+          if (powerId === 'little-mermaid' && powerTargets['ice-princess'] === roundTrick.leaderUid) continue;
+          if (powerId === 'pocahontas' && powersThisTrick.includes('little-mermaid')) continue;
+          if (powerId === 'sleeping-beauty' && powersThisTrick.some((id) => id === 'little-mermaid' || id === 'ice-princess')) continue;
+          if (powerId === 'scheherazade' && event.payload.targetUid === roundTrick.leaderUid && powersThisTrick.some((id) => id === 'little-mermaid' || id === 'ice-princess')) continue;
           if (powerId === 'cinderella') roundTrick.reversed = true;
+        else if (powerId === 'little-mermaid' && event.payload.suit && SUITS.includes(event.payload.suit)) { roundTrick.requiredSuit = event.payload.suit; powerTargets[powerId] = roundTrick.leaderUid; }
+        else if (powerId === 'ice-princess' && event.payload.targetUid && playerList.some((candidate) => candidate.uid === event.payload.targetUid)) { pendingPower = { powerId, actorUid: player.uid, targetUid: event.payload.targetUid, cards: randomCards(event.payload.targetUid, 2, powerId).map((card) => ({ uid: event.payload.targetUid!, card })) }; continue; }
+        else if (powerId === 'scheherazade' && event.payload.targetUid && event.payload.targetUid !== player.uid && playerList.some((candidate) => candidate.uid === event.payload.targetUid)) { pendingPower = { powerId, actorUid: player.uid, targetUid: event.payload.targetUid, cards: randomCards(event.payload.targetUid, 1, powerId).map((card) => ({ uid: event.payload.targetUid!, card })) }; continue; }
+        else if (powerId === 'sleeping-beauty') { pendingPower = { powerId, actorUid: player.uid, cards: [] }; continue; }
         else if (powerId === 'pocahontas') {
           if (!playerList.some((candidate) => candidate.uid === event.payload.targetUid)) continue;
           roundTrick.leaderUid = event.payload.targetUid!;
@@ -256,9 +319,11 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         continue;
       }
       const card = event.payload.card;
-      if (pendingMulanUid || !card || event.actorUid !== turnUid || !roundHands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || !legalCardsWithPeaPower(roundHands[event.actorUid], roundTrick, broken, peaActive).some((held) => cardLabel(held) === cardLabel(card))) continue;
+      const forced = forcedCards[event.actorUid];
+      if (pendingMulanUid || pendingPower || !card || event.actorUid !== turnUid || !roundHands[event.actorUid]?.some((held) => held.suit === card.suit && held.rank === card.rank) || (forced ? cardLabel(forced) !== cardLabel(card) : !legalCardsWithPeaPower(roundHands[event.actorUid], roundTrick, broken, peaActive).some((held) => cardLabel(held) === cardLabel(card)))) continue;
       broken ||= breaksPrinces(roundTrick, card);
       roundHands[event.actorUid] = roundHands[event.actorUid].filter((held) => held.suit !== card.suit || held.rank !== card.rank);
+      delete forcedCards[event.actorUid];
       const zero = snowZero.get(event.actorUid) === cardLabel(card);
       roundTrick.plays.push({ uid: event.actorUid, card, ...(zero ? { effectiveRank: 0 } : {}) });
       snowZero.delete(event.actorUid);
@@ -278,10 +343,10 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       const frog = cards.some((card) => card.suit === 'pets' && card.rank === 8) ? 5 : 0;
       return [player.uid, { princes, frog, total: princes + frog }];
     }));
-    return { hands: roundHands, passSubmissions: submissions, passComplete: completePass, trick: roundTrick, currentTurnUid: finished ? null : turnUid || null, princesBroken: broken, capturedCounts: counts, capturedTricks: tricks, lastCompletedTrick: latest, completedTricks: trickCount, roundComplete: finished, roundScores: scores, lastWinnerUid, exhaustedPrincessUids: [...exhausted], powerIdsThisTrick: powersThisTrick, pendingMulanUid };
+    return { hands: roundHands, passSubmissions: submissions, passComplete: completePass, trick: roundTrick, currentTurnUid: finished ? null : turnUid || null, princesBroken: broken, capturedCounts: counts, capturedTricks: tricks, lastCompletedTrick: latest, completedTricks: trickCount, roundComplete: finished, roundScores: scores, lastWinnerUid, exhaustedPrincessUids: [...exhausted], powerIdsThisTrick: powersThisTrick, pendingMulanUid, pendingPower, forcedCards };
   };
   let leaderUid = playerList[0]?.uid ?? '';
-  let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, total: 0 }])), lastWinnerUid: null, exhaustedPrincessUids: [], powerIdsThisTrick: [], pendingMulanUid: null };
+  let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, total: 0 }])), lastWinnerUid: null, exhaustedPrincessUids: [], powerIdsThisTrick: [], pendingMulanUid: null, pendingPower: null, forcedCards: {} };
   const totalScores = emptyCounts();
   const zeroRounds = emptyCounts();
   deals.forEach(({ event: deal, index }, dealIndex) => {

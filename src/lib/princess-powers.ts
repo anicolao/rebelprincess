@@ -2,6 +2,11 @@ import { cardLabel, type Card } from './setup';
 import { legalCards, type TrickPlay, type TrickState } from './trick-taking';
 
 export const PRINCESS_POWER_TEXT: Record<string, string> = {
+  'little-mermaid': 'Before a trick, choose a suit the leader must play if able.',
+  'sleeping-beauty': 'Before a trick, collect one card from everyone and redistribute them.',
+  alice: 'After winning a Frog-free trick, shuffle it back into everyone’s hands.',
+  scheherazade: 'Before a trick, take a random card and swap it for one of yours or return it.',
+  'ice-princess': 'Before a trick, inspect two random cards and freeze one for its owner to play.',
   'snow-white': 'Play a 7 or lower as a zero.',
   cinderella: 'Before a trick, lower cards win the led suit.',
   pocahontas: 'Before a trick, choose any player to lead.',
