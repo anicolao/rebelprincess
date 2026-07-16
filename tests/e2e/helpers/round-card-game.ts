@@ -3,13 +3,13 @@ import { ROUND_RULES } from '../../../src/lib/setup';
 
 export type RoundCardGame = { host: Page; jo: Page; sam: Page; players: Page[]; contexts: BrowserContext[] };
 
-export async function setupRoundCardGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, roundName: string): Promise<RoundCardGame> {
+export async function setupRoundCardGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, roundName: string, dealSeed = gameId): Promise<RoundCardGame> {
   const options = { viewport: host.viewportSize() ?? undefined, reducedMotion: 'reduce' as const, serviceWorkers: 'block' as const, deviceScaleFactor: 1 };
   const contexts = [await browser.newContext(options), await browser.newContext(options)];
   const jo = await contexts[0].newPage(); const sam = await contexts[1].newPage();
   const players = [host, jo, sam]; const names = ['Alex', 'Jo', 'Sam'];
   for (const [index, page] of players.entries()) {
-    await page.goto(`/?gameId=${gameId}&seed=round-${gameId}&e2eUid=round-${names[index]}-${testInfo.project.name}-${gameId}`);
+    await page.goto(`/?gameId=${gameId}&seed=round-${dealSeed}&e2eUid=round-${names[index]}-${testInfo.project.name}-${gameId}`);
     await page.getByLabel('Your name').fill(names[index]);
     if (!index) await page.getByRole('button', { name: 'Create a game' }).click();
     else { await page.getByLabel('Room code').fill(gameId); await page.getByRole('button', { name: 'Join' }).click(); }
