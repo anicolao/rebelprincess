@@ -8,7 +8,7 @@ const names = ['Alex', 'Jo', 'Sam'];
 test('Haggle with the Hag swaps a clicked hand card for a legal captured card', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Haggle with the Hag', 'Complete a trick, select an offer in the winner’s real hand, take an opponent’s played card, and inspect both sides of the exchange.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Haggle with the Hag');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Haggle with the Hag', undefined, [], { steps, direction: 'left', count: 1 });
   await steps.step('haggle-ready', { description: 'The round card explains that a winner may trade for a captured card other than their own play', verifications: [
     { spec: 'The exact swap restriction is readable', check: async () => expect(page.getByText('A trick winner may show and swap a card from their hand for any card in the trick except the card they played.')).toBeVisible() },
     { spec: 'No haggle controls appear before a trick is won', check: async () => expect(page.getByRole('group', { name: 'Haggle with the Hag' })).toHaveCount(0) }
