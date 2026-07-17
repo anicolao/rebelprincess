@@ -7,7 +7,7 @@ const IDS = { phone: 'ODD00041', desktop: 'ODD10041' } as const;
 test('Odds and Evens visibly narrows legal cards by suit and parity', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Odds and Evens', 'Lead a card, inventory the next hand, prove the exact suit-then-parity enabled set, and complete the trick only through legal clicks.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Odds and Evens');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Odds and Evens', undefined, [], { steps, direction: 'right', count: 2 });
   await steps.step('parity-ready', { description: 'The center explains that suit takes priority and parity narrows the legal choices whenever possible', verifications: [
     { spec: 'The exact priority rule is readable', check: async () => expect(page.getByText('Follow both suit and the lead card’s parity when possible, with suit taking priority and parity applying again when void.')).toBeVisible() },
     { spec: 'The leader may choose normally', check: async () => expect(page.locator('.playing-card.playable:not(:disabled)').first()).toBeVisible() }
