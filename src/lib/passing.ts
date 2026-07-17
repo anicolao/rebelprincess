@@ -27,6 +27,7 @@ const PASS_BY_ROUND: Record<string, PassInstruction> = {
   'prince-rings-twice': { direction: 'split', count: 2 },
   'midnight-makeover': { direction: 'left', count: 3 },
   'pass-the-bouquet': { direction: 'left', count: 3 },
+  'upside-down': { direction: 'left', count: 2 },
   invitation: { direction: 'right', count: 2 }
 };
 
