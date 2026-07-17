@@ -7,7 +7,7 @@ const IDS = { phone: 'SIS00034', desktop: 'SIS10034' } as const;
 test('Sisterhood visibly awards the card farthest from the lead value', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Sisterhood', 'Play a complete trick through clicks, compare each visible value with the lead, and open the mathematically correct winner’s captured trick.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Sisterhood');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Sisterhood', undefined, [], { steps, direction: 'right', count: 2 });
   await steps.step('sisterhood-ready', { description: 'The center announces that numerical distance from the lead—not ordinary high rank—wins', verifications: [
     { spec: 'The exact distance rule is readable', check: async () => expect(page.getByText('The card farthest from the led number wins; if every follower is void, use the farthest value in any suit.')).toBeVisible() },
     { spec: 'The leader has an enabled card', check: async () => expect(page.locator('.playing-card.playable:not(:disabled)').first()).toBeVisible() }
