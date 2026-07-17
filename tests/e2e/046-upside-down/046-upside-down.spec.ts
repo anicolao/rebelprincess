@@ -8,7 +8,7 @@ const names = ['Alex', 'Jo', 'Sam'];
 test('Upside Down toggles rank direction for every clicked 6', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Upside Down', 'Reach and click an actual legal 6, observe the low-card direction, complete that trick, and calculate the winner from visible 6 parity.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Upside Down');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Upside Down', undefined, [], { steps, direction: 'left', count: 2 });
   await steps.step('upside-ready', { description: 'The center announces that each 6 flips the ranking and a second 6 flips it back', verifications: [
     { spec: 'The exact toggle rule is readable', check: async () => expect(page.getByText('Each 6 played reverses the card ranking for that trick; a second 6 reverses it again.')).toBeVisible() },
     { spec: 'No reversal status appears before a 6', check: async () => expect(page.getByText('Upside Down · low cards currently win', { exact: true })).toHaveCount(0) }
@@ -16,7 +16,8 @@ test('Upside Down toggles rank direction for every clicked 6', async ({ page, br
   let current: Array<{ actor: string; card: string }> = []; let sixIndex = -1; let sixLabel = ''; let beforeCounts: Record<string, number> = {};
   for (let attempt = 0; attempt < 36 && sixIndex < 0; attempt += 1) {
     const counts = await Promise.all(game.players.map((player) => player.locator('.playing-card.playable:not(:disabled)[aria-label$=" 6"]').count())); sixIndex = counts.findIndex(Boolean);
-    if (sixIndex >= 0) { beforeCounts = Object.fromEntries(await Promise.all(names.map(async (name) => [name, Number(await page.getByLabel(`${name} tricks`).textContent() ?? 0)]))); const six = game.players[sixIndex].locator('.playing-card.playable:not(:disabled)[aria-label$=" 6"]').first(); sixLabel = await six.getAttribute('aria-label') ?? ''; await six.click(); current.push({ actor: names[sixIndex], card: sixLabel }); break; }
+    if (sixIndex >= 0 && current.length < 2) { beforeCounts = Object.fromEntries(await Promise.all(names.map(async (name) => [name, Number(await page.getByLabel(`${name} tricks`).textContent() ?? 0)]))); const six = game.players[sixIndex].locator('.playing-card.playable:not(:disabled)[aria-label$=" 6"]').first(); sixLabel = await six.getAttribute('aria-label') ?? ''; await six.click(); current.push({ actor: names[sixIndex], card: sixLabel }); break; }
+    sixIndex = -1;
     current.push(await clickCurrentCard(game.players)); if (current.length === 3) current = [];
   }
   expect(sixIndex, 'a 6 must become legal before the round ends').toBeGreaterThanOrEqual(0);
