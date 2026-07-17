@@ -24,6 +24,7 @@ const PASS_BY_ROUND: Record<string, PassInstruction> = {
   'poisoned-apple': { direction: 'left', count: 2 },
   'odds-and-evens': { direction: 'right', count: 2 },
   'single-fairy': { direction: 'left', count: 1 },
+  'prince-rings-twice': { direction: 'split', count: 2 },
   invitation: { direction: 'right', count: 2 }
 };
 

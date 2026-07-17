@@ -7,7 +7,7 @@ const IDS = { phone: 'RNG00043', desktop: 'RNG10043' } as const;
 test('The Prince Always Rings Twice plays and scores two clockwise laps per trick', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('The Prince Always Rings Twice', 'Play one complete six-card trick in two visible laps, independently total the leading suit, inspect the winner’s six cards, and finish all six tricks.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'The Prince Always Rings Twice');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'The Prince Always Rings Twice', undefined, [], { steps, direction: 'split', count: 2 });
   await steps.step('rings-ready', { description: 'The center announces two cards per player, summed only in the leading suit with a highest-card tie-break', verifications: [
     { spec: 'The exact double-play rule is readable', check: async () => expect(page.getByText('Everyone plays two cards per trick. Add leading-suit values to find the winner; highest leading-suit card breaks ties.')).toBeVisible() },
     { spec: 'All players begin with twelve cards', check: async () => { for (const player of game.players) await expect(player.getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(12); } }
