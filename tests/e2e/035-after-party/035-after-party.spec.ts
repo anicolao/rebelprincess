@@ -14,7 +14,7 @@ async function chooseFirstSix(player: Page) {
 test('After Party plays two user-chosen six-card hands in sequence', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('After Party', 'Choose the first half through ordinary card clicks, synchronize all three splits, exhaust six tricks, pick up the held halves, and finish the round.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'After Party');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'After Party', undefined, [], { steps, direction: 'left', count: 1 });
   await steps.step('after-party-ready', { description: 'After passing, each client must choose exactly six cards for the first hand', verifications: [
     { spec: 'The center states that halves are played sequentially', check: async () => expect(page.getByText('Split your hand into equal halves. Play the first half before picking up and playing the second.')).toBeVisible() },
     { spec: 'Every client sees a 0/6 first-hand prompt', check: async () => { for (const player of game.players) await expect(player.getByRole('group', { name: 'After Party first hand' })).toContainText('(0/6)'); } }
