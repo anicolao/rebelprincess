@@ -7,7 +7,7 @@ const IDS = { phone: 'POI00040', desktop: 'POI10040' } as const;
 test('Poisoned Apple visibly awards the highest off-suit card', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Poisoned Apple', 'Lead a suit a follower cannot match, click the strongest off-suit response, finish the trick, and review the poisoned winner.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Poisoned Apple', 'PR000067');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Poisoned Apple', 'PR000067', [], { steps, direction: 'left', count: 2 });
   await steps.step('poison-ready', { description: 'The center announces that failing to follow suit changes who wins, with earliest play resolving equal void values', verifications: [
     { spec: 'The exact void-card rule is readable', check: async () => expect(page.getByText('A player who is void wins with the card they play. Highest value wins among multiple void players; the first tied card wins.')).toBeVisible() },
     { spec: 'Alex can lead the deterministic Pets 7', check: async () => expect(page.getByRole('button', { name: 'Pets 7', exact: true })).toBeEnabled() }
