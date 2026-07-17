@@ -7,7 +7,7 @@ const IDS = { phone: 'DAN00048', desktop: 'DAN10048' } as const;
 test('Dancing Queens pairs captured Princes and Queens in complete-round scoring', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Dancing Queens', 'Count every Prince and Queen, play all twelve tricks through real card clicks, and reconcile base Princes, couple bonuses, Frog, and final totals.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Dancing Queens');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Dancing Queens', undefined, [], { steps, direction: 'right', count: 2 });
   const princeLocators = game.players.map((player) => player.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: /^Princes / })); const queenLocators = game.players.map((player) => player.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: /^Queens / }));
   await steps.step('dancing-ready', { description: 'The round begins with all nine Princes and nine Queens available for exact-rank and unmatched couples', verifications: [
     { spec: 'The complete couple-scoring rule is readable', check: async () => expect(page.getByText('Matching Prince and Queen values score three proposals each. Unmatched couples score two; an unpaired Prince scores one.')).toBeVisible() },
