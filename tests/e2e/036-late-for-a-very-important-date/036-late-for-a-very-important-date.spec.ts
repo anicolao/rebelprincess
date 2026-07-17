@@ -8,7 +8,7 @@ const names = ['Alex', 'Jo', 'Sam'];
 test('Late for a Very Important Date keeps and scores each final three cards', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Late for a Very Important Date', 'Play nine full tricks through clicks, identify the three unplayed cards at every seat, and prove those exact cards are kept and scored.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Late for a Very Important Date');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Late for a Very Important Date', undefined, [], { steps, direction: 'right', count: 2 });
   await steps.step('late-date-ready', { description: 'The center states that each player stops with three cards and scores them as captured', verifications: [
     { spec: 'The exact keep-and-score rule is readable', check: async () => expect(page.getByText('Each player’s last three hand cards are kept and scored as captured cards.')).toBeVisible() },
     { spec: 'All three players begin with twelve playable cards', check: async () => { for (const player of game.players) await expect(player.getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(12); } }

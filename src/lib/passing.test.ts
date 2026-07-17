@@ -19,7 +19,8 @@ describe('simultaneous passing', () => {
     ['pets-revenge', 'split', 2],
     ['musical-chairs', 'right', 1],
     ['sisterhood', 'right', 2],
-    ['after-party', 'left', 1]
+    ['after-party', 'left', 1],
+    ['late-for-a-very-important-date', 'right', 2]
   ] as const)('uses %s’s printed pass', (roundId, direction, count) => {
     expect(passInstruction(roundId)).toEqual({ direction, count });
   });
