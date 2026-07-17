@@ -8,7 +8,7 @@ const names = ['Alex', 'Jo', 'Sam'];
 test('Midnight Makeover lets a Fairy act as a wild leading-suit card', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Midnight Makeover', 'Choose a lead whose follower holds both that suit and a Fairy, click the Fairy instead, and prove it competes as a leading-suit card.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Midnight Makeover');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Midnight Makeover', undefined, [], { steps, direction: 'left', count: 3 });
   await steps.step('makeover-ready', { description: 'The center announces that Fairies may follow as wild cards and equal values favor the latest play', verifications: [
     { spec: 'The exact wild-card rule is readable', check: async () => expect(page.getByText('Fairies are wild for following suit. Highest leading-suit card or Fairy wins, with latest play breaking ties.')).toBeVisible() },
     { spec: 'A leader is ready to choose a non-Fairy suit', check: async () => expect(page.locator('.playing-card.playable:not(:disabled)').first()).toBeVisible() }
