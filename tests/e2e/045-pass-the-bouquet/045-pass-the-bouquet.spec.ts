@@ -7,7 +7,7 @@ const IDS = { phone: 'BOU00045', desktop: 'BOU10045' } as const;
 test('Pass the Bouquet changes the required and winning suit mid-trick', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Pass the Bouquet', 'Lead Pets to a void player, introduce a new suit through a click, prove the last player must follow that new suit, and award its highest card.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Pass the Bouquet', 'PR000067');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Pass the Bouquet', 'PR000067', [], { steps, direction: 'left', count: 3 });
   await steps.step('bouquet-ready', { description: 'The center announces that each newly introduced suit takes the bouquet and becomes the winning suit', verifications: [
     { spec: 'The exact moving-suit rule is readable', check: async () => expect(page.getByText('Every newly played suit becomes the leading suit. The highest card of the last new suit wins.')).toBeVisible() },
     { spec: 'Alex can lead deterministic Pets 7', check: async () => expect(page.getByRole('button', { name: 'Pets 7', exact: true })).toBeEnabled() }
