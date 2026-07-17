@@ -7,7 +7,7 @@ const IDS = { phone: 'WED00037', desktop: 'WED10037' } as const;
 test('Wedding Gift contributes and awards a face-down card before every trick', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Wedding Gift', 'Contribute gifts one client at a time, prove the first winner captures all six cards, then complete all six gift-and-trick cycles through clicks.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Wedding Gift');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Wedding Gift', undefined, [], { steps, direction: 'split', count: 2 });
   await steps.step('wedding-ready', { description: 'Before trick one, every client is prompted to put one hand card face down into the gift pile', verifications: [
     { spec: 'The exact gift rule is readable', check: async () => expect(page.getByText('Before each trick, everyone adds one face-down card to a gift pile won with that trick.')).toBeVisible() },
     { spec: 'Every client has selectable gift cards', check: async () => { for (const player of game.players) await expect(player.locator('.playing-card.contributable').first()).toBeVisible(); } }
