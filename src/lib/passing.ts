@@ -20,6 +20,7 @@ const PASS_BY_ROUND: Record<string, PassInstruction> = {
   'late-for-a-very-important-date': { direction: 'right', count: 2 },
   'wedding-gift': { direction: 'split', count: 2 },
   'haggle-with-the-hag': { direction: 'left', count: 1 },
+  'blind-mans-bluff': { direction: 'right', count: 1 },
   invitation: { direction: 'right', count: 2 }
 };
 
