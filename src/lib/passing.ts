@@ -17,6 +17,7 @@ const PASS_BY_ROUND: Record<string, PassInstruction> = {
   'musical-chairs': { direction: 'right', count: 1 },
   sisterhood: { direction: 'right', count: 2 },
   'after-party': { direction: 'left', count: 1 },
+  'late-for-a-very-important-date': { direction: 'right', count: 2 },
   invitation: { direction: 'right', count: 2 }
 };
 
