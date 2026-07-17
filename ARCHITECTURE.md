@@ -3,8 +3,8 @@
 ## Recommendation
 
 Use Cloud Firestore for the first implementation. Rebel Princess is turn-based,
-so Firestore snapshot listeners provide ample latency while transactions,
-offline retry, and expressive Security Rules simplify room coordination. Unlike
+so Firestore snapshot listeners provide ample latency while transactions and
+offline retry simplify room coordination. Unlike
 `drm`, it does not need a high-frequency Realtime Database command stream.
 
 As in `gotfive`, authenticated clients should append events and derive the
@@ -128,8 +128,9 @@ can identify duplicates or concurrent actions and resolve them deterministically
 5. Add reconnect, idempotency, conflict, and divergence tests.
 
 The checked-in production rules allow signed-in users to read complete game
-event streams and create valid immutable events attributed to their own UID.
-Every other path and every update or delete remains denied.
+event streams and append immutable data attributed to their own UID. They do
+not inspect event types, payload fields, schemas, or game legality. Every other
+path and every update or delete remains denied.
 
 ## Visual asset references
 

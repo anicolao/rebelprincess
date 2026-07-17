@@ -19,10 +19,12 @@ The initial original visual atlases and their cell mappings are documented in
 - Web app: `Rebel Princess Web`
 - Database: Cloud Firestore in `nam5`
 - Authentication: anonymous sign-in is intended for frictionless room play
-- Production rules: authenticated append-only game events; all other paths denied
+- Production rules: authenticated, own-UID, append-only event writes with no
+  game-action or payload validation; all other paths denied
 
-Firebase browser configuration is public configuration, not a secret. Security
-comes from Authentication and Firestore Security Rules. Never commit service
+Firebase browser configuration is public configuration, not a secret.
+Authentication and Firestore Security Rules provide attribution and immutable
+history, not game-action validation or cheating prevention. Never commit service
 account credentials.
 
 Enter the Nix shell, install the local CLI, and start the emulators with:

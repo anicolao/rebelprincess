@@ -19,7 +19,7 @@ unit:
 
 1. the smallest coherent user-facing capability;
 2. any event schema and deterministic reducer changes required by it;
-3. Firebase Security Rules and emulator test changes required by it;
+3. append-only stream tests without Firebase validation of game actions;
 4. accessible UI for the capability at every affected viewport;
 5. a tracer-bullet E2E step or scenario using the real UI and emulators;
 6. zero-pixel screenshot baselines and the generated scenario walkthrough;
@@ -125,7 +125,8 @@ proof.
 - Implement the Firestore event repository, ordering/cursor rules, subscription,
   idempotent local append, reducer envelope validation, and replay cache key.
 - Open production rules only enough for authenticated full-stream reads and
-  own-UID immutable event creates; keep all other paths denied.
+  arbitrary own-UID immutable event creates; never validate event types,
+  payloads, schemas, or game legality in Firebase; keep all other paths denied.
 - Add `002-create-and-join-game`: host creates a stable invite, a second context
   joins, both derive the same membership projection, and reload preserves it.
 
@@ -371,6 +372,7 @@ The game is complete when every rule in `RULES.md`, all twelve Deluxe
 Princesses, all twenty-six a–z Deluxe Round cards, and Rebel of the Ball have a
 deterministic reducer specification, unit edge-case tests, and at least one real
 multiplayer E2E path; all numbered scenarios pass with zero
-pixel differences; production Security Rules and Rules tests agree; reload and
+pixel differences; production append-only Security Rules and their boundary
+tests agree; reload and
 concurrency converge; and the exact commit is playable both at its PR preview
 and at the production GitHub Pages URL after merge.
