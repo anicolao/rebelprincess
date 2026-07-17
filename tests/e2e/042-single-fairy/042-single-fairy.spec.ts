@@ -7,7 +7,7 @@ const IDS = { phone: 'FAI00042', desktop: 'FAI10042' } as const;
 test('Single Fairy subtracts every Fairy after a complete clicked round', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Single Fairy', 'Count all Fairies in the shared deal, play every trick through ordinary clicks, and reconcile the complete negative scoring modifier.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Single Fairy');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Single Fairy', undefined, [], { steps, direction: 'left', count: 1 });
   const fairyLocators = game.players.map((player) => player.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: /^Fairies / }));
   await steps.step('fairy-ready', { description: 'The round begins with all nine three-player Fairies and a visible minus-one rule', verifications: [
     { spec: 'The exact negative scoring rule is readable', check: async () => expect(page.getByText('Each captured Fairy removes one proposal; round scores may be negative.')).toBeVisible() },
