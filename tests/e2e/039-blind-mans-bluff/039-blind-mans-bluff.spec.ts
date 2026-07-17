@@ -8,7 +8,7 @@ const names = ['Alex', 'Jo', 'Sam'];
 test('Blind Man’s Bluff rotates each unplayed half to the player on its right', async ({ page, browser }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata('Blind Man’s Bluff', 'Play the first six cards normally, inventory every remaining card, prove the exact clockwise transfer, then play the borrowed halves to round end.');
-  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Blind Man’s Bluff');
+  const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Blind Man’s Bluff', undefined, [], { steps, direction: 'right', count: 1 });
   await steps.step('bluff-ready', { description: 'The center announces that each second half will be played by the player on its owner’s right', verifications: [
     { spec: 'The exact half-hand rule is readable', check: async () => expect(page.getByText('Play half your hand, then give the other half to the player on your right for them to play.')).toBeVisible() },
     { spec: 'Every player begins with twelve cards', check: async () => { for (const player of game.players) await expect(player.getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(12); } }
