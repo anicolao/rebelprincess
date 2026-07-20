@@ -10,7 +10,7 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
   const suffix = testInfo.project.name;
   for (const [index, page] of players.entries()) {
     const name = ['Alex', 'Jo', 'Sam'][index];
-    await page.goto(`/?gameId=${gameId}&seed=${seedPrefix}-${gameId}&e2eUid=click-${name}-${suffix}-${gameId}`);
+    await page.goto(`/?gameId=${gameId}&seed=${seedPrefix}-${gameId}&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=click-${name}-${suffix}-${gameId}`);
     await page.getByLabel('Your name').fill(name);
     if (!index) await page.getByRole('button', { name: 'Create a game' }).click();
     else { await page.getByLabel('Room code').fill(gameId); await page.getByRole('button', { name: 'Join' }).click(); }
@@ -22,7 +22,6 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
     await page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first().click();
     await page.getByRole('button', { name: 'Ready for the ball' }).click();
   }
-  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await host.getByRole('button', { name: round, exact: true }).click();
   await host.getByRole('button', { name: 'Shuffle and deal' }).click();
   for (const page of players) {
     const hand = page.getByRole('region', { name: 'Your hand' });

@@ -18,7 +18,7 @@
     subscribeToGame,
     type GameProjection
   } from '$lib/game-events';
-  import { cardLabel, dealForPlayers, PRINCESSES, ROUND_RULES, ROUND_RULE_TEXT, SUITS, type Card } from '$lib/setup';
+  import { cardLabel, dealForPlayers, PRINCESSES, roundPowersForGame, ROUND_RULES, ROUND_RULE_TEXT, SUITS, type Card } from '$lib/setup';
   import { passInstruction } from '$lib/passing';
   import { mulanReplacements, PRINCESS_POWER_TEXT, snowWhiteCanZero, thumbelinaCanPlay } from '$lib/princess-powers';
   import { isMasqueradeHidden, roundLegalCards } from '$lib/round-rules';
@@ -33,7 +33,6 @@
   let unsubscribe = () => {};
   let currentUid = '';
   let selectedPrincess = '';
-  let selectedRounds: string[] = [];
   let selectedPassCards: Array<string | null> = [];
   let observedRoundIndex = -1;
   let snowWhiteArmed = false;
@@ -129,18 +128,17 @@
     });
   }
 
-  function toggleRound(roundId: string) {
-    selectedRounds = selectedRounds.includes(roundId)
-      ? selectedRounds.filter((id) => id !== roundId)
-      : selectedRounds.length < 5 ? [...selectedRounds, roundId] : selectedRounds;
-  }
-
   async function dealCards() {
-    if (!game || game.players.length < 3 || game.players.length > 6 || !game.players.every((player) => player.ready) || selectedRounds.length !== 5) return;
+    if (!game || game.players.length < 3 || game.players.length > 6 || !game.players.every((player) => player.ready)) return;
     const seed = new URL(location.href).searchParams.get('seed') ?? crypto.randomUUID();
+    const requestedRounds = new URL(location.href).searchParams.get('e2eRounds')?.split(',') ?? [];
+    const knownRoundIds = new Set<string>(ROUND_RULES.map(([id]) => id));
+    const e2eRoundIds = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' && requestedRounds.length === 5 && new Set(requestedRounds).size === 5 && requestedRounds.every((id) => knownRoundIds.has(id))
+      ? requestedRounds
+      : null;
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'game/dealt', {
       seed,
-      roundIds: selectedRounds,
+      roundIds: e2eRoundIds ?? roundPowersForGame(`${activeGameId}:${game.gameNumber}:${seed}`),
       hands: dealForPlayers(game.players.map((player) => player.uid), seed)
     });
   }
@@ -387,7 +385,6 @@
     if (!game?.gameComplete || game.players[0]?.uid !== currentUid) return;
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'game/rematched', {});
     selectedPrincess = '';
-    selectedRounds = [];
     selectedPassCards = [];
   }
 
@@ -643,13 +640,8 @@
             <button type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for the ball</button>
           {/if}
           {#if game?.players[0]?.uid === currentUid}
-            <fieldset class="choice-grid rounds" aria-label="Choose exactly five Round cards">
-              <legend>Choose five Round cards · {selectedRounds.length}/5</legend>
-              {#each ROUND_RULES as round}
-                <button type="button" class:chosen={selectedRounds.includes(round[0])} on:click={() => toggleRound(round[0])}>{round[1]}</button>
-              {/each}
-            </fieldset>
-            <button type="button" disabled={game.players.length < 3 || !game.players.every((player) => player.ready) || selectedRounds.length !== 5} on:click={dealCards}>Shuffle and deal</button>
+            <p class="automatic-rounds">Five Round powers will be drawn automatically when the game is dealt.</p>
+            <button type="button" disabled={game.players.length < 3 || !game.players.every((player) => player.ready)} on:click={dealCards}>Shuffle and deal</button>
           {/if}
           <p class="waiting">Three to six players. The guest list updates live.</p>
         </section>
@@ -893,7 +885,7 @@
   .choice-grid .princess-choice.chosen { color: #211329; background: rgba(255, 199, 95, .18); box-shadow: inset 0 0 0 1px #ffc75f; }
   .choice-grid .princess-choice.chosen .princess-choice-copy small { color: #f4e8f5; }
   .choice-grid .princess-choice.chosen .princess-choice-mark { display: block; color: #ffc75f; }
-  .rounds { max-height: 164px; padding-right: 3px; overflow-y: auto; }
+  .automatic-rounds { margin: 18px 0 10px; padding: 10px 12px; border-left: 3px solid #b88cdf; color: #d9cedd; background: rgba(50, 31, 62, .45); font-size: 12px; line-height: 1.35; }
 
   .table { width: 100%; height: 100%; }
   .table-board { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid rgba(255, 226, 163, .2); border-radius: 18px; background: radial-gradient(ellipse at center, rgba(75, 44, 91, .72), rgba(19, 25, 35, .88) 70%); box-shadow: inset 0 0 90px rgba(0, 0, 0, .35); }

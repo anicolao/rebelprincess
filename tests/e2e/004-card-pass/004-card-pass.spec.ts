@@ -39,7 +39,7 @@ test('three clients submit simultaneously and resolve a conserved split pass', a
   const guest = await guestContext.newPage();
   const third = await thirdContext.newPage();
 
-  await page.goto(`/?gameId=${gameId}&seed=fixed-004&e2eUid=pass-host-${suffix}`);
+  await page.goto(`/?gameId=${gameId}&seed=fixed-004&e2eRounds=arranged-marriage,once-upon-a-time,magic-beans,royal-decree,musical-chairs&e2eUid=pass-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
@@ -48,7 +48,6 @@ test('three clients submit simultaneously and resolve a conserved split pass', a
   await ready(page, 'Snow White');
   await ready(guest, 'The Little Mermaid');
   await ready(third, 'Cinderella');
-  for (const round of ['Arranged Marriage', 'Once Upon a Time…', 'Magic Beans', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
 
   const passButton = page.getByRole('button', { name: 'Pass 2 split to Jo and Sam' });

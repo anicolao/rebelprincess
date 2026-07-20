@@ -33,7 +33,7 @@ test('three clients choose setup and receive a deterministic selective deal', as
   const guest = await guestContext.newPage();
   const third = await thirdContext.newPage();
 
-  await page.goto(`/?gameId=${gameId}&seed=fixed-003&e2eUid=setup-host-${suffix}`);
+  await page.goto(`/?gameId=${gameId}&seed=fixed-003&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=setup-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
@@ -58,17 +58,13 @@ test('three clients choose setup and receive a deterministic selective deal', as
   await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Jo · ${guestPrincess}`);
   await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Sam · ${thirdPrincess}`);
 
-  await steps.step('deluxe-round-deck', {
-    description: 'The host chooses only from the twenty-six a–z Deluxe Round cards',
+  await steps.step('automatic-round-powers', {
+    description: 'Five Round powers are drawn automatically instead of being chosen by the host',
     verifications: [
-      { spec: 'Exactly twenty-six Deluxe Round cards are offered', check: async () => expect(page.getByLabel('Choose exactly five Round cards').getByRole('button')).toHaveCount(26) },
-      { spec: 'The obsolete Invitation teaching card is not offered', check: async () => expect(page.getByRole('button', { name: 'Invitation', exact: true })).toHaveCount(0) }
+      { spec: 'The host is told that Round powers will be drawn automatically', check: async () => expect(page.getByText('Five Round powers will be drawn automatically')).toBeVisible() },
+      { spec: 'No Round power selection controls are offered', check: async () => expect(page.getByLabel('Choose exactly five Round cards')).toHaveCount(0) }
     ]
   });
-
-  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) {
-    await page.getByRole('button', { name: round, exact: true }).click();
-  }
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
   await expect(guest.getByLabel('Current Round card')).toContainText('Round 1 of 5');
   await expect(guest.getByLabel('Current Round card')).toContainText('Once Upon a Time…');

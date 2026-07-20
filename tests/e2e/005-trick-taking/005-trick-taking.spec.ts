@@ -35,7 +35,7 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
   const jo = await joContext.newPage();
   const sam = await samContext.newPage();
 
-  await page.goto(`/?gameId=${gameId}&seed=fixed-004&e2eUid=trick-host-${suffix}`);
+  await page.goto(`/?gameId=${gameId}&seed=fixed-004&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=trick-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
@@ -44,7 +44,6 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
   await ready(page, 'Snow White');
   await ready(jo, 'The Little Mermaid');
   await ready(sam, 'Cinderella');
-  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
   await pass(page, ['Fairies 3', 'Fairies 4', 'Fairies 5']);
   await pass(jo, ['Fairies 2', 'Fairies 8', 'Queens 4']);

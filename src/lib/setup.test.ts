@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardLabel, dealForPlayers, deckForPlayers, princessOptionsForPlayers, ROUND_RULES, ROUND_RULE_TEXT } from './setup';
+import { cardLabel, dealForPlayers, deckForPlayers, princessOptionsForPlayers, roundPowersForGame, ROUND_RULES, ROUND_RULE_TEXT } from './setup';
 
 describe('deterministic setup', () => {
   it.each([[3, 36], [4, 40], [5, 40], [6, 48]])('builds the %i-player deck', (players, cards) => {
@@ -25,5 +25,13 @@ describe('deterministic setup', () => {
     const options = princessOptionsForPlayers(players, 'BALL42');
     expect(princessOptionsForPlayers(players, 'BALL42')).toEqual(options);
     expect(Object.values(options).every((choices) => choices.length === 2 && choices[0] !== choices[1])).toBe(true);
+  });
+
+  it('automatically selects five unique and deterministic Round powers', () => {
+    const selected = roundPowersForGame('BALL42');
+    expect(roundPowersForGame('BALL42')).toEqual(selected);
+    expect(selected).toHaveLength(5);
+    expect(new Set(selected)).toHaveLength(5);
+    expect(selected.every((id) => ROUND_RULES.some(([roundId]) => roundId === id))).toBe(true);
   });
 });
