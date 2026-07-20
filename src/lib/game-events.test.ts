@@ -44,6 +44,7 @@ describe('append-only game events', () => {
       roundIndex: 0,
       roundComplete: false,
       roundScores: { host: { princes: 0, frog: 0, roundRule: 0, total: 0 }, guest: { princes: 0, frog: 0, roundRule: 0, total: 0 } },
+      roundScoreHistory: [],
       totalScores: { host: 0, guest: 0 },
       nextLeaderUid: 'host',
       princessOptions: princessOptionsForPlayers(['host', 'guest'], 'MOON42'),
@@ -153,6 +154,7 @@ describe('append-only game events', () => {
     const scored = deriveGame(events);
     expect(scored.roundComplete).toBe(true);
     expect(scored.roundScores.b).toEqual({ princes: 1, frog: 5, roundRule: 0, total: 6 });
+    expect(scored.roundScoreHistory).toEqual([scored.roundScores]);
     expect(scored.totalScores.b).toBe(6);
     expect(scored.nextLeaderUid).toBe('c');
 
@@ -164,6 +166,7 @@ describe('append-only game events', () => {
     const advanced = deriveGame([...events, make('game/dealt', 'a', { seed: 'two', roundIds: scored.roundIds, hands: nextHands })]);
     expect(advanced.roundIndex).toBe(1);
     expect(advanced.totalScores.b).toBe(6);
+    expect(advanced.roundScoreHistory).toEqual([scored.roundScores]);
     expect(advanced.roundComplete).toBe(false);
     expect(advanced.trick).toBeNull();
   });

@@ -97,7 +97,7 @@
         showPrincessBurst = Boolean(nextPrincessPower);
         if (nextPrincessPower) {
           if (audioEnabled) void gameAudio.playPrincessChime();
-          celebrationTimer = setTimeout(() => showPrincessBurst = false, 2400);
+          if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) celebrationTimer = setTimeout(() => showPrincessBurst = false, 2400);
         }
       }
       game = next;
@@ -627,6 +627,32 @@
                 {:else}
                   <p class="next-lead">Lowest total leads next: {nextLeaderName()}</p>
                 {/if}
+                <div class="score-card-wrap">
+                  <table class="score-card" aria-label="Five-round score card">
+                    <caption>Score card</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Princess</th>
+                        {#each Array.from({ length: 5 }) as _, scoreIndex}
+                          <th scope="col"><span><i>Round </i>{scoreIndex + 1}</span><small>{game.roundIds[scoreIndex] ? roundName(game.roundIds[scoreIndex]) : 'To be drawn'}</small></th>
+                        {/each}
+                        <th scope="col">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each game.players as player}
+                        <tr class:winner={game.winnerUids.includes(player.uid)}>
+                          <th scope="row">{player.displayName}</th>
+                          {#each Array.from({ length: 5 }) as _, scoreIndex}
+                            {@const score = game.roundScoreHistory[scoreIndex]?.[player.uid]}
+                            <td class="round-score" class:filled={Boolean(score)} class:pending={!score} aria-label={`${player.displayName}, round ${scoreIndex + 1}: ${score ? `${score.total} proposals` : 'not played'}`}>{score?.total ?? '—'}</td>
+                          {/each}
+                          <td class="score-total">{game.totalScores[player.uid]}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
                 <ul>
                   {#each game.players as player}
                     <li class:winner={game.winnerUids.includes(player.uid)}><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog{#if game.roundScores[player.uid].roundRule} + {game.roundScores[player.uid].roundRule} Round rule{/if} = {game.roundScores[player.uid].total}</span>{#if game.rebelUids.includes(player.uid)}<em role="status">Rebel of the Ball · −10 proposals</em>{/if}{#if game.retainedCards[player.uid]?.length}<small aria-label={`${player.displayName} kept cards`}>Kept: {game.retainedCards[player.uid].map(cardLabel).join(', ')}</small>{/if}<b>{game.totalScores[player.uid]} total · {game.zeroRounds[player.uid]} zero rounds</b></li>
@@ -1031,6 +1057,20 @@
   .round-results { position: absolute; z-index: 20; inset: 8% 12%; display: flex; flex-direction: column; align-items: center; overflow: auto; padding: 14px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 12px; color: #fff4d0; background: rgba(20, 13, 30, .97); box-shadow: 0 18px 60px rgba(0, 0, 0, .7); }
   .round-results > * { flex-shrink: 0; }
   .round-results h2 { margin: 0 0 8px; }
+  .score-card-wrap { width: min(100%, 720px); margin-bottom: 9px; overflow: hidden; border: 1px solid rgba(255, 226, 163, .28); border-radius: 8px; }
+  .score-card { width: 100%; table-layout: fixed; border-collapse: collapse; color: #f8edf8; font-size: 11px; text-align: center; }
+  .score-card caption { padding: 5px; color: #ffc75f; background: rgba(82, 47, 100, .5); font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 700; }
+  .score-card th, .score-card td { padding: 6px 7px; border-top: 1px solid rgba(255, 226, 163, .14); border-right: 1px solid rgba(255, 226, 163, .1); }
+  .score-card th:last-child, .score-card td:last-child { border-right: 0; }
+  .score-card thead th { color: #d9cedd; background: rgba(20, 13, 30, .48); font-weight: 700; }
+  .score-card thead span, .score-card thead small { display: block; }
+  .score-card thead i { font-style: normal; }
+  .score-card thead small { max-width: 82px; margin-top: 2px; overflow: hidden; color: #a99dac; font-size: 8px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+  .score-card tbody th { position: sticky; left: 0; color: #fff4d0; background: #21152d; text-align: left; }
+  .score-card .round-score.filled { color: #211329; background: #ffc75f; font-size: 14px; font-weight: 700; }
+  .score-card .round-score.pending { color: #756b7a; background: rgba(20, 13, 30, .35); }
+  .score-card .score-total { color: #7de2a7; font-size: 14px; font-weight: 700; }
+  .score-card tr.winner th, .score-card tr.winner .score-total { color: #ffc75f; }
   .round-results ul { width: min(100%, 520px); margin: 0; padding: 0; list-style: none; }
   .round-results li { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255, 226, 163, .15); font-size: 12px; }
   .round-results li span { color: #d8c8dc; }
@@ -1215,6 +1255,9 @@
     main.gameplay .local-seat { bottom: 2px; }
     main.gameplay .round-center { top: 43%; }
     main.gameplay .round-results { inset: 8% 5%; }
+    .score-card th, .score-card td { padding: 5px 2px; }
+    .score-card thead i, .score-card thead small { display: none; }
+    .score-card tbody th { font-size: 9px; }
 
     button {
       min-height: 44px;
