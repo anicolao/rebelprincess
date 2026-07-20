@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { deriveGame, eventCursor, eventId, gameWinners, isGameEvent, nextRoundLeader, normalizeGameId, replayCacheKey, type GameEvent, type GameEventType, type GameEventPayload } from './game-events';
 import { princessOptionsForPlayers } from './setup';
 
-const event = (id: string, type: 'game/created' | 'player/joined', uid: string, name: string) => ({
+const event = (id: string, type: GameEventType, uid: string, name: string) => ({
   id,
   type,
   payload: { gameId: 'MOON42', displayName: name },
@@ -64,9 +64,17 @@ describe('append-only game events', () => {
       retainedCards: { host: [], guest: [] },
       haggleWinnerUid: null,
       blindTransferComplete: false,
-      rebelUids: []
+      rebelUids: [],
+      artworkOption: 'classic'
     });
     expect(eventCursor([joined, created])).toEqual({ createdAtMillis: null, eventId: 'z' });
+  });
+
+  it('derives artworkOption correctly from player/configured events', () => {
+    const created = event('a', 'game/created', 'host', 'Alex');
+    const configured = { ...event('b', 'player/configured', 'host', 'Alex'), type: 'player/configured' as const, payload: { gameId: 'MOON42', artworkOption: 'alternate', ready: false } };
+    const projection = deriveGame([created, configured]);
+    expect(projection.artworkOption).toBe('alternate');
   });
 
   it('replays readiness, Princess choice, rounds, and the complete shared deal', () => {

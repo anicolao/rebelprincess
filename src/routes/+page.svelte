@@ -6,6 +6,10 @@
   import { onMount } from 'svelte';
   import { replaceState } from '$app/navigation';
   import suitAtlas from '../../assets/generated/suited-card-families.png';
+  import fairiesAltAtlas from '../../assets/generated/alternate-suits-review/fairies.png';
+  import queensAltAtlas from '../../assets/generated/alternate-suits-review/queens.png';
+  import princesAltAtlas from '../../assets/generated/alternate-suits-review/princes.png';
+  import petsAltAtlas from '../../assets/generated/alternate-suits-review/pets.png';
   import roundAtlas from '../../assets/generated/round-rule-vignettes.png';
   import deluxeRoundAtlas from '../../assets/generated/round-rule-vignettes-deluxe.png';
   import princessAtlas from '../../assets/generated/princess-portraits.png';
@@ -116,6 +120,7 @@
         }
       }
       game = next;
+      selectedArtworkOption = next.artworkOption ?? 'classic';
       connection = 'synced';
       connectionLabel = 'Game synchronized';
     }, () => {
@@ -198,10 +203,34 @@
     if (!selectedPrincess || !game || !game.princessOptions[currentUid]?.includes(selectedPrincess)) return;
     connection = 'checking';
     connectionLabel = 'Saving your Princess…';
-    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/configured', {
+    const payload: any = {
       princessId: selectedPrincess,
       ready: true
-    });
+    };
+    if (game.artworkOption) {
+      payload.artworkOption = game.artworkOption;
+    }
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/configured', payload);
+  }
+
+  let selectedArtworkOption = 'classic';
+
+  async function syncArtworkOption(option: string) {
+    if (!game || game.players[0]?.uid !== currentUid || game.artworkOption === option) return;
+    const princessId = game.players.find((p) => p.uid === currentUid)?.princessId;
+    const payload: any = {
+      ready: game.players.find((p) => p.uid === currentUid)?.ready || false,
+      artworkOption: option
+    };
+    if (princessId) {
+      payload.princessId = princessId;
+    }
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/configured', payload);
+  }
+
+  async function handleArtworkOptionChange(option: string) {
+    selectedArtworkOption = option;
+    await syncArtworkOption(option);
   }
 
   async function dealCards() {
@@ -222,8 +251,39 @@
   function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
   function princessStyle(id?: string) {
     const index = PRINCESSES.findIndex(([key]) => key === id);
-    if (index >= 10) return `--princess-x: ${(index - 10) * 100}%; --princess-y: 0%; --princess-size: 200% 100%; background-image: url(${deluxePrincessAtlas})`;
+    if (index >= 10) {
+      const xPercent = (index - 10) === 0 ? 8.333 : 91.667;
+      return `--princess-x: ${xPercent}%; --princess-y: 0%; --princess-size: 250% 100%; background-image: url(${deluxePrincessAtlas})`;
+    }
     return `--princess-x: ${(Math.max(0, index) % 5) * 25}%; --princess-y: ${Math.floor(Math.max(0, index) / 5) * 100}%; --princess-size: 500% 200%; background-image: url(${princessAtlas})`;
+  }
+
+  function cardStyle(card: Card) {
+    if (game?.artworkOption === 'alternate') {
+      const atlases: Record<string, string> = {
+        fairies: fairiesAltAtlas,
+        queens: queensAltAtlas,
+        princes: princesAltAtlas,
+        pets: petsAltAtlas
+      };
+      const colScales: Record<string, number> = {
+        fairies: 1.232,
+        queens: 1.333,
+        princes: 1.333,
+        pets: 1.247
+      };
+      const atlas = atlases[card.suit];
+      const colScale = colScales[card.suit];
+      const col = (card.rank - 1) % 6;
+      const row = Math.floor((card.rank - 1) / 6);
+      const bgSizeWidth = 6 * colScale * 100;
+      const bgSizeHeight = 200;
+      const xPercent = (-col * colScale + 0.5 - 0.5 * colScale) / (1 - 6 * colScale) * 100;
+      const yPercent = row * 100;
+      return `background-size: ${bgSizeWidth.toFixed(2)}% ${bgSizeHeight}%; background-position: ${xPercent.toFixed(2)}% ${yPercent}%; background-image: url(${atlas})`;
+    } else {
+      return `--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`;
+    }
   }
   function localPlayer() { return game?.players.find((player) => player.uid === currentUid); }
   function playerName(uid?: string | null) { return game?.players.find((player) => player.uid === uid)?.displayName ?? 'the active player'; }
@@ -262,7 +322,13 @@
   function suitIndex(card: Card) { return SUITS.indexOf(card.suit); }
   function roundStyle(id: string) {
     const deluxeIndex = ['magic-beans', 'three-times-a-lady', 'arranged-marriage', 'always-the-bridesmaid', 'sisterhood', 'late-for-a-very-important-date'].indexOf(id);
-    if (deluxeIndex >= 0) return `--round-x: ${(deluxeIndex % 3) * 50}%; --round-y: ${Math.floor(deluxeIndex / 3) * 100}%; background-size: 300% 200%; background-image: url(${deluxeRoundAtlas})`;
+    if (deluxeIndex >= 0) {
+      const col = deluxeIndex % 3;
+      const row = Math.floor(deluxeIndex / 3);
+      const xPercent = [3.38, 50, 96.62][col];
+      const yPercent = row * 100;
+      return `--round-x: ${xPercent}%; --round-y: ${yPercent}%; background-size: 350.88% 200%; background-image: url(${deluxeRoundAtlas})`;
+    }
     const originalIds = ['once-upon-a-time', 'invitation', 'masquerade-ball', 'royal-decree', 'musical-chairs', 'pets-revenge', 'late-to-the-ball', 'poisoned-apple', 'crystal-clear', 'upside-down', 'dancing-queens', 'prince-rings-twice', 'wedding-gift', 'after-party', 'bathroom-break', 'single-fairy', 'midnight-makeover', 'blind-mans-bluff', 'odds-and-evens', 'pass-the-bouquet', 'haggle-with-the-hag'];
     const index = Math.max(0, originalIds.indexOf(id));
     return `--round-x: ${(index % 7) * 100 / 6}%; --round-y: ${Math.floor(index / 7) * 50}%; background-image: url(${roundAtlas})`;
@@ -292,7 +358,7 @@
     const submittedIndex = game.passSubmissions[currentUid]?.findIndex((entry) => cardLabel(entry) === cardLabel(card)) ?? -1;
     return submittedIndex >= 0 && submittedIndex < Math.ceil(instruction.count / 2) ? left : right;
   }
-  function waitingForPasses(): string {
+  function waitingForPasses(game: GameProjection | null): string {
     const count = game?.players.filter((player) => !game?.passSubmissions[player.uid]).length ?? 0;
     return `Waiting for ${count} other ${count === 1 ? 'player' : 'players'}.`;
   }
@@ -548,7 +614,7 @@
                   {#if game.revealedSuits[player.uid]}
                     <div class="revealed-cards" role="group" aria-label={`${player.displayName}'s revealed ${game.revealedSuits[player.uid]} cards`}>
                       {#each game.hands[player.uid]?.filter((card) => card.suit === game?.revealedSuits[player.uid]) ?? [] as card}
-                        <span class="review-card" aria-label={cardLabel(card)} style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}><strong>{card.rank}</strong></span>
+                        <span class="review-card" aria-label={cardLabel(card)} style={cardStyle(card)}><strong>{card.rank}</strong></span>
                       {/each}
                     </div>
                   {/if}
@@ -557,7 +623,7 @@
                     {#if lastCaptured(player.uid).length}
                       <div class="trick-review" aria-label={`${player.displayName} last trick`}>
                         {#each lastCaptured(player.uid) as play}
-                          <span class="review-card" aria-label={cardLabel(play.card)} style={`--suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}><strong>{play.card.rank}</strong></span>
+                          <span class="review-card" aria-label={cardLabel(play.card)} style={cardStyle(play.card)}><strong>{play.card.rank}</strong></span>
                         {/each}
                       </div>
                     {/if}
@@ -601,7 +667,7 @@
                   {@const masqueradeHidden = !collecting && play.uid !== currentUid && isMasqueradeHidden(activeRoundId(), game.trick!, play.uid, game.players.length)}
                   <article class="trick-play" style={collectDestination(game.lastCompletedTrick?.winnerUid ?? play.uid)} aria-label={`${game.players.find((player) => player.uid === play.uid)?.displayName} played ${masqueradeHidden ? 'a face-down card' : cardLabel(play.card)}`}>
                     <span>{game.players.find((player) => player.uid === play.uid)?.displayName}</span>
-                    <div class="trick-card" class:face-down={masqueradeHidden} style={masqueradeHidden ? playOrigin(play.uid) : `${playOrigin(play.uid)}; --suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}>
+                    <div class="trick-card" class:face-down={masqueradeHidden} style={masqueradeHidden ? playOrigin(play.uid) : `${playOrigin(play.uid)}; ${cardStyle(play.card)}`}>
                       {#if !masqueradeHidden}<strong>{play.card.rank}</strong><small>{play.card.suit}</small>
                         {#if play.effectiveRank === 0}<em>Counts as 0</em>{/if}
                       {/if}
@@ -657,7 +723,7 @@
                 {#if lastCaptured(currentUid).length}
                   <div class="trick-review" aria-label={`${game.players.find((player) => player.uid === currentUid)?.displayName} last trick`}>
                     {#each lastCaptured(currentUid) as play}
-                      <span class="review-card" aria-label={cardLabel(play.card)} style={`--suit-index: ${suitIndex(play.card)}; background-image: url(${suitAtlas})`}><strong>{play.card.rank}</strong></span>
+                      <span class="review-card" aria-label={cardLabel(play.card)} style={cardStyle(play.card)}><strong>{play.card.rank}</strong></span>
                     {/each}
                   </div>
                 {/if}
@@ -669,7 +735,7 @@
                   {@const splitAvailable = game.awaitingRoundAction === 'split-hand' && !game.roundCardSubmissions[currentUid]}
                   {@const haggleAvailable = game.awaitingRoundAction === 'haggle' && game.haggleWinnerUid === currentUid}
                   <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card)) || selectedHaggleOffer === cardLabel(card)} class:committed class:playable={game.passComplete && playable(card)} class:contributable={roundActionAvailable || splitAvailable || haggleAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))} disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !splitAvailable && !haggleAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}>
-                    <div class="card-art" style={`--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`}></div>
+                    <div class="card-art" style={cardStyle(card)}></div>
                     <strong>{card.rank}</strong><small>{card.suit}</small>
                     {#if committed}<em>To {passRecipient(card)}</em>{/if}
                   </button>
@@ -692,7 +758,7 @@
                   {:else if game.pendingPower}<p class="pass-waiting" role="alert">Waiting for {playerName(game.pendingPower.actorUid)} to resolve {princessName(game.pendingPower.powerId)}</p>
                   {:else}<p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${playerName(game.currentTurnUid)}`} · Trick {game.completedTricks + 1}</p>{/if}
                 {:else if game.passSubmissions[currentUid]}
-                  <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(activeRoundId()).direction} to {passRecipient()} · {waitingForPasses()} Select a raised card to take it back.</p>
+                  <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(activeRoundId()).direction} to {passRecipient()} · {waitingForPasses(game)} Select a raised card to take it back.</p>
                 {:else}
                   {@const instruction = passInstruction(activeRoundId())}
                   <button class="pass-submit" type="button" disabled={selectedPassCards.filter(Boolean).length !== instruction.count} on:click={submitPass}>Pass {instruction.count} {instruction.direction} to {passRecipient()}</button>
@@ -792,6 +858,33 @@
             </fieldset>
             <button type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for the ball</button>
           {/if}
+          <div class="game-options" style="margin: 15px 0; padding: 10px; background: rgba(50, 31, 62, 0.3); border-radius: 8px;">
+            <strong style="display: block; margin-bottom: 8px; color: #ffc75f; font-size: 13px;">Artwork Style</strong>
+            <div style="display: flex; gap: 15px; font-size: 12px; color: #d9cedd;">
+              <label style="display: flex; align-items: center; gap: 5px; cursor: {game?.players[0]?.uid === currentUid ? 'pointer' : 'default'}">
+                <input
+                  type="radio"
+                  name="artworkOption"
+                  value="classic"
+                  checked={selectedArtworkOption === 'classic'}
+                  disabled={game?.players[0]?.uid !== currentUid}
+                  on:change={() => handleArtworkOptionChange('classic')}
+                />
+                Classic Cards
+              </label>
+              <label style="display: flex; align-items: center; gap: 5px; cursor: {game?.players[0]?.uid === currentUid ? 'pointer' : 'default'}">
+                <input
+                  type="radio"
+                  name="artworkOption"
+                  value="alternate"
+                  checked={selectedArtworkOption === 'alternate'}
+                  disabled={game?.players[0]?.uid !== currentUid}
+                  on:change={() => handleArtworkOptionChange('alternate')}
+                />
+                Alternate Cards (Review)
+              </label>
+            </div>
+          </div>
           {#if game?.players[0]?.uid === currentUid}
             <p class="automatic-rounds">Five Round powers will be drawn automatically when the game is dealt.</p>
             <button type="button" disabled={game.players.length < 3 || !game.players.every((player) => player.ready)} on:click={dealCards}>Shuffle and deal</button>
@@ -816,7 +909,7 @@
 
     {#if !game?.hands}<figure class="atlas-card">
       <img
-        src={suitAtlas}
+        src={(game?.artworkOption ?? 'classic') === 'alternate' ? queensAltAtlas : suitAtlas}
         alt="Original card illustrations for Fairies, Queens, Princes, and Pets"
       />
       <figcaption>
@@ -1055,6 +1148,9 @@
   .choice-grid .princess-choice.chosen .princess-choice-copy small { color: #f4e8f5; }
   .choice-grid .princess-choice.chosen .princess-choice-mark { display: block; color: #ffc75f; }
   .automatic-rounds { margin: 18px 0 10px; padding: 10px 12px; border-left: 3px solid #b88cdf; color: #d9cedd; background: rgba(50, 31, 62, .45); font-size: 12px; line-height: 1.35; }
+  .review-card, .card-art, .trick-card, .princess-card, .princess-choice-art, .round-art {
+    background-repeat: no-repeat;
+  }
 
   .table { width: 100%; height: 100%; }
   .table-board { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid rgba(255, 226, 163, .2); border-radius: 18px; background: radial-gradient(ellipse at center, rgba(75, 44, 91, .72), rgba(19, 25, 35, .88) 70%); box-shadow: inset 0 0 90px rgba(0, 0, 0, .35); }
