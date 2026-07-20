@@ -86,6 +86,8 @@ test('three players complete every pass, card, trick, and score across all five 
 
     const scoring = page.getByLabel(`Round ${round} scoring`);
     await expect(scoring).toBeVisible();
+    await expect(scoring.getByRole('table', { name: 'Five-round score card' }).locator('td.filled')).toHaveCount(round * 3);
+    await expect(scoring.getByRole('table', { name: 'Five-round score card' }).locator('td.pending')).toHaveCount((5 - round) * 3);
     await expect(scoreRows(page, round)).toHaveCount(3);
     const roundTotal = await scoreRows(page, round).locator('span').evaluateAll((rows) => rows.reduce((sum, row) => sum + Number(row.textContent?.match(/= (\d+)/)?.[1] ?? 0), 0));
     expect(roundTotal).toBe(14);

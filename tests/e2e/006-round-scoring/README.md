@@ -19,6 +19,7 @@ The final live trick reveals Prince and Frog proposals, preserves cumulative tot
 **Verifications:**
 - [x] Every player receives a visible Prince and Frog breakdown
 - [x] The deck’s nine Princes and five-point Frog account for fourteen proposals
+- [x] The five-round score card fills round one and leaves future rounds open
 - [x] The unique lowest cumulative scorer is named as the next leader
 - [x] Princesses stay fixed and only their powers refresh
 

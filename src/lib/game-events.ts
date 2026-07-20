@@ -46,6 +46,8 @@ export interface GameEvent {
   reducerVersion: typeof REDUCER_VERSION;
 }
 
+export type RoundScore = { princes: number; frog: number; roundRule: number; total: number };
+
 export interface GameProjection {
   gameId: string;
   players: Array<{ uid: string; displayName: string; host: boolean; princessId?: string; ready: boolean }>;
@@ -63,7 +65,8 @@ export interface GameProjection {
   completedTricks: number;
   roundIndex: number;
   roundComplete: boolean;
-  roundScores: Record<string, { princes: number; frog: number; roundRule: number; total: number }>;
+  roundScores: Record<string, RoundScore>;
+  roundScoreHistory: Array<Record<string, RoundScore>>;
   totalScores: Record<string, number>;
   nextLeaderUid: string | null;
   princessOptions: Record<string, string[]>;
@@ -480,6 +483,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, roundRule: 0, total: 0 }])), lastWinnerUid: null, exhaustedPrincessUids: [], powerIdsThisTrick: [], pendingMulanUid: null, pendingPower: null, forcedCards: {}, awaitingRoundAction: null, roundActionSubmissions: {}, roundCardSubmissions: {}, revealedSuits: {}, retainedCards: Object.fromEntries(playerList.map((player) => [player.uid, []])), haggleWinnerUid: null, blindTransferComplete: false, rebelUids: [] };
   const totalScores = emptyCounts();
   const zeroRounds = emptyCounts();
+  const roundScoreHistory: Array<Record<string, RoundScore>> = [];
   deals.forEach(({ event: deal, index }, dealIndex) => {
     const nextIndex = deals[dealIndex + 1]?.index ?? ordered.length;
     const segment = ordered.slice(index + 1, nextIndex);
@@ -487,6 +491,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     roundIds = deal.payload.roundIds ?? roundIds;
     seed = deal.payload.seed ?? seed;
     if (active.roundComplete) {
+      roundScoreHistory.push(Object.fromEntries(playerList.map((player) => [player.uid, { ...active.roundScores[player.uid] }])));
       for (const player of playerList) {
         totalScores[player.uid] += active.roundScores[player.uid].total;
         if (active.roundScores[player.uid].total === 0) zeroRounds[player.uid] += 1;
@@ -499,7 +504,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let winnerUids: string[] = [];
   if (gameComplete) winnerUids = gameWinners(playerList.map((player) => player.uid), totalScores, zeroRounds);
   const { lastWinnerUid: _lastWinnerUid, ...activeProjection } = active;
-  return { gameId, players: playerList, roundIds, seed, ...activeProjection, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions, gameNumber, gameComplete, zeroRounds, winnerUids };
+  return { gameId, players: playerList, roundIds, seed, ...activeProjection, roundScoreHistory, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions, gameNumber, gameComplete, zeroRounds, winnerUids };
 }
 
 export function replayCacheKey(gameId: string): string {
