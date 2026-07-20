@@ -56,7 +56,7 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   const sam = await samContext.newPage();
   const players = [page, jo, sam];
 
-  await page.goto(`/?gameId=${gameId}&seed=scoring-006&e2eUid=score-host-${suffix}`);
+  await page.goto(`/?gameId=${gameId}&seed=scoring-006&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=score-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await join(jo, gameId, `score-jo-${suffix}`, 'Jo');
@@ -64,7 +64,6 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   await ready(page, 'Snow White');
   await ready(jo, 'The Little Mermaid');
   await ready(sam, 'Cinderella');
-  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
   await passCards(page);
   await passCards(jo);

@@ -86,6 +86,16 @@ export function princessOptionsForPlayers(playerUids: string[], seed: string): R
   return Object.fromEntries(playerUids.map((uid, index) => [uid, pool.slice(index * 2, index * 2 + 2)]));
 }
 
+export function roundPowersForGame(seed: string): string[] {
+  const pool = ROUND_RULES.map(([id]) => id);
+  const random = seededRandom(`${seed}:round-powers`);
+  for (let index = pool.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(random() * (index + 1));
+    [pool[index], pool[other]] = [pool[other], pool[index]];
+  }
+  return pool.slice(0, 5);
+}
+
 export function dealForPlayers(playerUids: string[], seed: string): Record<string, Card[]> {
   const deck = deckForPlayers(playerUids.length);
   const random = seededRandom(seed);
