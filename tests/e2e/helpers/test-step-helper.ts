@@ -48,13 +48,34 @@ export class TestStepHelper {
       );
     }
 
+    // Documentation captures describe the settled game state. Power bursts
+    // are asserted separately, then allowed to clear before they can obscure
+    // the board or make a screenshot depend on timer scheduling.
+    await expect(
+      this.page.locator('.princess-power-burst, .table-board.power-flash')
+    ).toHaveCount(0, { timeout: 3000 });
+
     await this.page.mouse.move(0, 0);
     await this.page.evaluate(async () => {
-      const finiteAnimations = document.getAnimations().filter((animation) => {
-        const timing = animation.effect?.getTiming();
-        return timing?.iterations !== Infinity && timing?.duration !== Infinity;
-      });
-      await Promise.all(finiteAnimations.map((animation) => animation.finished));
+      // A remote projection can replace a just-rendered card between frames.
+      // Finish finite animations over consecutive frames so a replacement
+      // cannot leave a capture at the enlarged animation start state.
+      for (let pass = 0; pass < 3; pass += 1) {
+        const finiteAnimations = document.getAnimations().filter((animation) => {
+          const timing = animation.effect?.getTiming();
+          return timing?.iterations !== Infinity && timing?.duration !== Infinity;
+        });
+        for (const animation of finiteAnimations) {
+          try {
+            animation.finish();
+          } catch {
+            // A detached animation can disappear while the projection updates.
+          }
+        }
+        if (pass < 2) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        }
+      }
 
       for (const element of document.querySelectorAll<HTMLElement>('[data-e2e-layout] *')) {
         const style = getComputedStyle(element);

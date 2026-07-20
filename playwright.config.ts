@@ -71,10 +71,9 @@ export default defineConfig({
   expect: {
     timeout: 2000,
     toHaveScreenshot: {
-      // CoreText can rerasterize a single atlas-backed card between the local
-      // and macOS CI renderers. This remains below 0.25% of a desktop frame,
-      // while semantic assertions continue to guard every gameplay state.
-      maxDiffPixels: 3000,
+      // Transient effects are settled by TestStepHelper and UI icons use
+      // bundled vectors, so every committed pixel is expected to match.
+      maxDiffPixels: 0,
       animations: 'disabled',
       caret: 'hide',
       fullPage: true,
