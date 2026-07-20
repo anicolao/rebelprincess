@@ -9,6 +9,7 @@ Three players choose from two deterministically dealt Princesses, ready themselv
 **Verifications:**
 - [x] The host may choose from exactly two Princesses rather than the full roster
 - [x] The dealt options survive a complete replay unchanged
+- [x] Each Princess name is centered above both her portrait and power
 
 ---
 

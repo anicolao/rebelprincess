@@ -43,11 +43,35 @@ test('three clients choose setup and receive a deterministic selective deal', as
   const offered = page.getByLabel('Choose one of your two Princesses').getByRole('button');
   const offeredNames = await offered.allTextContents();
   await page.reload();
+  await page.getByRole('button', { name: 'Open audio mixer' }).click();
+  await expect(page.getByRole('region', { name: 'Audio mixer' })).toBeVisible();
+  await expect(page.locator('#music-volume')).toHaveValue('70');
+  await expect(page.locator('#effects-volume')).toHaveValue('85');
+  await page.locator('#effects-volume').fill('35');
+  await page.getByRole('button', { name: 'Mute effects' }).click();
+  await expect(page.getByRole('button', { name: 'Unmute effects' })).toBeVisible();
+  await page.getByRole('button', { name: 'Unmute effects' }).click();
+  await page.getByRole('button', { name: 'Mute both' }).click();
+  await expect(page.getByRole('button', { name: 'Unmute both' })).toBeVisible();
+  await page.getByRole('button', { name: 'Unmute both' }).click();
+  await page.getByRole('button', { name: 'Mute music' }).click();
+  await page.getByRole('button', { name: 'Close audio mixer' }).click();
   await steps.step('two-dealt-princesses', {
     description: 'Each player receives two stable Princess options for the whole game',
     verifications: [
       { spec: 'The host may choose from exactly two Princesses rather than the full roster', check: async () => expect(page.getByLabel('Choose one of your two Princesses').getByRole('button')).toHaveCount(2) },
-      { spec: 'The dealt options survive a complete replay unchanged', check: async () => expect(await page.getByLabel('Choose one of your two Princesses').getByRole('button').allTextContents()).toEqual(offeredNames) }
+      { spec: 'The dealt options survive a complete replay unchanged', check: async () => expect(await page.getByLabel('Choose one of your two Princesses').getByRole('button').allTextContents()).toEqual(offeredNames) },
+      { spec: 'Each Princess name is centered above both her portrait and power', check: async () => {
+        const choice = page.getByLabel('Choose one of your two Princesses').getByRole('button').first();
+        const [choiceBox, nameBox, artBox] = await Promise.all([
+          choice.boundingBox(),
+          choice.locator('.princess-choice-name').boundingBox(),
+          choice.locator('.princess-choice-art').boundingBox()
+        ]);
+        expect(choiceBox && nameBox && artBox).toBeTruthy();
+        expect(nameBox!.y + nameBox!.height).toBeLessThanOrEqual(artBox!.y);
+        expect(Math.abs(nameBox!.x + nameBox!.width / 2 - (choiceBox!.x + choiceBox!.width / 2))).toBeLessThan(1);
+      } }
     ]
   });
 
@@ -70,6 +94,11 @@ test('three clients choose setup and receive a deterministic selective deal', as
   await expect(guest.getByLabel('Current Round card')).toContainText('Once Upon a Time…');
   await page.reload();
   await page.evaluate(() => scrollTo(0, 0));
+  await page.getByRole('button', { name: 'Open audio mixer' }).click();
+  await expect(page.getByRole('region', { name: 'Audio mixer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Unmute music' })).toBeVisible();
+  await expect(page.locator('#effects-volume')).toHaveValue('35');
+  await page.getByRole('button', { name: 'Close audio mixer' }).click();
 
   const expectedHostHand = [
     'Fairies 6', 'Fairies 7', 'Fairies 9', 'Queens 3', 'Queens 8', 'Princes 3',

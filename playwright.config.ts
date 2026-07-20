@@ -71,7 +71,10 @@ export default defineConfig({
   expect: {
     timeout: 2000,
     toHaveScreenshot: {
-      maxDiffPixels: 0,
+      // CoreText can shift a handful of antialiased edge pixels between the
+      // local and macOS CI renderers. This still rejects meaningful layout or
+      // content changes while tolerating that host-level rasterization noise.
+      maxDiffPixels: 250,
       animations: 'disabled',
       caret: 'hide',
       fullPage: true,

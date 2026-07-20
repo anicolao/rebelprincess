@@ -15,21 +15,56 @@ const WALTZ = [
 
 class GameAudio {
   private context: AudioContext | null = null;
+  private musicGain: GainNode | null = null;
+  private effectsGain: GainNode | null = null;
   private musicTimer: ReturnType<typeof setTimeout> | null = null;
   private nextBar = 0;
   private barIndex = 0;
-  private enabled = true;
+  private musicRequested = false;
+  private musicVolume = 0.7;
+  private effectsVolume = 0.85;
+  private musicMuted = false;
+  private effectsMuted = false;
 
   private ensureContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
     const AudioContextClass = window.AudioContext ?? (window as AudioWindow).webkitAudioContext;
     if (!AudioContextClass) return null;
-    this.context ??= new AudioContextClass();
+    if (!this.context) {
+      this.context = new AudioContextClass();
+      this.musicGain = this.context.createGain();
+      this.effectsGain = this.context.createGain();
+      this.musicGain.connect(this.context.destination);
+      this.effectsGain.connect(this.context.destination);
+      this.updateGains();
+    }
     return this.context;
   }
 
+  setMix(options: { musicVolume: number; effectsVolume: number; musicMuted: boolean; effectsMuted: boolean }) {
+    this.musicVolume = Math.max(0, Math.min(1, options.musicVolume));
+    this.effectsVolume = Math.max(0, Math.min(1, options.effectsVolume));
+    this.musicMuted = options.musicMuted;
+    this.effectsMuted = options.effectsMuted;
+    this.updateGains();
+    if (this.musicMuted) this.pauseMusicSchedule();
+    else if (this.musicRequested) void this.beginMusicSchedule();
+  }
+
+  private updateGains() {
+    if (!this.context) return;
+    const now = this.context.currentTime;
+    this.musicGain?.gain.setTargetAtTime(this.musicMuted ? 0 : this.musicVolume, now, 0.02);
+    this.effectsGain?.gain.setTargetAtTime(this.effectsMuted ? 0 : this.effectsVolume, now, 0.02);
+  }
+
   async startMusic() {
-    this.enabled = true;
+    this.musicRequested = true;
+    await this.beginMusicSchedule();
+  }
+
+  private async beginMusicSchedule() {
+    if (this.musicMuted) return;
     const context = this.ensureContext();
     if (!context) return;
     if (context.state === 'suspended') await context.resume();
@@ -39,12 +74,16 @@ class GameAudio {
   }
 
   stopMusic() {
-    this.enabled = false;
+    this.musicRequested = false;
+    this.pauseMusicSchedule();
+  }
+
+  private pauseMusicSchedule() {
     if (this.musicTimer) clearTimeout(this.musicTimer);
     this.musicTimer = null;
   }
 
-  private tone(frequency: number, start: number, duration: number, volume: number, type: OscillatorType = 'sine') {
+  private tone(frequency: number, start: number, duration: number, volume: number, type: OscillatorType = 'sine', channel: 'music' | 'effects' = 'music') {
     const context = this.context;
     if (!context) return;
     const oscillator = context.createOscillator();
@@ -54,7 +93,7 @@ class GameAudio {
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(volume, start + Math.min(0.08, duration / 3));
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    oscillator.connect(gain).connect(context.destination);
+    oscillator.connect(gain).connect(channel === 'music' ? this.musicGain! : this.effectsGain!);
     oscillator.start(start);
     oscillator.stop(start + duration + 0.02);
   }
@@ -71,7 +110,7 @@ class GameAudio {
 
   private scheduleMusic = () => {
     const context = this.context;
-    if (!context || !this.enabled) return;
+    if (!context || !this.musicRequested || this.musicMuted) return;
     while (this.nextBar < context.currentTime + 8) {
       this.scheduleBar(this.nextBar, this.barIndex);
       this.nextBar += 3.6;
@@ -81,13 +120,13 @@ class GameAudio {
   };
 
   async playPrincessChime() {
-    if (!this.enabled) return;
+    if (this.effectsMuted) return;
     const context = this.ensureContext();
     if (!context) return;
     if (context.state === 'suspended') await context.resume();
     const start = context.currentTime + 0.015;
-    ['D5', 'A5', 'D6'].forEach((note, index) => this.tone(NOTE[note], start + index * 0.105, 1.25 - index * 0.12, 0.065 - index * 0.01, index === 1 ? 'triangle' : 'sine'));
-    this.tone(NOTE.F5, start + 0.24, 1.45, 0.035, 'sine');
+    ['D5', 'A5', 'D6'].forEach((note, index) => this.tone(NOTE[note], start + index * 0.105, 1.25 - index * 0.12, 0.065 - index * 0.01, index === 1 ? 'triangle' : 'sine', 'effects'));
+    this.tone(NOTE.F5, start + 0.24, 1.45, 0.035, 'sine', 'effects');
   }
 }
 

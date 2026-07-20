@@ -42,16 +42,31 @@
   let selectedPowerCards: Card[] = [];
   let selectedRoundCards: string[] = [];
   let selectedHaggleOffer = '';
-  let audioEnabled = true;
+  let mixerOpen = false;
+  let musicVolume = 70;
+  let effectsVolume = 85;
+  let musicMuted = false;
+  let effectsMuted = false;
   let celebratedPrincessId = '';
   let celebrationKey = 0;
   let showPrincessBurst = false;
   let celebrationTimer: ReturnType<typeof setTimeout> | null = null;
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
+  const audioMixStorageKey = 'rebel-princess:audio-mix';
 
   onMount(() => {
-    const beginAudio = () => { if (audioEnabled) void gameAudio.startMusic(); };
+    try {
+      const savedMix = JSON.parse(localStorage.getItem(audioMixStorageKey) ?? '{}');
+      if (Number.isFinite(savedMix.musicVolume)) musicVolume = Math.max(0, Math.min(100, savedMix.musicVolume));
+      if (Number.isFinite(savedMix.effectsVolume)) effectsVolume = Math.max(0, Math.min(100, savedMix.effectsVolume));
+      if (typeof savedMix.musicMuted === 'boolean') musicMuted = savedMix.musicMuted;
+      if (typeof savedMix.effectsMuted === 'boolean') effectsMuted = savedMix.effectsMuted;
+    } catch {
+      // Ignore malformed preferences and retain the balanced default mix.
+    }
+    applyAudioMix(false);
+    const beginAudio = () => { if (!musicMuted) void gameAudio.startMusic(); };
     window.addEventListener('pointerdown', beginAudio, { once: true });
     window.addEventListener('keydown', beginAudio, { once: true });
     void (async () => {
@@ -96,7 +111,7 @@
         if (celebrationTimer) clearTimeout(celebrationTimer);
         showPrincessBurst = Boolean(nextPrincessPower);
         if (nextPrincessPower) {
-          if (audioEnabled) void gameAudio.playPrincessChime();
+          void gameAudio.playPrincessChime();
           if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) celebrationTimer = setTimeout(() => showPrincessBurst = false, 2400);
         }
       }
@@ -109,10 +124,39 @@
     });
   }
 
-  function toggleAudio() {
-    audioEnabled = !audioEnabled;
-    if (audioEnabled) void gameAudio.startMusic();
-    else gameAudio.stopMusic();
+  function applyAudioMix(persist = true) {
+    gameAudio.setMix({
+      musicVolume: musicVolume / 100,
+      effectsVolume: effectsVolume / 100,
+      musicMuted,
+      effectsMuted
+    });
+    if (persist && typeof localStorage !== 'undefined') {
+      localStorage.setItem(audioMixStorageKey, JSON.stringify({ musicVolume, effectsVolume, musicMuted, effectsMuted }));
+    }
+  }
+
+  function updateAudioMix() {
+    applyAudioMix();
+  }
+
+  function toggleMusicMute() {
+    musicMuted = !musicMuted;
+    applyAudioMix();
+    if (!musicMuted) void gameAudio.startMusic();
+  }
+
+  function toggleEffectsMute() {
+    effectsMuted = !effectsMuted;
+    applyAudioMix();
+  }
+
+  function toggleAllAudio() {
+    const unmuteAll = musicMuted && effectsMuted;
+    musicMuted = !unmuteAll;
+    effectsMuted = !unmuteAll;
+    applyAudioMix();
+    if (unmuteAll) void gameAudio.startMusic();
   }
 
   async function createGame() {
@@ -436,7 +480,36 @@
       <strong>Princess</strong>
     </a>
     <div class="header-tools">
-      <button class="audio-toggle" type="button" aria-label={audioEnabled ? 'Mute game audio' : 'Play game audio'} aria-pressed={audioEnabled} on:click={toggleAudio}>{audioEnabled ? '♫ Sound on' : 'Sound off'}</button>
+      <div class="audio-controls">
+        <button
+          class="audio-toggle"
+          type="button"
+          aria-label={mixerOpen ? 'Close audio mixer' : 'Open audio mixer'}
+          aria-expanded={mixerOpen}
+          aria-controls="audio-mixer"
+          on:click={() => mixerOpen = !mixerOpen}
+        >{musicMuted && effectsMuted ? 'Sound off' : '♫ Sound on'}</button>
+        {#if mixerOpen}
+          <section id="audio-mixer" class="audio-mixer" aria-label="Audio mixer">
+            <div class="mixer-heading">
+              <strong>Audio mixer</strong>
+              <button class="mute-all" type="button" aria-pressed={musicMuted && effectsMuted} on:click={toggleAllAudio}>
+                {musicMuted && effectsMuted ? 'Unmute both' : 'Mute both'}
+              </button>
+            </div>
+            <div class="mixer-channel">
+              <label for="music-volume">Music <output for="music-volume">{musicVolume}%</output></label>
+              <input id="music-volume" type="range" min="0" max="100" step="1" bind:value={musicVolume} on:input={updateAudioMix} />
+              <button type="button" aria-label={musicMuted ? 'Unmute music' : 'Mute music'} aria-pressed={musicMuted} on:click={toggleMusicMute}>{musicMuted ? 'Muted' : 'On'}</button>
+            </div>
+            <div class="mixer-channel">
+              <label for="effects-volume">Effects <output for="effects-volume">{effectsVolume}%</output></label>
+              <input id="effects-volume" type="range" min="0" max="100" step="1" bind:value={effectsVolume} on:input={updateAudioMix} />
+              <button type="button" aria-label={effectsMuted ? 'Unmute effects' : 'Mute effects'} aria-pressed={effectsMuted} on:click={toggleEffectsMute}>{effectsMuted ? 'Muted' : 'On'}</button>
+            </div>
+          </section>
+        {/if}
+      </div>
       <div class="status" role="status" aria-live="polite" data-status={connection}>
         <span class="status-dot" aria-hidden="true"></span>
         {connectionLabel}
@@ -701,9 +774,9 @@
                   data-princess-name={princess?.[1] ?? princessId}
                   on:click={() => selectedPrincess = princessId}
                 >
+                  <strong class="princess-choice-name">{princess?.[1] ?? princessId}</strong>
                   <span class="princess-choice-art" style={princessStyle(princessId)} aria-hidden="true"></span>
                   <span class="princess-choice-copy">
-                    <strong>{princess?.[1] ?? princessId}</strong>
                     <small>{PRINCESS_POWER_TEXT[princessId] ?? 'Power coming in a later increment.'}</small>
                   </span>
                   <span class="princess-choice-mark" aria-hidden="true">✓</span>
@@ -834,9 +907,20 @@
     font-size: 14px;
   }
 
-  .header-tools { display: flex; align-items: center; gap: 16px; }
+  .header-tools { position: relative; display: flex; align-items: center; gap: 16px; }
+  .audio-controls { position: relative; }
   .audio-toggle { min-height: 34px; padding: 0 11px; border-color: rgba(184, 140, 223, .5); border-radius: 999px; color: #f3e9f5; background: rgba(50, 31, 62, .65); font-size: 12px; }
-  .audio-toggle[aria-pressed='false'] { color: #a99dac; background: rgba(20, 13, 30, .55); }
+  .audio-toggle[aria-expanded='true'] { border-color: #ffc75f; color: #ffc75f; }
+  .audio-mixer { position: absolute; z-index: 30; top: calc(100% + 9px); right: 0; width: 310px; padding: 13px; border: 1px solid rgba(255, 226, 163, .45); border-radius: 9px; color: #f3e9f5; background: rgba(24, 14, 32, .97); box-shadow: 0 16px 36px rgba(0, 0, 0, .55); }
+  .mixer-heading, .mixer-channel { display: grid; align-items: center; gap: 9px; }
+  .mixer-heading { grid-template-columns: 1fr auto; margin-bottom: 12px; }
+  .mixer-heading strong { color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: 20px; }
+  .audio-mixer button { min-height: 28px; padding: 0 9px; border-radius: 999px; color: #f3e9f5; background: rgba(80, 49, 94, .7); font-size: 10px; }
+  .audio-mixer button[aria-pressed='true'] { border-color: #ffc75f; color: #ffc75f; background: rgba(50, 31, 62, .9); }
+  .mixer-channel { grid-template-columns: 1fr 48px; margin-top: 9px; }
+  .mixer-channel label { grid-column: 1 / -1; display: flex; justify-content: space-between; color: #d9cedd; font-size: 11px; }
+  .mixer-channel output { color: #b88cdf; font-variant-numeric: tabular-nums; }
+  .mixer-channel input[type='range'] { width: 100%; min-height: 18px; height: 18px; padding: 0; accent-color: #ffc75f; }
 
   .status-dot {
     width: 9px;
@@ -953,10 +1037,10 @@
   .choice-grid button { min-height: 34px; padding: 5px 7px; color: #d9cedd; background: rgba(50, 31, 62, .7); font-size: 11px; }
   .choice-grid button.chosen { border-color: #ffc75f; color: #211329; background: #ffc75f; }
   .choice-grid button:disabled { opacity: .35; }
-  .choice-grid .princess-choice { position: relative; min-height: 148px; padding: 10px; display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 11px; color: #f8edfa; text-align: left; }
+  .choice-grid .princess-choice { position: relative; min-height: 168px; padding: 10px; display: grid; grid-template-columns: 72px minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: center; column-gap: 11px; row-gap: 8px; color: #f8edfa; text-align: left; }
+  .princess-choice-name { grid-column: 1 / -1; width: 100%; padding: 0 18px; color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: 19px; line-height: 1; text-align: center; overflow-wrap: anywhere; }
   .princess-choice-art { display: block; width: 72px; aspect-ratio: 3 / 5; border: 1px solid rgba(255, 226, 163, .65); border-radius: 6px; background-color: #150d1d; background-position: var(--princess-x) var(--princess-y); background-size: var(--princess-size); box-shadow: 0 8px 18px rgba(0, 0, 0, .45); }
   .princess-choice-copy { display: grid; gap: 5px; }
-  .princess-choice-copy strong { color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: 19px; line-height: 1; }
   .princess-choice-copy small { color: #d9cedd; font-size: 11px; font-weight: 400; line-height: 1.3; }
   .princess-choice-mark { position: absolute; top: 7px; right: 8px; display: none; font-size: 16px; }
   .choice-grid .princess-choice.chosen { color: #211329; background: rgba(255, 199, 95, .18); box-shadow: inset 0 0 0 1px #ffc75f; }
@@ -1211,6 +1295,7 @@
     }
     .header-tools { align-items: flex-end; flex-direction: column-reverse; gap: 3px; }
     .audio-toggle { min-height: 27px; padding: 0 8px; font-size: 10px; }
+    .audio-mixer { width: min(310px, calc(100vw - 28px)); }
 
     .hero {
       display: flex;
