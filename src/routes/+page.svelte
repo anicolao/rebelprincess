@@ -112,7 +112,7 @@
         showPrincessBurst = Boolean(nextPrincessPower);
         if (nextPrincessPower) {
           void gameAudio.playPrincessChime();
-          if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) celebrationTimer = setTimeout(() => showPrincessBurst = false, 2400);
+          celebrationTimer = setTimeout(() => showPrincessBurst = false, 2400);
         }
       }
       game = next;
@@ -488,7 +488,14 @@
           aria-expanded={mixerOpen}
           aria-controls="audio-mixer"
           on:click={() => mixerOpen = !mixerOpen}
-        >{musicMuted && effectsMuted ? 'Sound off' : '♫ Sound on'}</button>
+        >
+          {#if !(musicMuted && effectsMuted)}
+            <svg class="audio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path d="M6 2.25v8.45a2.45 2.45 0 1 1-1.25-2.14V4.25l7-1.5v6.7a2.45 2.45 0 1 1-1.25-2.14V1.98L6 2.95z" />
+            </svg>
+          {/if}
+          <span>{musicMuted && effectsMuted ? 'Sound off' : 'Sound on'}</span>
+        </button>
         {#if mixerOpen}
           <section id="audio-mixer" class="audio-mixer" aria-label="Audio mixer">
             <div class="mixer-heading">
@@ -909,7 +916,8 @@
 
   .header-tools { position: relative; display: flex; align-items: center; gap: 16px; }
   .audio-controls { position: relative; }
-  .audio-toggle { min-height: 34px; padding: 0 11px; border-color: rgba(184, 140, 223, .5); border-radius: 999px; color: #f3e9f5; background: rgba(50, 31, 62, .65); font-size: 12px; }
+  .audio-toggle { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; gap: 5px; border-color: rgba(184, 140, 223, .5); border-radius: 999px; color: #f3e9f5; background: rgba(50, 31, 62, .65); font-size: 12px; }
+  .audio-icon { width: 13px; height: 13px; flex: 0 0 13px; fill: currentColor; }
   .audio-toggle[aria-expanded='true'] { border-color: #ffc75f; color: #ffc75f; }
   .audio-mixer { position: absolute; z-index: 30; top: calc(100% + 9px); right: 0; width: 310px; padding: 13px; border: 1px solid rgba(255, 226, 163, .45); border-radius: 9px; color: #f3e9f5; background: rgba(24, 14, 32, .97); box-shadow: 0 16px 36px rgba(0, 0, 0, .55); }
   .mixer-heading, .mixer-channel { display: grid; align-items: center; gap: 9px; }
@@ -1399,6 +1407,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .table-board.power-flash::after, .princess-power-burst, .power-sparkles, .seat-princess.power-active .princess-card { animation-iteration-count: 1; animation-duration: .01ms; }
+    .table-board.power-flash::after,
+    .princess-power-burst,
+    .power-sparkles,
+    .seat-princess.power-active .princess-card { animation: none; }
+    .playing-card { transition: none; }
   }
 </style>
