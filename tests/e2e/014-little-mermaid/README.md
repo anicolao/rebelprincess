@@ -18,6 +18,7 @@ Click the Little Mermaid and click a visible suit choice.
 
 **Verifications:**
 - [x] The power is exposed to observers
+- [x] A large illustrated Princess announcement appears for the whole table
 - [x] The suit chooser closes after selection
 
 ---

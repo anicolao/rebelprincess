@@ -11,6 +11,7 @@
   import princessAtlas from '../../assets/generated/princess-portraits.png';
   import deluxePrincessAtlas from '../../assets/generated/princess-portraits-deluxe.png';
   import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
+  import { gameAudio } from '$lib/game-audio';
   import {
     appendGameEvent,
     loadGame,
@@ -41,10 +42,18 @@
   let selectedPowerCards: Card[] = [];
   let selectedRoundCards: string[] = [];
   let selectedHaggleOffer = '';
+  let audioEnabled = true;
+  let celebratedPrincessId = '';
+  let celebrationKey = 0;
+  let showPrincessBurst = false;
+  let celebrationTimer: ReturnType<typeof setTimeout> | null = null;
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
 
   onMount(() => {
+    const beginAudio = () => { if (audioEnabled) void gameAudio.startMusic(); };
+    window.addEventListener('pointerdown', beginAudio, { once: true });
+    window.addEventListener('keydown', beginAudio, { once: true });
     void (async () => {
       try {
         const e2eUid = new URL(location.href).searchParams.get('e2eUid') ?? undefined;
@@ -59,7 +68,13 @@
         connectionLabel = 'Firebase unavailable';
       }
     })();
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      window.removeEventListener('pointerdown', beginAudio);
+      window.removeEventListener('keydown', beginAudio);
+      if (celebrationTimer) clearTimeout(celebrationTimer);
+      gameAudio.stopMusic();
+    };
   });
 
   function watchGame(gameId: string) {
@@ -74,6 +89,17 @@
         selectedPassCards = [];
         observedRoundIndex = next.roundIndex;
       }
+      const nextPrincessPower = next.powerIdsThisTrick.at(-1) ?? '';
+      if (nextPrincessPower !== celebratedPrincessId) {
+        celebratedPrincessId = nextPrincessPower;
+        celebrationKey += 1;
+        if (celebrationTimer) clearTimeout(celebrationTimer);
+        showPrincessBurst = Boolean(nextPrincessPower);
+        if (nextPrincessPower) {
+          if (audioEnabled) void gameAudio.playPrincessChime();
+          celebrationTimer = setTimeout(() => showPrincessBurst = false, 2400);
+        }
+      }
       game = next;
       connection = 'synced';
       connectionLabel = 'Game synchronized';
@@ -81,6 +107,12 @@
       connection = 'error';
       connectionLabel = 'Synchronization failed';
     });
+  }
+
+  function toggleAudio() {
+    audioEnabled = !audioEnabled;
+    if (audioEnabled) void gameAudio.startMusic();
+    else gameAudio.stopMusic();
   }
 
   async function createGame() {
@@ -403,9 +435,12 @@
       <span>Rebel</span>
       <strong>Princess</strong>
     </a>
-    <div class="status" role="status" aria-live="polite" data-status={connection}>
-      <span class="status-dot" aria-hidden="true"></span>
-      {connectionLabel}
+    <div class="header-tools">
+      <button class="audio-toggle" type="button" aria-label={audioEnabled ? 'Mute game audio' : 'Play game audio'} aria-pressed={audioEnabled} on:click={toggleAudio}>{audioEnabled ? '♫ Sound on' : 'Sound off'}</button>
+      <div class="status" role="status" aria-live="polite" data-status={connection}>
+        <span class="status-dot" aria-hidden="true"></span>
+        {connectionLabel}
+      </div>
     </div>
   </header>
 
@@ -419,12 +454,12 @@
       </p>
       {#if activeGameId && game?.hands}
         <section class="table" aria-label="Dealt game">
-          <div class="table-board">
+          <div class="table-board" class:power-flash={showPrincessBurst}>
             <div class="opponents" aria-label="Opponents">
               {#each clockwiseOpponents() as player, index}
                 <section class="opponent-seat" style={seatStyle(index, game.players.length - 1)} data-clockwise-seat={index + 1} aria-label={`${player.displayName}'s hand`}>
                   <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0} {#if game.trick?.leaderUid === player.uid}<span class="lead-marker">Leads</span>{/if}</strong>
-                  <div class="seat-princess" class:exhausted={game.exhaustedPrincessUids.includes(player.uid)} aria-label={`${player.displayName}'s Princess: ${princessName(player.princessId)}`}>
+                  <div class="seat-princess" class:exhausted={game.exhaustedPrincessUids.includes(player.uid)} class:power-active={celebratedPrincessId === player.princessId} aria-label={`${player.displayName}'s Princess: ${princessName(player.princessId)}`}>
                     <div class="princess-card" style={princessStyle(player.princessId)}></div>
                     <strong>{princessName(player.princessId)}</strong>
                     <span>{PRINCESS_POWER_TEXT[player.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
@@ -466,6 +501,18 @@
               {#if game.powerIdsThisTrick.length}<p class="active-power" role="status">Princess power: {game.powerIdsThisTrick.map(princessName).join(', ')}</p>{/if}
             </article>
 
+            {#if celebratedPrincessId && showPrincessBurst}
+              {#key celebrationKey}
+                <aside class="princess-power-burst" role="status" aria-label={`${princessName(celebratedPrincessId)} power activated`}>
+                  <span class="power-sparkles" aria-hidden="true">✦ · ✧ · ✦</span>
+                  <div class="princess-card" style={princessStyle(celebratedPrincessId)} aria-hidden="true"></div>
+                  <span>Princess power awakened</span>
+                  <strong>{princessName(celebratedPrincessId)}</strong>
+                  <p>{PRINCESS_POWER_TEXT[celebratedPrincessId]}</p>
+                </aside>
+              {/key}
+            {/if}
+
             {#if game.passComplete}
               {@const collecting = !game.trick?.plays.length && Boolean(game.lastCompletedTrick)}
               {@const visiblePlays = collecting ? game.lastCompletedTrick?.plays ?? [] : game.trick?.plays ?? []}
@@ -490,7 +537,7 @@
             <section class="local-seat" aria-label="Your seat">
               <div class="local-heading" class:local-leader={game.trick?.leaderUid === currentUid}><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You {#if game.trick?.leaderUid === currentUid}<span class="lead-marker">You lead</span>{/if}</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
               {#if game.passComplete && localPlayer()?.princessId}
-                <div class="seat-princess local-princess" class:exhausted={game.exhaustedPrincessUids.includes(currentUid)} class:armed={snowWhiteArmed || thumbelinaArmed}>
+                <div class="seat-princess local-princess" class:exhausted={game.exhaustedPrincessUids.includes(currentUid)} class:armed={snowWhiteArmed || thumbelinaArmed} class:power-active={celebratedPrincessId === localPlayer()?.princessId}>
                   <button type="button" class="princess-card" style={princessStyle(localPlayer()?.princessId)} aria-label={`Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={snowWhiteArmed || thumbelinaArmed || openPrincessPower === localPlayer()?.princessId} disabled={!princessUsable(localPlayer()?.princessId)} on:click={usePrincessCard}></button>
                   <strong>{princessName(localPlayer()?.princessId)}</strong>
                   <span>{PRINCESS_POWER_TEXT[localPlayer()?.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
@@ -761,6 +808,10 @@
     font-size: 14px;
   }
 
+  .header-tools { display: flex; align-items: center; gap: 16px; }
+  .audio-toggle { min-height: 34px; padding: 0 11px; border-color: rgba(184, 140, 223, .5); border-radius: 999px; color: #f3e9f5; background: rgba(50, 31, 62, .65); font-size: 12px; }
+  .audio-toggle[aria-pressed='false'] { color: #a99dac; background: rgba(20, 13, 30, .55); }
+
   .status-dot {
     width: 9px;
     height: 9px;
@@ -889,6 +940,7 @@
 
   .table { width: 100%; height: 100%; }
   .table-board { position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid rgba(255, 226, 163, .2); border-radius: 18px; background: radial-gradient(ellipse at center, rgba(75, 44, 91, .72), rgba(19, 25, 35, .88) 70%); box-shadow: inset 0 0 90px rgba(0, 0, 0, .35); }
+  .table-board.power-flash::after { content: ''; position: absolute; z-index: 19; inset: 0; pointer-events: none; background: radial-gradient(circle, rgba(255, 246, 194, .62), rgba(184, 140, 223, .28) 38%, transparent 72%); animation: princess-table-flash 1.25s ease-out both; }
   .round-center { position: absolute; top: 45%; left: 50%; width: clamp(180px, 22vh, 230px); margin: 0; transform: translate(-50%, -50%); text-align: center; }
   .round-art { width: clamp(84px, 55%, 118px); aspect-ratio: .855; margin: 5px auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 7px; background-size: 700% 300%; background-position: var(--round-x) var(--round-y); box-shadow: 0 10px 25px rgba(0, 0, 0, .45); }
   .round-center p { margin: 0; color: #b88cdf; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
@@ -897,6 +949,12 @@
   .pass-icon { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 4px; color: #ffc75f; font-size: clamp(17px, 2.5vh, 24px); line-height: 1; }
   .pass-icon strong { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: .72em; }
   .round-center .round-count { margin-top: 4px; }
+  .princess-power-burst { position: absolute; z-index: 25; top: 46%; left: 50%; display: grid; grid-template-columns: 76px minmax(0, 220px); grid-template-rows: auto auto auto 1fr; column-gap: 13px; width: min(86%, 340px); padding: 12px 16px 12px 12px; border: 2px solid #ffe2a3; border-radius: 13px; color: #fff5dc; background: linear-gradient(135deg, rgba(82, 47, 100, .98), rgba(20, 31, 43, .98)); box-shadow: 0 0 0 5px rgba(184, 140, 223, .22), 0 0 45px rgba(255, 226, 163, .45), 0 18px 50px rgba(0, 0, 0, .72); pointer-events: none; transform: translate(-50%, -50%); animation: princess-power-arrives .75s cubic-bezier(.2, .9, .25, 1.15) both; }
+  .princess-power-burst .princess-card { grid-row: 1 / -1; width: 76px; aspect-ratio: 3 / 5; border: 1px solid rgba(255, 226, 163, .8); border-radius: 7px; background-color: #150d1d; background-position: var(--princess-x) var(--princess-y); background-size: var(--princess-size); box-shadow: 0 8px 20px rgba(0, 0, 0, .48); }
+  .princess-power-burst > span:not(.power-sparkles) { align-self: end; color: #ffc75f; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .princess-power-burst > strong { color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 24px; line-height: 1; }
+  .princess-power-burst > p { margin: 5px 0 0; color: #e7dbe9; font-size: 11px; line-height: 1.25; }
+  .power-sparkles { position: absolute; top: -18px; right: 8px; color: #ffe2a3; font-size: 22px; letter-spacing: 6px; text-shadow: 0 0 12px #fff; animation: power-sparkles 1.4s ease-in-out infinite alternate; }
   .opponent-seat { position: absolute; z-index: 2; top: var(--seat-y); left: var(--seat-x); min-width: 105px; color: #e9deeb; text-align: center; transform: translateX(-50%); }
   .opponent-seat > strong { display: block; margin-bottom: 4px; font-size: 12px; }
   .seat-princess { position: absolute; top: 18px; left: -52px; display: grid; justify-items: center; width: 50px; color: #e9deeb; font-size: 7px; line-height: 1.05; }
@@ -905,6 +963,8 @@
   .seat-princess > span { display: block; width: 64px; margin-top: 1px; color: #d9cedd; text-align: center; }
   .seat-princess.exhausted .princess-card { filter: grayscale(1) saturate(0); transform: rotate(-12deg); }
   .seat-princess.exhausted > strong, .seat-princess.exhausted > span { color: #776f7b; }
+  .seat-princess.power-active .princess-card { filter: none; border-color: #fff4d0; box-shadow: 0 0 0 3px #b88cdf, 0 0 25px #ffe2a3; animation: active-princess-card .85s ease-in-out infinite alternate; }
+  .seat-princess.power-active > strong { color: #fff4d0; text-shadow: 0 0 8px #ffc75f; }
   .local-princess { top: auto; bottom: 4px; left: 4px; z-index: 7; width: 76px; }
   .local-princess .princess-card { width: clamp(48px, 7vh, 66px); cursor: pointer; }
   .local-princess > span { width: 78px; font-size: 8px; }
@@ -964,6 +1024,10 @@
     0%, 62% { opacity: 1; transform: translate(0, 0) scale(1); }
     100% { opacity: 0; transform: translate(var(--collect-x), var(--collect-y)) scale(.65); }
   }
+  @keyframes princess-table-flash { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes princess-power-arrives { from { opacity: 0; transform: translate(-50%, -50%) scale(.55) rotate(-5deg); } to { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); } }
+  @keyframes power-sparkles { from { opacity: .55; transform: translateY(2px) scale(.92); } to { opacity: 1; transform: translateY(-3px) scale(1.08); } }
+  @keyframes active-princess-card { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
   .round-results { position: absolute; z-index: 20; inset: 8% 12%; display: flex; flex-direction: column; align-items: center; overflow: auto; padding: 14px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 12px; color: #fff4d0; background: rgba(20, 13, 30, .97); box-shadow: 0 18px 60px rgba(0, 0, 0, .7); }
   .round-results > * { flex-shrink: 0; }
   .round-results h2 { margin: 0 0 8px; }
@@ -1103,9 +1167,10 @@
     }
 
     .status {
-      padding-top: 9px;
       font-size: 12px;
     }
+    .header-tools { align-items: flex-end; flex-direction: column-reverse; gap: 3px; }
+    .audio-toggle { min-height: 27px; padding: 0 8px; font-size: 10px; }
 
     .hero {
       display: flex;
@@ -1203,5 +1268,9 @@
     footer {
       min-height: 58px;
     }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .table-board.power-flash::after, .princess-power-burst, .power-sparkles, .seat-princess.power-active .princess-card { animation-iteration-count: 1; animation-duration: .01ms; }
   }
 </style>
