@@ -16,9 +16,11 @@ test('The Little Mermaid requests a suit entirely through clicks', async ({ page
   const suit = page.getByRole('group', { name: 'Little Mermaid power' }).getByRole('button').filter({ hasNotText: 'princes' }).first();
   const requested = await suit.textContent() ?? ''; await suit.click();
   await expect(page.getByText('Princess power: The Little Mermaid')).toBeVisible();
+  await expect(page.getByLabel('The Little Mermaid power activated')).toBeVisible();
   const legalSuits = await page.locator('.playing-card.playable:not(:disabled) small').allTextContents();
   await steps.step('little-mermaid-suit-selected', { description: 'The clicked suit becomes the shared active rule', verifications: [
     { spec: 'The power is exposed to observers', check: async () => expect(game.jo.getByText('Princess power: The Little Mermaid')).toBeVisible() },
+    { spec: 'A large illustrated Princess announcement appears for the whole table', check: async () => expect(game.jo.getByLabel('The Little Mermaid power activated')).toBeVisible() },
     { spec: 'The suit chooser closes after selection', check: async () => expect(page.getByRole('group', { name: 'Little Mermaid power' })).toHaveCount(0) }
   ] });
   await steps.step('little-mermaid-clicks-suit', { description: 'The clicked suit constrains the leader’s visible cards', verifications: [
