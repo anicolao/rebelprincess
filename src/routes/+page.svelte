@@ -622,7 +622,22 @@
               <legend>Choose one of your two dealt Princesses</legend>
               {#each game?.princessOptions[currentUid] ?? [] as princessId}
                 {@const princess = PRINCESSES.find(([id]) => id === princessId)}
-                <button type="button" class:chosen={selectedPrincess === princessId} on:click={() => selectedPrincess = princessId}>{princess?.[1] ?? princessId}</button>
+                <button
+                  type="button"
+                  class="princess-choice"
+                  class:chosen={selectedPrincess === princessId}
+                  aria-label={princess?.[1] ?? princessId}
+                  aria-pressed={selectedPrincess === princessId}
+                  data-princess-name={princess?.[1] ?? princessId}
+                  on:click={() => selectedPrincess = princessId}
+                >
+                  <span class="princess-choice-art" style={princessStyle(princessId)} aria-hidden="true"></span>
+                  <span class="princess-choice-copy">
+                    <strong>{princess?.[1] ?? princessId}</strong>
+                    <small>{PRINCESS_POWER_TEXT[princessId] ?? 'Power coming in a later increment.'}</small>
+                  </span>
+                  <span class="princess-choice-mark" aria-hidden="true">✓</span>
+                </button>
               {/each}
             </fieldset>
             <button type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for the ball</button>
@@ -869,6 +884,15 @@
   .choice-grid button { min-height: 34px; padding: 5px 7px; color: #d9cedd; background: rgba(50, 31, 62, .7); font-size: 11px; }
   .choice-grid button.chosen { border-color: #ffc75f; color: #211329; background: #ffc75f; }
   .choice-grid button:disabled { opacity: .35; }
+  .choice-grid .princess-choice { position: relative; min-height: 148px; padding: 10px; display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 11px; color: #f8edfa; text-align: left; }
+  .princess-choice-art { display: block; width: 72px; aspect-ratio: 3 / 5; border: 1px solid rgba(255, 226, 163, .65); border-radius: 6px; background-color: #150d1d; background-position: var(--princess-x) var(--princess-y); background-size: var(--princess-size); box-shadow: 0 8px 18px rgba(0, 0, 0, .45); }
+  .princess-choice-copy { display: grid; gap: 5px; }
+  .princess-choice-copy strong { color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: 19px; line-height: 1; }
+  .princess-choice-copy small { color: #d9cedd; font-size: 11px; font-weight: 400; line-height: 1.3; }
+  .princess-choice-mark { position: absolute; top: 7px; right: 8px; display: none; font-size: 16px; }
+  .choice-grid .princess-choice.chosen { color: #211329; background: rgba(255, 199, 95, .18); box-shadow: inset 0 0 0 1px #ffc75f; }
+  .choice-grid .princess-choice.chosen .princess-choice-copy small { color: #f4e8f5; }
+  .choice-grid .princess-choice.chosen .princess-choice-mark { display: block; color: #ffc75f; }
   .rounds { max-height: 164px; padding-right: 3px; overflow-y: auto; }
 
   .table { width: 100%; height: 100%; }
