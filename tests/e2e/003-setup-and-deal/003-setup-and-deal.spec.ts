@@ -12,7 +12,7 @@ async function join(page: Page, gameId: string, uid: string, name: string) {
 async function choose(page: Page) {
   const options = page.getByLabel('Choose one of your two Princesses').getByRole('button');
   await expect(options).toHaveCount(2);
-  const princess = (await options.first().textContent()) ?? '';
+  const princess = (await options.first().getAttribute('data-princess-name')) ?? '';
   await options.first().click();
   await page.getByRole('button', { name: 'Ready for the ball' }).click();
   await expect(page.getByRole('list', { name: 'Players' })).toContainText('Ready');
