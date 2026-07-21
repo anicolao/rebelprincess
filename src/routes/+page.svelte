@@ -264,6 +264,19 @@
     return `--princess-x: ${(Math.max(0, index) % 5) * 25}%; --princess-y: ${Math.floor(Math.max(0, index) / 5) * 100}%; --princess-size: 500% 200%; background-image: url(${princessAtlas})`;
   }
 
+  function parentCardStyle(card: Card) {
+    if (game?.artworkOption === 'alternate') {
+      const cellAspects: Record<string, number> = {
+        fairies: 3302 / 5718,
+        queens: 3434 / 5496,
+        princes: 3432 / 5496,
+        pets: 3322 / 5682
+      };
+      return `aspect-ratio: ${cellAspects[card.suit].toFixed(4)};`;
+    }
+    return '';
+  }
+
   function cardStyle(card: Card) {
     if (game?.artworkOption === 'alternate') {
       const atlases: Record<string, string> = {
@@ -272,21 +285,19 @@
         princes: princesAltAtlas,
         pets: petsAltAtlas
       };
-      const colScales: Record<string, number> = {
-        fairies: 1.232,
-        queens: 1.333,
-        princes: 1.333,
-        pets: 1.247
+      const cellAspects: Record<string, number> = {
+        fairies: 3302 / 5718,
+        queens: 3434 / 5496,
+        princes: 3432 / 5496,
+        pets: 3322 / 5682
       };
       const atlas = atlases[card.suit];
-      const colScale = colScales[card.suit];
+      const aspect = cellAspects[card.suit];
       const col = (card.rank - 1) % 6;
       const row = Math.floor((card.rank - 1) / 6);
-      const bgSizeWidth = 6 * colScale * 100;
-      const bgSizeHeight = 200;
-      const xPercent = (-col * colScale + 0.5 - 0.5 * colScale) / (1 - 6 * colScale) * 100;
+      const xPercent = col * 20;
       const yPercent = row * 100;
-      return `background-size: ${bgSizeWidth.toFixed(2)}% ${bgSizeHeight}%; background-position: ${xPercent.toFixed(2)}% ${yPercent}%; background-image: url(${atlas})`;
+      return `aspect-ratio: ${aspect.toFixed(4)}; background-size: 600% 200%; background-position: ${xPercent}% ${yPercent}%; background-image: url(${atlas})`;
     } else {
       return `--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`;
     }
@@ -331,9 +342,9 @@
     if (deluxeIndex >= 0) {
       const col = deluxeIndex % 3;
       const row = Math.floor(deluxeIndex / 3);
-      const xPercent = [3.38, 50, 96.62][col];
+      const xPercent = col * 50;
       const yPercent = row * 100;
-      return `--round-x: ${xPercent}%; --round-y: ${yPercent}%; background-size: 350.88% 200%; background-image: url(${deluxeRoundAtlas})`;
+      return `aspect-ratio: 1 / 1; --round-x: ${xPercent}%; --round-y: ${yPercent}%; background-size: 300% 200%; background-image: url(${deluxeRoundAtlas})`;
     }
     const originalIds = ['once-upon-a-time', 'invitation', 'masquerade-ball', 'royal-decree', 'musical-chairs', 'pets-revenge', 'late-to-the-ball', 'poisoned-apple', 'crystal-clear', 'upside-down', 'dancing-queens', 'prince-rings-twice', 'wedding-gift', 'after-party', 'bathroom-break', 'single-fairy', 'midnight-makeover', 'blind-mans-bluff', 'odds-and-evens', 'pass-the-bouquet', 'haggle-with-the-hag'];
     const index = Math.max(0, originalIds.indexOf(id));
@@ -740,7 +751,7 @@
                   {@const roundActionAvailable = Boolean(game.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit' && game.awaitingRoundAction !== 'split-hand' && !game.roundActionSubmissions[currentUid])}
                   {@const splitAvailable = game.awaitingRoundAction === 'split-hand' && !game.roundCardSubmissions[currentUid]}
                   {@const haggleAvailable = game.awaitingRoundAction === 'haggle' && game.haggleWinnerUid === currentUid}
-                  <button type="button" class="playing-card" class:selected={selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card)) || selectedHaggleOffer === cardLabel(card)} class:committed class:playable={game.passComplete && playable(card)} class:contributable={roundActionAvailable || splitAvailable || haggleAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))} disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !splitAvailable && !haggleAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}>
+                  <button type="button" class="playing-card" style={parentCardStyle(card)} class:selected={selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card)) || selectedHaggleOffer === cardLabel(card)} class:committed class:playable={game.passComplete && playable(card)} class:contributable={roundActionAvailable || splitAvailable || haggleAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))} disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !splitAvailable && !haggleAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}>
                     <div class="card-art" style={cardStyle(card)}></div>
                     <strong>{card.rank}</strong><small>{card.suit}</small>
                     {#if committed}<em>To {passRecipient(card)}</em>{/if}
@@ -926,7 +937,7 @@
           alt="Original card illustrations for Fairies, Queens, Princes, and Pets"
         />
       {/if}
-      <figcaption>
+      <figcaption style={(game?.artworkOption ?? 'classic') === 'alternate' ? 'grid-template-columns: 0.5775fr 0.6248fr 0.6245fr 0.5846fr;' : ''}>
         <span>Fairies</span><span>Queens</span><span>Princes</span><span>Pets</span>
       </figcaption>
     </figure>{/if}
@@ -1327,16 +1338,15 @@
 
   .alternate-preview-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: 0.5775fr 0.6248fr 0.6245fr 0.5846fr;
     width: 100%;
-    aspect-ratio: 1.874 / 1;
+    aspect-ratio: 2.4114 / 1;
     background: #09070c;
   }
 
   .alternate-preview-card {
     width: 100%;
     height: 100%;
-    background-size: cover;
     background-repeat: no-repeat;
   }
 
