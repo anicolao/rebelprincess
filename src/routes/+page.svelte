@@ -214,6 +214,12 @@
   }
 
   let selectedArtworkOption = 'classic';
+  const previewCards = [
+    { suit: 'fairies', rank: 7 },
+    { suit: 'queens', rank: 7 },
+    { suit: 'princes', rank: 7 },
+    { suit: 'pets', rank: 7 }
+  ] as Card[];
 
   async function syncArtworkOption(option: string) {
     if (!game || game.players[0]?.uid !== currentUid || game.artworkOption === option) return;
@@ -908,10 +914,18 @@
     </div>
 
     {#if !game?.hands}<figure class="atlas-card">
-      <img
-        src={(game?.artworkOption ?? 'classic') === 'alternate' ? queensAltAtlas : suitAtlas}
-        alt="Original card illustrations for Fairies, Queens, Princes, and Pets"
-      />
+      {#if (game?.artworkOption ?? 'classic') === 'alternate'}
+        <div class="alternate-preview-grid">
+          {#each previewCards as card}
+            <div class="alternate-preview-card" style={cardStyle(card)}></div>
+          {/each}
+        </div>
+      {:else}
+        <img
+          src={suitAtlas}
+          alt="Original card illustrations for Fairies, Queens, Princes, and Pets"
+        />
+      {/if}
       <figcaption>
         <span>Fairies</span><span>Queens</span><span>Princes</span><span>Pets</span>
       </figcaption>
@@ -1309,6 +1323,21 @@
     width: 100%;
     aspect-ratio: 1.874 / 1;
     object-fit: cover;
+  }
+
+  .alternate-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    width: 100%;
+    aspect-ratio: 1.874 / 1;
+    background: #09070c;
+  }
+
+  .alternate-preview-card {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-repeat: no-repeat;
   }
 
   figcaption {
