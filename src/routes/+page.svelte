@@ -5,7 +5,7 @@
   import '@fontsource/cormorant-garamond/latin-700.css';
   import { onMount } from 'svelte';
   import { replaceState } from '$app/navigation';
-  import suitAtlas from '../../assets/generated/suited-card-families.png';
+  import SpriteCard from '$lib/components/SpriteCard.svelte';
   import fairiesAltAtlas from '../../assets/generated/alternate-suits-review/fairies.png';
   import queensAltAtlas from '../../assets/generated/alternate-suits-review/queens.png';
   import princesAltAtlas from '../../assets/generated/alternate-suits-review/princes.png';
@@ -120,7 +120,6 @@
         }
       }
       game = next;
-      selectedArtworkOption = next.artworkOption ?? 'classic';
       connection = 'synced';
       connectionLabel = 'Game synchronized';
     }, () => {
@@ -207,37 +206,15 @@
       princessId: selectedPrincess,
       ready: true
     };
-    if (game.artworkOption) {
-      payload.artworkOption = game.artworkOption;
-    }
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/configured', payload);
   }
 
-  let selectedArtworkOption = 'classic';
   const previewCards = [
     { suit: 'fairies', rank: 7 },
     { suit: 'queens', rank: 7 },
     { suit: 'princes', rank: 7 },
     { suit: 'pets', rank: 7 }
   ] as Card[];
-
-  async function syncArtworkOption(option: string) {
-    if (!game || game.players[0]?.uid !== currentUid || game.artworkOption === option) return;
-    const princessId = game.players.find((p) => p.uid === currentUid)?.princessId;
-    const payload: any = {
-      ready: game.players.find((p) => p.uid === currentUid)?.ready || false,
-      artworkOption: option
-    };
-    if (princessId) {
-      payload.princessId = princessId;
-    }
-    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/configured', payload);
-  }
-
-  async function handleArtworkOptionChange(option: string) {
-    selectedArtworkOption = option;
-    await syncArtworkOption(option);
-  }
 
   async function dealCards() {
     if (!game || game.players.length < 3 || game.players.length > 6 || !game.players.every((player) => player.ready)) return;
@@ -255,52 +232,61 @@
   }
 
   function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
-  function princessStyle(id?: string) {
+
+  function roundParentStyle(id: string) {
+    const deluxeIndex = ['magic-beans', 'three-times-a-lady', 'arranged-marriage', 'always-the-bridesmaid', 'sisterhood', 'late-for-a-very-important-date'].indexOf(id);
+    return `aspect-ratio: ${deluxeIndex >= 0 ? '1/1' : '0.8571'};`;
+  }
+  function cardSpriteProps(card: Card) {
+    const atlases: Record<string, string> = {
+      fairies: fairiesAltAtlas,
+      queens: queensAltAtlas,
+      princes: princesAltAtlas,
+      pets: petsAltAtlas
+    };
+    const dimensions: Record<string, { w: number; h: number }> = {
+      fairies: { w: 1651, h: 953 },
+      queens: { w: 1717, h: 916 },
+      princes: { w: 1716, h: 916 },
+      pets: { w: 1661, h: 947 }
+    };
+    const col = (card.rank - 1) % 6;
+    const row = Math.floor((card.rank - 1) / 6);
+    return {
+      src: atlases[card.suit],
+      sheetWidth: dimensions[card.suit].w,
+      sheetHeight: dimensions[card.suit].h,
+      cols: 6,
+      rows: 2,
+      col,
+      row,
+      targetAspect: 0.6
+    };
+  }
+
+  function princessSpriteProps(id?: string) {
     const index = PRINCESSES.findIndex(([key]) => key === id);
     if (index >= 10) {
-      const xPercent = (index - 10) === 0 ? 8.333 : 91.667;
-      return `--princess-x: ${xPercent}%; --princess-y: 0%; --princess-size: 250% 100%; background-image: url(${deluxePrincessAtlas})`;
-    }
-    return `--princess-x: ${(Math.max(0, index) % 5) * 25}%; --princess-y: ${Math.floor(Math.max(0, index) / 5) * 100}%; --princess-size: 500% 200%; background-image: url(${princessAtlas})`;
-  }
-
-  function parentCardStyle(card: Card) {
-    if (game?.artworkOption === 'alternate') {
-      const cellAspects: Record<string, number> = {
-        fairies: 3302 / 5718,
-        queens: 3434 / 5496,
-        princes: 3432 / 5496,
-        pets: 3322 / 5682
+      return {
+        src: deluxePrincessAtlas,
+        sheetWidth: 1536,
+        sheetHeight: 1024,
+        cols: 2,
+        rows: 1,
+        col: index - 10,
+        row: 0,
+        targetAspect: 0.6
       };
-      return `aspect-ratio: ${cellAspects[card.suit].toFixed(4)};`;
     }
-    return '';
-  }
-
-  function cardStyle(card: Card) {
-    if (game?.artworkOption === 'alternate') {
-      const atlases: Record<string, string> = {
-        fairies: fairiesAltAtlas,
-        queens: queensAltAtlas,
-        princes: princesAltAtlas,
-        pets: petsAltAtlas
-      };
-      const cellAspects: Record<string, number> = {
-        fairies: 3302 / 5718,
-        queens: 3434 / 5496,
-        princes: 3432 / 5496,
-        pets: 3322 / 5682
-      };
-      const atlas = atlases[card.suit];
-      const aspect = cellAspects[card.suit];
-      const col = (card.rank - 1) % 6;
-      const row = Math.floor((card.rank - 1) / 6);
-      const xPercent = col * 20;
-      const yPercent = row * 100;
-      return `aspect-ratio: ${aspect.toFixed(4)}; background-size: 600% 200%; background-position: ${xPercent}% ${yPercent}%; background-image: url(${atlas})`;
-    } else {
-      return `--suit-index: ${suitIndex(card)}; background-image: url(${suitAtlas})`;
-    }
+    return {
+      src: princessAtlas,
+      sheetWidth: 1536,
+      sheetHeight: 1024,
+      cols: 5,
+      rows: 2,
+      col: Math.max(0, index) % 5,
+      row: Math.floor(Math.max(0, index) / 5)
+    };
   }
   function localPlayer() { return game?.players.find((player) => player.uid === currentUid); }
   function playerName(uid?: string | null) { return game?.players.find((player) => player.uid === uid)?.displayName ?? 'the active player'; }
@@ -336,19 +322,31 @@
   }
   function nextLeaderName() { return game?.players.find((player) => player.uid === game?.nextLeaderUid)?.displayName ?? ''; }
   function winnerNames() { return game?.winnerUids.map((uid) => game?.players.find((player) => player.uid === uid)?.displayName).filter(Boolean).join(' and ') ?? ''; }
-  function suitIndex(card: Card) { return SUITS.indexOf(card.suit); }
-  function roundStyle(id: string) {
+  function roundSpriteProps(id: string) {
     const deluxeIndex = ['magic-beans', 'three-times-a-lady', 'arranged-marriage', 'always-the-bridesmaid', 'sisterhood', 'late-for-a-very-important-date'].indexOf(id);
     if (deluxeIndex >= 0) {
-      const col = deluxeIndex % 3;
-      const row = Math.floor(deluxeIndex / 3);
-      const xPercent = col * 50;
-      const yPercent = row * 100;
-      return `aspect-ratio: 1 / 1; --round-x: ${xPercent}%; --round-y: ${yPercent}%; background-size: 300% 200%; background-image: url(${deluxeRoundAtlas})`;
+      return {
+        src: deluxeRoundAtlas,
+        sheetWidth: 1536,
+        sheetHeight: 1024,
+        cols: 3,
+        rows: 2,
+        col: deluxeIndex % 3,
+        row: Math.floor(deluxeIndex / 3),
+        targetAspect: 1.0
+      };
     }
     const originalIds = ['once-upon-a-time', 'invitation', 'masquerade-ball', 'royal-decree', 'musical-chairs', 'pets-revenge', 'late-to-the-ball', 'poisoned-apple', 'crystal-clear', 'upside-down', 'dancing-queens', 'prince-rings-twice', 'wedding-gift', 'after-party', 'bathroom-break', 'single-fairy', 'midnight-makeover', 'blind-mans-bluff', 'odds-and-evens', 'pass-the-bouquet', 'haggle-with-the-hag'];
     const index = Math.max(0, originalIds.indexOf(id));
-    return `--round-x: ${(index % 7) * 100 / 6}%; --round-y: ${Math.floor(index / 7) * 50}%; background-image: url(${roundAtlas})`;
+    return {
+      src: roundAtlas,
+      sheetWidth: 1774,
+      sheetHeight: 887,
+      cols: 7,
+      rows: 3,
+      col: index % 7,
+      row: Math.floor(index / 7)
+    };
   }
   function playOrigin(uid: string) {
     if (!game || uid === currentUid) return '--play-x: 0; --play-y: 34vh';
@@ -623,15 +621,20 @@
                 <section class="opponent-seat" style={seatStyle(index, game.players.length - 1)} data-clockwise-seat={index + 1} aria-label={`${player.displayName}'s hand`}>
                   <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0} {#if game.trick?.leaderUid === player.uid}<span class="lead-marker">Leads</span>{/if}</strong>
                   <div class="seat-princess" class:exhausted={game.exhaustedPrincessUids.includes(player.uid)} class:power-active={celebratedPrincessId === player.princessId} aria-label={`${player.displayName}'s Princess: ${princessName(player.princessId)}`}>
-                    <div class="princess-card" style={princessStyle(player.princessId)}></div>
-                    <strong>{princessName(player.princessId)}</strong>
-                    <span>{PRINCESS_POWER_TEXT[player.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
+                     <div class="princess-card">
+                       <SpriteCard {...princessSpriteProps(player.princessId)} />
+                     </div>
+                     <strong>{princessName(player.princessId)}</strong>
+                     <span>{PRINCESS_POWER_TEXT[player.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
                   </div>
                   <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
                   {#if game.revealedSuits[player.uid]}
                     <div class="revealed-cards" role="group" aria-label={`${player.displayName}'s revealed ${game.revealedSuits[player.uid]} cards`}>
                       {#each game.hands[player.uid]?.filter((card) => card.suit === game?.revealedSuits[player.uid]) ?? [] as card}
-                        <span class="review-card" aria-label={cardLabel(card)} style={cardStyle(card)}><strong>{card.rank}</strong></span>
+                        <span class="review-card" aria-label={cardLabel(card)}>
+                          <SpriteCard {...cardSpriteProps(card)} />
+                          <strong>{card.rank}</strong>
+                        </span>
                       {/each}
                     </div>
                   {/if}
@@ -640,7 +643,10 @@
                     {#if lastCaptured(player.uid).length}
                       <div class="trick-review" aria-label={`${player.displayName} last trick`}>
                         {#each lastCaptured(player.uid) as play}
-                          <span class="review-card" aria-label={cardLabel(play.card)} style={cardStyle(play.card)}><strong>{play.card.rank}</strong></span>
+                          <span class="review-card" aria-label={cardLabel(play.card)}>
+                            <SpriteCard {...cardSpriteProps(play.card)} />
+                            <strong>{play.card.rank}</strong>
+                          </span>
                         {/each}
                       </div>
                     {/if}
@@ -651,7 +657,9 @@
 
             <article class="round-center" aria-label="Current Round card">
               <h2>{roundName(activeRoundId())}</h2>
-              <div class="round-art" style={roundStyle(activeRoundId())}></div>
+              <div class="round-art" style={roundParentStyle(activeRoundId())}>
+                <SpriteCard {...roundSpriteProps(activeRoundId())} />
+              </div>
               <p class="round-rule">{roundRule(activeRoundId())}</p>
               <div class="pass-icon" aria-label={`Pass ${passInstruction(activeRoundId()).count} ${passInstruction(activeRoundId()).direction}`}>
                 {#if passInstruction(activeRoundId()).direction === 'left' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
@@ -668,7 +676,9 @@
               {#key celebrationKey}
                 <aside class="princess-power-burst" role="status" aria-label={`${princessName(celebratedPrincessId)} power activated`}>
                   <span class="power-sparkles" aria-hidden="true">✦ · ✧ · ✦</span>
-                  <div class="princess-card" style={princessStyle(celebratedPrincessId)} aria-hidden="true"></div>
+                  <div class="princess-card" aria-hidden="true">
+                    <SpriteCard {...princessSpriteProps(celebratedPrincessId)} />
+                  </div>
                   <span>Princess power awakened</span>
                   <strong>{princessName(celebratedPrincessId)}</strong>
                   <p>{PRINCESS_POWER_TEXT[celebratedPrincessId]}</p>
@@ -684,11 +694,15 @@
                   {@const masqueradeHidden = !collecting && play.uid !== currentUid && isMasqueradeHidden(activeRoundId(), game.trick!, play.uid, game.players.length)}
                   <article class="trick-play" style={collectDestination(game.lastCompletedTrick?.winnerUid ?? play.uid)} aria-label={`${game.players.find((player) => player.uid === play.uid)?.displayName} played ${masqueradeHidden ? 'a face-down card' : cardLabel(play.card)}`}>
                     <span>{game.players.find((player) => player.uid === play.uid)?.displayName}</span>
-                    <div class="trick-card" class:face-down={masqueradeHidden} style={masqueradeHidden ? playOrigin(play.uid) : `${playOrigin(play.uid)}; ${cardStyle(play.card)}`}>
-                      {#if !masqueradeHidden}<strong>{play.card.rank}</strong><small>{play.card.suit}</small>
+                    {#if masqueradeHidden}
+                      <div class="trick-card face-down" style={playOrigin(play.uid)}></div>
+                    {:else}
+                      <div class="trick-card" style={playOrigin(play.uid)}>
+                        <SpriteCard {...cardSpriteProps(play.card)} />
+                        <strong>{play.card.rank}</strong><small>{play.card.suit}</small>
                         {#if play.effectiveRank === 0}<em>Counts as 0</em>{/if}
-                      {/if}
-                    </div>
+                      </div>
+                    {/if}
                   </article>
                 {/each}
               </section>
@@ -701,7 +715,9 @@
               <div class="local-heading" class:local-leader={game.trick?.leaderUid === currentUid}><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You {#if game.trick?.leaderUid === currentUid}<span class="lead-marker">You lead</span>{/if}</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
               {#if game.passComplete && localPlayer()?.princessId}
                 <div class="seat-princess local-princess" class:exhausted={game.exhaustedPrincessUids.includes(currentUid)} class:armed={snowWhiteArmed || thumbelinaArmed} class:power-active={celebratedPrincessId === localPlayer()?.princessId}>
-                  <button type="button" class="princess-card" style={princessStyle(localPlayer()?.princessId)} aria-label={`Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={snowWhiteArmed || thumbelinaArmed || openPrincessPower === localPlayer()?.princessId} disabled={!princessUsable(localPlayer()?.princessId)} on:click={usePrincessCard}></button>
+                  <button type="button" class="princess-card" aria-label={`Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={snowWhiteArmed || thumbelinaArmed || openPrincessPower === localPlayer()?.princessId} disabled={!princessUsable(localPlayer()?.princessId)} on:click={usePrincessCard}>
+                    <SpriteCard {...princessSpriteProps(localPlayer()?.princessId)} />
+                  </button>
                   <strong>{princessName(localPlayer()?.princessId)}</strong>
                   <span>{PRINCESS_POWER_TEXT[localPlayer()?.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
                 </div>
@@ -740,7 +756,10 @@
                 {#if lastCaptured(currentUid).length}
                   <div class="trick-review" aria-label={`${game.players.find((player) => player.uid === currentUid)?.displayName} last trick`}>
                     {#each lastCaptured(currentUid) as play}
-                      <span class="review-card" aria-label={cardLabel(play.card)} style={cardStyle(play.card)}><strong>{play.card.rank}</strong></span>
+                      <span class="review-card" aria-label={cardLabel(play.card)}>
+                        <SpriteCard {...cardSpriteProps(play.card)} />
+                        <strong>{play.card.rank}</strong>
+                      </span>
                     {/each}
                   </div>
                 {/if}
@@ -751,8 +770,14 @@
                   {@const roundActionAvailable = Boolean(game.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit' && game.awaitingRoundAction !== 'split-hand' && !game.roundActionSubmissions[currentUid])}
                   {@const splitAvailable = game.awaitingRoundAction === 'split-hand' && !game.roundCardSubmissions[currentUid]}
                   {@const haggleAvailable = game.awaitingRoundAction === 'haggle' && game.haggleWinnerUid === currentUid}
-                  <button type="button" class="playing-card" style={parentCardStyle(card)} class:selected={selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card)) || selectedHaggleOffer === cardLabel(card)} class:committed class:playable={game.passComplete && playable(card)} class:contributable={roundActionAvailable || splitAvailable || haggleAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))} disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !splitAvailable && !haggleAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)} aria-label={cardLabel(card)} on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}>
-                    <div class="card-art" style={cardStyle(card)}></div>
+                  <button
+                    type="button"
+                    class={`playing-card${selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card)) || selectedHaggleOffer === cardLabel(card) ? ' selected' : ''}${committed ? ' committed' : ''}${game.passComplete && playable(card) ? ' playable' : ''}${roundActionAvailable || splitAvailable || haggleAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid)) ? ' contributable' : ''}`}
+                    disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !splitAvailable && !haggleAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)}
+                    aria-label={cardLabel(card)}
+                    on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}
+                  >
+                    <SpriteCard {...cardSpriteProps(card)} style="opacity: 0.72;" />
                     <strong>{card.rank}</strong><small>{card.suit}</small>
                     {#if committed}<em>To {passRecipient(card)}</em>{/if}
                   </button>
@@ -865,7 +890,9 @@
                   on:click={() => selectedPrincess = princessId}
                 >
                   <strong class="princess-choice-name">{princess?.[1] ?? princessId}</strong>
-                  <span class="princess-choice-art" style={princessStyle(princessId)} aria-hidden="true"></span>
+                   <span class="princess-choice-art" aria-hidden="true">
+                     <SpriteCard {...princessSpriteProps(princessId)} />
+                   </span>
                   <span class="princess-choice-copy">
                     <small>{PRINCESS_POWER_TEXT[princessId] ?? 'Power coming in a later increment.'}</small>
                   </span>
@@ -875,33 +902,7 @@
             </fieldset>
             <button type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for the ball</button>
           {/if}
-          <div class="game-options" style="margin: 15px 0; padding: 10px; background: rgba(50, 31, 62, 0.3); border-radius: 8px;">
-            <strong style="display: block; margin-bottom: 8px; color: #ffc75f; font-size: 13px;">Artwork Style</strong>
-            <div style="display: flex; gap: 15px; font-size: 12px; color: #d9cedd;">
-              <label style="display: flex; align-items: center; gap: 5px; cursor: {game?.players[0]?.uid === currentUid ? 'pointer' : 'default'}">
-                <input
-                  type="radio"
-                  name="artworkOption"
-                  value="classic"
-                  checked={selectedArtworkOption === 'classic'}
-                  disabled={game?.players[0]?.uid !== currentUid}
-                  on:change={() => handleArtworkOptionChange('classic')}
-                />
-                Classic Cards
-              </label>
-              <label style="display: flex; align-items: center; gap: 5px; cursor: {game?.players[0]?.uid === currentUid ? 'pointer' : 'default'}">
-                <input
-                  type="radio"
-                  name="artworkOption"
-                  value="alternate"
-                  checked={selectedArtworkOption === 'alternate'}
-                  disabled={game?.players[0]?.uid !== currentUid}
-                  on:change={() => handleArtworkOptionChange('alternate')}
-                />
-                Alternate Cards (Review)
-              </label>
-            </div>
-          </div>
+
           {#if game?.players[0]?.uid === currentUid}
             <p class="automatic-rounds">Five Round powers will be drawn automatically when the game is dealt.</p>
             <button type="button" disabled={game.players.length < 3 || !game.players.every((player) => player.ready)} on:click={dealCards}>Shuffle and deal</button>
@@ -925,19 +926,14 @@
     </div>
 
     {#if !game?.hands}<figure class="atlas-card">
-      {#if (game?.artworkOption ?? 'classic') === 'alternate'}
-        <div class="alternate-preview-grid">
-          {#each previewCards as card}
-            <div class="alternate-preview-card" style={cardStyle(card)}></div>
-          {/each}
-        </div>
-      {:else}
-        <img
-          src={suitAtlas}
-          alt="Original card illustrations for Fairies, Queens, Princes, and Pets"
-        />
-      {/if}
-      <figcaption style={(game?.artworkOption ?? 'classic') === 'alternate' ? 'grid-template-columns: 0.5775fr 0.6248fr 0.6245fr 0.5846fr;' : ''}>
+      <div class="alternate-preview-grid">
+        {#each previewCards as card}
+          <div class="alternate-preview-card">
+            <SpriteCard {...cardSpriteProps(card)} />
+          </div>
+        {/each}
+      </div>
+      <figcaption style="grid-template-columns: 0.5775fr 0.6248fr 0.6245fr 0.5846fr;">
         <span>Fairies</span><span>Queens</span><span>Princes</span><span>Pets</span>
       </figcaption>
     </figure>{/if}
@@ -1174,7 +1170,8 @@
   .choice-grid .princess-choice.chosen .princess-choice-mark { display: block; color: #ffc75f; }
   .automatic-rounds { margin: 18px 0 10px; padding: 10px 12px; border-left: 3px solid #b88cdf; color: #d9cedd; background: rgba(50, 31, 62, .45); font-size: 12px; line-height: 1.35; }
   .review-card, .card-art, .trick-card, .princess-card, .princess-choice-art, .round-art {
-    background-repeat: no-repeat;
+    position: relative;
+    overflow: hidden;
   }
 
   .table { width: 100%; height: 100%; }
@@ -1218,7 +1215,7 @@
   .trick-counter summary::-webkit-details-marker { display: none; }
   .trick-review { position: absolute; z-index: 9; top: 27px; left: 50%; display: none; gap: 3px; padding: 5px; border: 1px solid rgba(255, 226, 163, .6); border-radius: 6px; background: rgba(20, 13, 30, .96); box-shadow: 0 8px 24px rgba(0, 0, 0, .6); transform: translateX(-50%); }
   .trick-counter[open] .trick-review, .trick-counter:hover .trick-review, .trick-counter:focus-within .trick-review { display: flex; }
-  .review-card { position: relative; display: block; width: 32px; aspect-ratio: 1717 / 3664; flex: 0 0 auto; overflow: hidden; border: 1px solid rgba(255, 226, 163, .6); border-radius: 3px; background-color: #150d1d; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; }
+  .review-card { position: relative; display: block; width: 32px; aspect-ratio: 3 / 5; flex: 0 0 auto; overflow: hidden; border: 1px solid rgba(255, 226, 163, .6); border-radius: 3px; background-color: #150d1d; }
   .review-card strong { position: absolute; top: 1px; left: 3px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 13px; text-shadow: 0 1px 2px #000; }
   .local-seat { position: absolute; z-index: 3; inset: auto 8px 8px; }
   .local-counter { top: 0; right: 8px; }
@@ -1234,7 +1231,7 @@
   .power-prompt { margin: 0 0 2px; color: #ffc75f; font-size: 10px; font-weight: 700; text-align: center; }
   .playing-card.contributable { border-color: #7de2a7; box-shadow: 0 0 0 1px #7de2a7; }
   .hand { display: flex; justify-content: center; align-items: flex-end; min-height: clamp(78px, 15vh, 145px); padding-top: 8px; }
-  .playing-card { position: relative; width: clamp(50px, 6.3vw, 78px); height: auto; min-height: 0; aspect-ratio: 1717 / 3664; padding: 0; overflow: hidden; flex: 0 0 auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; transition: transform .15s ease; }
+  .playing-card { position: relative; width: clamp(50px, 6.3vw, 78px); height: auto; min-height: 0; aspect-ratio: 3 / 5; padding: 0; overflow: hidden; flex: 0 0 auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 5px; background: #150d1d; transition: transform .15s ease; }
   .playing-card + .playing-card { margin-left: clamp(-27px, -1.8vw, -12px); }
   .playing-card:not(:disabled) { cursor: pointer; }
   .playing-card.selected, .playing-card.committed { border: 3px solid #ffc75f; transform: translateY(-9px); box-shadow: 0 7px 18px rgba(0, 0, 0, .45); }
@@ -1251,7 +1248,7 @@
   .pass-complete { color: #7de2a7; font-weight: 700; }
   .live-trick { position: absolute; z-index: 4; top: 61%; left: 50%; display: flex; justify-content: center; align-items: flex-end; gap: 8px; width: min(90%, 440px); color: #fff4d0; font-size: 10px; pointer-events: none; transform: translateX(-50%); }
   .trick-play { display: grid; justify-items: center; gap: 2px; }
-  .trick-card { position: relative; width: clamp(42px, 5vw, 62px); aspect-ratio: 1717 / 3664; overflow: hidden; border: 1px solid rgba(255, 226, 163, .7); border-radius: 4px; background-color: #150d1d; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; box-shadow: 0 8px 18px rgba(0, 0, 0, .5); animation: play-to-table .35s ease-out both; }
+  .trick-card { position: relative; width: clamp(42px, 5vw, 62px); aspect-ratio: 3 / 5; overflow: hidden; border: 1px solid rgba(255, 226, 163, .7); border-radius: 4px; background-color: #150d1d; box-shadow: 0 8px 18px rgba(0, 0, 0, .5); animation: play-to-table .35s ease-out both; }
   .trick-card.face-down { background: repeating-linear-gradient(135deg, #251638 0 7px, #604077 7px 10px); }
   .trick-card strong { position: absolute; top: 2px; left: 5px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 20px; text-shadow: 0 1px 3px #000; }
   .trick-card small { position: absolute; inset: auto 3px 3px; color: #fff4d0; font-size: 7px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
@@ -1329,12 +1326,6 @@
     box-shadow: inset 0 0 80px rgba(8, 4, 15, 0.45);
   }
 
-  .atlas-card img {
-    display: block;
-    width: 100%;
-    aspect-ratio: 1.874 / 1;
-    object-fit: cover;
-  }
 
   .alternate-preview-grid {
     display: grid;
@@ -1345,9 +1336,10 @@
   }
 
   .alternate-preview-card {
+    position: relative;
+    overflow: hidden;
     width: 100%;
     height: 100%;
-    background-repeat: no-repeat;
   }
 
   figcaption {

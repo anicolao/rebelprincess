@@ -11,6 +11,6 @@ The static client loads its original card artwork and reaches the local Firestor
 - [x] The landing page exposes its primary heading
 - [x] The client has reached the Firestore emulator
 - [x] The exact deterministic build marker is visible
-- [x] The original four-suit atlas is loaded
+- [x] The alternate artwork preview grid is loaded
 
 ---
