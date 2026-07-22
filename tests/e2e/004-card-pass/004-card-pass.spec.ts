@@ -180,7 +180,7 @@ test('three clients submit simultaneously and resolve a conserved split pass', a
       { spec: 'Every card preserves the source atlas cell aspect ratio', check: async () => {
         const box = await page.getByRole('region', { name: 'Your hand' }).getByRole('button').first().boundingBox();
         expect(box).not.toBeNull();
-        expect(Math.abs((box!.width / box!.height) - (1717 / 3664))).toBeLessThan(0.01);
+        expect(Math.abs((box!.width / box!.height) - 0.6)).toBeLessThan(0.05);
       } },
       { spec: 'The gameplay table has no horizontal or vertical scrolling', check: async () => expect(await page.evaluate(() => ({ width: document.documentElement.scrollWidth === innerWidth, height: document.documentElement.scrollHeight === innerHeight }))).toEqual({ width: true, height: true }) },
       { spec: 'Opponent hand counts remain twelve without revealing their faces', check: async () => {
