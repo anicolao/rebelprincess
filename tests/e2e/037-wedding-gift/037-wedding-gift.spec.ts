@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { clickCurrentCard, closeRoundCardGame, setupRoundCardGame } from '../helpers/round-card-game';
+import { clickAndConfirm, clickCurrentCard, closeRoundCardGame, setupRoundCardGame } from '../helpers/round-card-game';
 
 const IDS = { phone: 'WED00037', desktop: 'WED10037' } as const;
 
@@ -13,12 +13,26 @@ test('Wedding Gift contributes and awards a face-down card before every trick', 
     { spec: 'Every client has selectable gift cards', check: async () => { for (const player of game.players) await expect(player.locator('.playing-card.contributable').first()).toBeVisible(); } }
   ] });
   const gifts = await Promise.all(game.players.map(async (player) => await player.locator('.playing-card.contributable').first().getAttribute('aria-label') ?? ''));
-  await page.getByRole('button', { name: gifts[0], exact: true }).click();
+
+  const hostGiftBtn = page.getByRole('button', { name: gifts[0], exact: true });
+  await clickAndConfirm(hostGiftBtn, async () => {
+    await expect(page.getByRole('alert')).toContainText('Gift wrapped');
+  });
+
   await steps.step('wedding-one-wrapped', { description: `Alex clicks ${gifts[0]} as a face-down gift and waits without exposing it to the table center`, verifications: [
     { spec: 'Alex sees the wrapped waiting state', check: async () => expect(page.getByRole('alert')).toContainText('Gift wrapped · waiting for everyone') },
     { spec: 'No ordinary card can be played while gifts are missing', check: async () => expect(page.locator('.playing-card.playable:not(:disabled)')).toHaveCount(0) }
   ] });
-  await game.jo.getByRole('button', { name: gifts[1], exact: true }).click(); await game.sam.getByRole('button', { name: gifts[2], exact: true }).click();
+
+  const joGiftBtn = game.jo.getByRole('button', { name: gifts[1], exact: true });
+  await clickAndConfirm(joGiftBtn, async () => {
+    await expect(game.jo.getByRole('alert')).toContainText('Gift wrapped');
+  });
+  const samGiftBtn = game.sam.getByRole('button', { name: gifts[2], exact: true });
+  await clickAndConfirm(samGiftBtn, async () => {
+    await expect(samGiftBtn).toHaveCount(0);
+  });
+
   const played = [await clickCurrentCard(game.players), await clickCurrentCard(game.players), await clickCurrentCard(game.players)];
   const winner = (await Promise.all(['Alex', 'Jo', 'Sam'].map(async (name) => ({ name, count: await page.getByLabel(`${name} tricks`).textContent() })))).find((entry) => entry.count === '1')!.name;
   await page.getByLabel(`${winner} tricks`).click();
@@ -28,7 +42,18 @@ test('Wedding Gift contributes and awards a face-down card before every trick', 
     { spec: 'The next Wedding Gift prompt appears before trick two', check: async () => expect(page.getByRole('alert')).toContainText('Wedding Gift') }
   ] });
   for (let trick = 1; trick < 6; trick += 1) {
-    for (const player of game.players) await player.locator('.playing-card.contributable').first().click();
+    for (const [index, player] of game.players.entries()) {
+      const giftBtn = player.locator('.playing-card.contributable').first();
+      const label = await giftBtn.getAttribute('aria-label') ?? '';
+      const specificCard = player.getByRole('button', { name: label, exact: true });
+      await clickAndConfirm(specificCard, async () => {
+        if (index === 2) {
+          await expect(specificCard).toHaveCount(0);
+        } else {
+          await expect(player.getByRole('alert')).toContainText('Gift wrapped');
+        }
+      });
+    }
     for (let play = 0; play < 3; play += 1) await clickCurrentCard(game.players);
   }
   const rows = await page.getByRole('region', { name: 'Round 1 scoring' }).locator('li span').allTextContents();
