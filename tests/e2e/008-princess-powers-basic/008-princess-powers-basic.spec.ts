@@ -7,7 +7,7 @@ const IDS = {
 } as const;
 
 async function enter(page: Page, gameId: string, name: string, create: boolean) {
-  await page.goto(`/?gameId=${gameId}&seed=power-${gameId}`);
+  await page.goto(`/?gameId=${gameId}&seed=power-${gameId}&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs`);
   await page.getByLabel('Your name').fill(name);
   if (create) await page.getByRole('button', { name: 'Create a game' }).click();
   else {
@@ -27,7 +27,6 @@ async function setupGame(pages: Page[], gameId: string, princess: string) {
     await page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first().click();
     await page.getByRole('button', { name: 'Ready for the ball' }).click();
   }
-  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await pages[0].getByRole('button', { name: round, exact: true }).click();
   await pages[0].getByRole('button', { name: 'Shuffle and deal' }).click();
   for (const page of pages) {
     const hand = page.getByRole('region', { name: 'Your hand' });

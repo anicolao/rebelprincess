@@ -1,11 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
+import { ROUND_RULES } from '../../../src/lib/setup';
 
 const ROYAL = { phone: { id: 'PR000067', lead: 'Pets 7' }, desktop: { id: 'DR000090', lead: 'Pets 3' } } as const;
 const FILLER_ROUNDS = ['Once Upon a Time…', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs', 'Pets’ Revenge', 'Late to the Ball'];
 
-async function enter(page: Page, gameId: string, uid: string, name: string, create: boolean) {
-  await page.goto(`/?gameId=${gameId}&seed=round-${gameId}&e2eUid=${uid}`);
+async function enter(page: Page, gameId: string, uid: string, name: string, create: boolean, roundIds = '') {
+  await page.goto(`/?gameId=${gameId}&seed=round-${gameId}${roundIds ? `&e2eRounds=${roundIds}` : ''}&e2eUid=${uid}`);
   await page.getByLabel('Your name').fill(name);
   if (create) await page.getByRole('button', { name: 'Create a game' }).click();
   else { await page.getByLabel('Room code').fill(gameId); await page.getByRole('button', { name: 'Join' }).click(); }
@@ -13,14 +14,15 @@ async function enter(page: Page, gameId: string, uid: string, name: string, crea
 }
 
 async function setupGame(pages: Page[], gameId: string, round: string, suffix: string) {
-  await enter(pages[0], gameId, `round-host-${suffix}`, 'Alex', true);
+  const selectedNames = [round, ...FILLER_ROUNDS.filter((candidate) => candidate !== round).slice(0, 4)];
+  const selectedIds = selectedNames.map((name) => ROUND_RULES.find(([, candidate]) => candidate === name)?.[0]).filter(Boolean).join(',');
+  await enter(pages[0], gameId, `round-host-${suffix}`, 'Alex', true, selectedIds);
   await enter(pages[1], gameId, `round-jo-${suffix}`, 'Jo', false);
   await enter(pages[2], gameId, `round-sam-${suffix}`, 'Sam', false);
   for (const page of pages) {
     await page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first().click();
     await page.getByRole('button', { name: 'Ready for the ball' }).click();
   }
-  for (const name of [round, ...FILLER_ROUNDS.filter((candidate) => candidate !== round).slice(0, 4)]) await pages[0].getByRole('button', { name, exact: true }).click();
   await pages[0].getByRole('button', { name: 'Shuffle and deal' }).click();
   for (const page of pages) {
     const hand = page.getByRole('region', { name: 'Your hand' });

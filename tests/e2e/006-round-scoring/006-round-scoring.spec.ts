@@ -56,7 +56,7 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   const sam = await samContext.newPage();
   const players = [page, jo, sam];
 
-  await page.goto(`/?gameId=${gameId}&seed=scoring-006&e2eUid=score-host-${suffix}`);
+  await page.goto(`/?gameId=${gameId}&seed=scoring-006&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=score-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await join(jo, gameId, `score-jo-${suffix}`, 'Jo');
@@ -64,7 +64,6 @@ test('the final trick reveals scoring and advances to a refreshed second round',
   await ready(page, 'Snow White');
   await ready(jo, 'The Little Mermaid');
   await ready(sam, 'Cinderella');
-  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
   await passCards(page);
   await passCards(jo);
@@ -89,11 +88,15 @@ test('the final trick reveals scoring and advances to a refreshed second round',
     description: 'The completed round reveals proposal sources and cumulative totals',
     verifications: [
       { spec: 'Every player receives a visible Prince and Frog breakdown', check: async () => {
-        for (const name of ['Alex', 'Jo', 'Sam']) await expect(scoring.getByText(name, { exact: true })).toBeVisible();
+        for (const name of ['Alex', 'Jo', 'Sam']) await expect(scoring.getByRole('list').getByText(name, { exact: true })).toBeVisible();
         await expect(scoring).toContainText('Princes');
         await expect(scoring).toContainText('Frog');
       } },
       { spec: 'The deck’s nine Princes and five-point Frog account for fourteen proposals', check: async () => expect(await scoring.locator('li span').evaluateAll((rows) => rows.reduce((sum, row) => sum + Number(row.textContent?.match(/= (\d+)/)?.[1] ?? 0), 0))).toBe(14) },
+      { spec: 'The five-round score card fills round one and leaves future rounds open', check: async () => {
+        await expect(scoring.getByRole('table', { name: 'Five-round score card' }).locator('td.filled')).toHaveCount(3);
+        await expect(scoring.getByRole('table', { name: 'Five-round score card' }).locator('td.pending')).toHaveCount(12);
+      } },
       { spec: 'The unique lowest cumulative scorer is named as the next leader', check: async () => expect(nextLead).toBe('Jo') },
       { spec: 'Princesses stay fixed and only their powers refresh', check: async () => {
         await expect(scoring).toContainText('Princesses stay with their players');

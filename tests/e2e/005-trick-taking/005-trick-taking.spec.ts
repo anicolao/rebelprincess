@@ -1,27 +1,47 @@
 import { expect, test, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
+import { clickAndConfirm } from '../helpers/round-card-game';
 
 async function join(page: Page, gameId: string, uid: string, name: string) {
   await page.goto(`/?e2eUid=${uid}`);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Your name').fill(name);
   await page.getByLabel('Room code').fill(gameId);
-  await page.getByRole('button', { name: 'Join' }).click();
-  await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+  const joinBtn = page.getByRole('button', { name: 'Join' });
+  await clickAndConfirm(joinBtn, async () => {
+    await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+  });
 }
 
 async function ready(page: Page, _princess?: string) {
-  await page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first().click();
-  await page.getByRole('button', { name: 'Ready for the ball' }).click();
+  const princessBtn = page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first();
+  await clickAndConfirm(princessBtn, async () => {
+    await expect(princessBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+  const readyBtn = page.getByRole('button', { name: 'Ready for the ball' });
+  await clickAndConfirm(readyBtn, async () => {
+    await expect(readyBtn).toHaveCount(0);
+  });
 }
 
 async function pass(page: Page, cards: string[]) {
   const submit = page.locator('.pass-submit');
-  for (const [index, card] of cards.entries()) { await page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: card, exact: true }).click(); await expect(page.locator('.playing-card.selected')).toHaveCount(index + 1); }
-  await submit.click();
+  for (const [index, card] of cards.entries()) {
+    const specificCard = page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: card, exact: true });
+    await clickAndConfirm(specificCard, async () => {
+      await expect(page.locator('.playing-card.selected')).toHaveCount(index + 1);
+    });
+  }
+  await clickAndConfirm(submit, async () => {
+    await expect(submit).toHaveCount(0);
+  });
 }
 
 async function play(page: Page, card: string) {
-  await page.getByRole('button', { name: card, exact: true }).click();
+  const specificCard = page.getByRole('button', { name: card, exact: true });
+  await clickAndConfirm(specificCard, async () => {
+    await expect(specificCard).toHaveCount(0);
+  });
 }
 
 test('three clients follow suit, break Princes, resolve winners, and rotate leadership', async ({ page, browser }, testInfo) => {
@@ -35,16 +55,18 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
   const jo = await joContext.newPage();
   const sam = await samContext.newPage();
 
-  await page.goto(`/?gameId=${gameId}&seed=fixed-004&e2eUid=trick-host-${suffix}`);
+  await page.goto(`/?gameId=${gameId}&seed=fixed-004&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=trick-host-${suffix}`);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Your name').fill('Alex');
-  await page.getByRole('button', { name: 'Create a game' }).click();
-  await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+  const createBtn = page.getByRole('button', { name: 'Create a game' });
+  await clickAndConfirm(createBtn, async () => {
+    await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+  });
   await join(jo, gameId, `trick-jo-${suffix}`, 'Jo');
   await join(sam, gameId, `trick-sam-${suffix}`, 'Sam');
   await ready(page, 'Snow White');
   await ready(jo, 'The Little Mermaid');
   await ready(sam, 'Cinderella');
-  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
   await pass(page, ['Fairies 3', 'Fairies 4', 'Fairies 5']);
   await pass(jo, ['Fairies 2', 'Fairies 8', 'Queens 4']);
@@ -80,7 +102,7 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
       { spec: 'The shared trick shows Alex’s Fairy 6', check: async () => expect(page.getByLabel('Alex played Fairies 6')).toBeVisible() },
       { spec: 'The played card uses the Fairies atlas graphic and visible value', check: async () => {
         const played = page.getByLabel('Alex played Fairies 6');
-        await expect(played.locator('.trick-card')).toHaveCSS('background-image', /suited-card-families/);
+        await expect(played.locator('.trick-card .card-art')).toHaveCSS('background-image', /fairies/);
         await expect(played.locator('strong')).toHaveText('6');
       } },
       { spec: 'The played card animates from the hand into the table', check: async () => expect(page.getByLabel('Alex played Fairies 6').locator('.trick-card')).toHaveCSS('animation-name', /play-to-table$/) },
@@ -111,7 +133,7 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
         const completedPlay = page.getByLabel('Sam played Fairies 5');
         await expect(completedPlay).toHaveCSS('animation-duration', '3s');
         await expect(completedPlay).toHaveCSS('animation-timing-function', 'ease-in-out');
-        await expect(completedPlay.locator('.trick-card')).toHaveCSS('background-image', /suited-card-families/);
+        await expect(completedPlay.locator('.trick-card .card-art')).toHaveCSS('background-image', /fairies/);
       } }
     ]
   });

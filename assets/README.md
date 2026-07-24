@@ -2,8 +2,8 @@
 
 These original raster atlases establish an initial visual direction for the
 digital game. They were generated with OpenAI's built-in image-generation tool
-on July 15, 2026 and are licensed with the rest of this repository under
-GPL-3.0-only.
+on July 15 and July 20, 2026 and are licensed with the rest of this repository
+under GPL-3.0-only.
 
 The commercial Rebel Princess materials were used only to identify the required
 component categories and rule concepts. These images do not copy the published
@@ -14,6 +14,15 @@ without imitating the original illustrator or any other named artist.
 
 - `generated/suited-card-families.png`: four panels for Fairies, Queens,
   Princes, and Pets. Values and suit labels should be rendered by the client.
+- `generated/alternate-suits-review/fairies.png`: review-only alternate Fairy
+  art for ranks 1–12 in a 6 × 2 row-major grid.
+- `generated/alternate-suits-review/queens.png`: review-only alternate Queen
+  art for ranks 1–12 in a 6 × 2 row-major grid.
+- `generated/alternate-suits-review/princes.png`: review-only alternate Prince
+  art for ranks 1–12 in a 6 × 2 row-major grid.
+- `generated/alternate-suits-review/pets.png`: review-only alternate Pet art
+  for ranks 1–12 in a 6 × 2 row-major grid. The species are rabbit, fox,
+  hedgehog, owl, cat, tortoise, squirrel, frog, dragon, dog, raven, and fawn.
 - `generated/princess-portraits.png`: ten portraits in a 5 × 2 grid.
 - `generated/princess-portraits-deluxe.png`: Rapunzel and Thumbelina in a
   2 × 1 extension grid matching the original Princess portraits.
@@ -54,3 +63,11 @@ style and crop reference. Its row-major cells are Magic Beans, Three Times a
 Lady, Arranged Marriage, Always the Bridesmaid, Sisterhood, and Late for a Very
 Important Date. It uses original symbolic compositions and contains no copied
 commercial artwork or readable text.
+
+The alternate suit review set was generated with `suited-card-families.png` as
+a palette, texture, framing, and crop-safety reference. Each suit uses a fixed
+6 × 2 row-major grid for ranks 1–12 and requests a distinct character, pose,
+setting, and motif in every cell. The Pet prompt fixes every species by rank and
+explicitly reserves the only frog or frog imagery for rank 8. These four sheets
+are intentionally absent from `manifest.json` until their art direction is
+approved and the client is changed to use them.

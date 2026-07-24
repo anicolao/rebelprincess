@@ -33,6 +33,7 @@ export type GameEventPayload = {
   powerId?: string;
   targetUid?: string;
   suit?: Card['suit'];
+  artworkOption?: string;
 };
 
 export interface GameEvent {
@@ -45,6 +46,8 @@ export interface GameEvent {
   schemaVersion: typeof SCHEMA_VERSION;
   reducerVersion: typeof REDUCER_VERSION;
 }
+
+export type RoundScore = { princes: number; frog: number; roundRule: number; total: number };
 
 export interface GameProjection {
   gameId: string;
@@ -63,7 +66,8 @@ export interface GameProjection {
   completedTricks: number;
   roundIndex: number;
   roundComplete: boolean;
-  roundScores: Record<string, { princes: number; frog: number; roundRule: number; total: number }>;
+  roundScores: Record<string, RoundScore>;
+  roundScoreHistory: Array<Record<string, RoundScore>>;
   totalScores: Record<string, number>;
   nextLeaderUid: string | null;
   princessOptions: Record<string, string[]>;
@@ -84,6 +88,7 @@ export interface GameProjection {
   haggleWinnerUid: string | null;
   blindTransferComplete: boolean;
   rebelUids: string[];
+  artworkOption?: string;
 }
 
 export function nextRoundLeader(playerUids: string[], totalScores: Record<string, number>, lastLeaderUid: string): string | null {
@@ -133,7 +138,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   );
   if (!common) return false;
   if (event.type === 'game/created' || event.type === 'player/joined') return typeof payload.displayName === 'string';
-  if (event.type === 'player/configured') return typeof payload.princessId === 'string' && typeof payload.ready === 'boolean';
+  if (event.type === 'player/configured') return (payload.princessId === undefined || typeof payload.princessId === 'string') && typeof payload.ready === 'boolean';
   if (event.type === 'game/dealt') return typeof payload.seed === 'string' && Array.isArray(payload.roundIds) && payload.roundIds.length === 5 && !!payload.hands && typeof payload.hands === 'object';
   if (event.type === 'pass/submitted') return Array.isArray(payload.cards) && payload.cards.length > 0;
   if (event.type === 'card/played') return !!payload.card && typeof payload.card === 'object';
@@ -170,6 +175,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   const lastRematchIndex = ordered.findLastIndex((event) => event.type === 'game/rematched');
   const gameNumber = ordered.filter((event) => event.type === 'game/rematched').length;
 
+  let artworkOption = 'classic';
   for (const [index, event] of ordered.entries()) {
     gameId ||= event.payload.gameId;
     if ((event.type === 'game/created' || event.type === 'player/joined') && !players.has(event.actorUid)) {
@@ -183,6 +189,9 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     if (event.type === 'player/configured' && index > lastRematchIndex) {
       const player = players.get(event.actorUid);
       if (player) players.set(event.actorUid, { ...player, princessId: event.payload.princessId, ready: event.payload.ready === true });
+    }
+    if (event.payload.artworkOption) {
+      artworkOption = event.payload.artworkOption;
     }
   }
 
@@ -480,6 +489,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, roundRule: 0, total: 0 }])), lastWinnerUid: null, exhaustedPrincessUids: [], powerIdsThisTrick: [], pendingMulanUid: null, pendingPower: null, forcedCards: {}, awaitingRoundAction: null, roundActionSubmissions: {}, roundCardSubmissions: {}, revealedSuits: {}, retainedCards: Object.fromEntries(playerList.map((player) => [player.uid, []])), haggleWinnerUid: null, blindTransferComplete: false, rebelUids: [] };
   const totalScores = emptyCounts();
   const zeroRounds = emptyCounts();
+  const roundScoreHistory: Array<Record<string, RoundScore>> = [];
   deals.forEach(({ event: deal, index }, dealIndex) => {
     const nextIndex = deals[dealIndex + 1]?.index ?? ordered.length;
     const segment = ordered.slice(index + 1, nextIndex);
@@ -487,6 +497,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     roundIds = deal.payload.roundIds ?? roundIds;
     seed = deal.payload.seed ?? seed;
     if (active.roundComplete) {
+      roundScoreHistory.push(Object.fromEntries(playerList.map((player) => [player.uid, { ...active.roundScores[player.uid] }])));
       for (const player of playerList) {
         totalScores[player.uid] += active.roundScores[player.uid].total;
         if (active.roundScores[player.uid].total === 0) zeroRounds[player.uid] += 1;
@@ -499,7 +510,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let winnerUids: string[] = [];
   if (gameComplete) winnerUids = gameWinners(playerList.map((player) => player.uid), totalScores, zeroRounds);
   const { lastWinnerUid: _lastWinnerUid, ...activeProjection } = active;
-  return { gameId, players: playerList, roundIds, seed, ...activeProjection, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions, gameNumber, gameComplete, zeroRounds, winnerUids };
+  return { gameId, players: playerList, roundIds, seed, ...activeProjection, roundScoreHistory, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions, gameNumber, gameComplete, zeroRounds, winnerUids, artworkOption };
 }
 
 export function replayCacheKey(gameId: string): string {
@@ -541,6 +552,14 @@ export async function appendGameEvent(
   });
 }
 
+function isGameEventLogged(event: any): event is GameEvent {
+  const valid = isGameEvent(event);
+  if (!valid) {
+    console.log("UI_DEBUG: FILTERED OUT EVENT", event.id, JSON.stringify(event));
+  }
+  return valid;
+}
+
 export function subscribeToGame(
   database: Firestore,
   gameId: string,
@@ -552,7 +571,7 @@ export function subscribeToGame(
     (snapshot) => {
       const events = snapshot.docs
         .map((entry) => ({ id: entry.id, ...entry.data() }))
-        .filter((event): event is GameEvent => isGameEvent(event));
+        .filter(isGameEventLogged);
       const projection = deriveGame(events);
       localStorage.setItem(replayCacheKey(gameId), JSON.stringify(projection));
       receive(projection);
@@ -563,5 +582,5 @@ export function subscribeToGame(
 
 export async function loadGame(database: Firestore, gameId: string): Promise<GameProjection> {
   const snapshot = await getDocs(collection(database, 'games', gameId, 'events'));
-  return deriveGame(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })).filter((event): event is GameEvent => isGameEvent(event)));
+  return deriveGame(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })).filter(isGameEventLogged));
 }

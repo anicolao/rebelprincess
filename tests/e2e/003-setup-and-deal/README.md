@@ -9,16 +9,17 @@ Three players choose from two deterministically dealt Princesses, ready themselv
 **Verifications:**
 - [x] The host may choose from exactly two Princesses rather than the full roster
 - [x] The dealt options survive a complete replay unchanged
+- [x] Each Princess name is centered above both her portrait and power
 
 ---
 
-## The host chooses only from the twenty-six a–z Deluxe Round cards
+## Five Round powers are drawn automatically instead of being chosen by the host
 
-![The host chooses only from the twenty-six a–z Deluxe Round cards](./screenshots/001-deluxe-round-deck-desktop.png)
+![Five Round powers are drawn automatically instead of being chosen by the host](./screenshots/001-automatic-round-powers-desktop.png)
 
 **Verifications:**
-- [x] Exactly twenty-six Deluxe Round cards are offered
-- [x] The obsolete Invitation teaching card is not offered
+- [x] The host is told that Round powers will be drawn automatically
+- [x] No Round power selection controls are offered
 
 ---
 

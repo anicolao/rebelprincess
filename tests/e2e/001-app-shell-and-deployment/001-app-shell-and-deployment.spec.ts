@@ -39,9 +39,10 @@ test('application shell reaches Firebase and renders deterministically', async (
         }
       },
       {
-        spec: 'The original four-suit atlas is loaded',
+        spec: 'The alternate artwork preview grid is loaded',
         check: async () => {
-          await expect(page.getByRole('img')).toHaveJSProperty('naturalWidth', 1717);
+          await expect(page.locator('.alternate-preview-grid')).toBeVisible();
+          await expect(page.locator('.alternate-preview-card')).toHaveCount(4);
         }
       }
     ]

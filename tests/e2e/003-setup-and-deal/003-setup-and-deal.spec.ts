@@ -12,7 +12,7 @@ async function join(page: Page, gameId: string, uid: string, name: string) {
 async function choose(page: Page) {
   const options = page.getByLabel('Choose one of your two Princesses').getByRole('button');
   await expect(options).toHaveCount(2);
-  const princess = (await options.first().textContent()) ?? '';
+  const princess = (await options.first().getAttribute('data-princess-name')) ?? '';
   await options.first().click();
   await page.getByRole('button', { name: 'Ready for the ball' }).click();
   await expect(page.getByRole('list', { name: 'Players' })).toContainText('Ready');
@@ -33,7 +33,7 @@ test('three clients choose setup and receive a deterministic selective deal', as
   const guest = await guestContext.newPage();
   const third = await thirdContext.newPage();
 
-  await page.goto(`/?gameId=${gameId}&seed=fixed-003&e2eUid=setup-host-${suffix}`);
+  await page.goto(`/?gameId=${gameId}&seed=fixed-003&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=setup-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
@@ -43,11 +43,35 @@ test('three clients choose setup and receive a deterministic selective deal', as
   const offered = page.getByLabel('Choose one of your two Princesses').getByRole('button');
   const offeredNames = await offered.allTextContents();
   await page.reload();
+  await page.getByRole('button', { name: 'Open audio mixer' }).click();
+  await expect(page.getByRole('region', { name: 'Audio mixer' })).toBeVisible();
+  await expect(page.locator('#music-volume')).toHaveValue('70');
+  await expect(page.locator('#effects-volume')).toHaveValue('85');
+  await page.locator('#effects-volume').fill('35');
+  await page.getByRole('button', { name: 'Mute effects' }).click();
+  await expect(page.getByRole('button', { name: 'Unmute effects' })).toBeVisible();
+  await page.getByRole('button', { name: 'Unmute effects' }).click();
+  await page.getByRole('button', { name: 'Mute both' }).click();
+  await expect(page.getByRole('button', { name: 'Unmute both' })).toBeVisible();
+  await page.getByRole('button', { name: 'Unmute both' }).click();
+  await page.getByRole('button', { name: 'Mute music' }).click();
+  await page.getByRole('button', { name: 'Close audio mixer' }).click();
   await steps.step('two-dealt-princesses', {
     description: 'Each player receives two stable Princess options for the whole game',
     verifications: [
       { spec: 'The host may choose from exactly two Princesses rather than the full roster', check: async () => expect(page.getByLabel('Choose one of your two Princesses').getByRole('button')).toHaveCount(2) },
-      { spec: 'The dealt options survive a complete replay unchanged', check: async () => expect(await page.getByLabel('Choose one of your two Princesses').getByRole('button').allTextContents()).toEqual(offeredNames) }
+      { spec: 'The dealt options survive a complete replay unchanged', check: async () => expect(await page.getByLabel('Choose one of your two Princesses').getByRole('button').allTextContents()).toEqual(offeredNames) },
+      { spec: 'Each Princess name is centered above both her portrait and power', check: async () => {
+        const choice = page.getByLabel('Choose one of your two Princesses').getByRole('button').first();
+        const [choiceBox, nameBox, artBox] = await Promise.all([
+          choice.boundingBox(),
+          choice.locator('.princess-choice-name').boundingBox(),
+          choice.locator('.princess-choice-art').boundingBox()
+        ]);
+        expect(choiceBox && nameBox && artBox).toBeTruthy();
+        expect(nameBox!.y + nameBox!.height).toBeLessThanOrEqual(artBox!.y);
+        expect(Math.abs(nameBox!.x + nameBox!.width / 2 - (choiceBox!.x + choiceBox!.width / 2))).toBeLessThan(1);
+      } }
     ]
   });
 
@@ -58,22 +82,23 @@ test('three clients choose setup and receive a deterministic selective deal', as
   await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Jo · ${guestPrincess}`);
   await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Sam · ${thirdPrincess}`);
 
-  await steps.step('deluxe-round-deck', {
-    description: 'The host chooses only from the twenty-six a–z Deluxe Round cards',
+  await steps.step('automatic-round-powers', {
+    description: 'Five Round powers are drawn automatically instead of being chosen by the host',
     verifications: [
-      { spec: 'Exactly twenty-six Deluxe Round cards are offered', check: async () => expect(page.getByLabel('Choose exactly five Round cards').getByRole('button')).toHaveCount(26) },
-      { spec: 'The obsolete Invitation teaching card is not offered', check: async () => expect(page.getByRole('button', { name: 'Invitation', exact: true })).toHaveCount(0) }
+      { spec: 'The host is told that Round powers will be drawn automatically', check: async () => expect(page.getByText('Five Round powers will be drawn automatically')).toBeVisible() },
+      { spec: 'No Round power selection controls are offered', check: async () => expect(page.getByLabel('Choose exactly five Round cards')).toHaveCount(0) }
     ]
   });
-
-  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) {
-    await page.getByRole('button', { name: round, exact: true }).click();
-  }
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
   await expect(guest.getByLabel('Current Round card')).toContainText('Round 1 of 5');
   await expect(guest.getByLabel('Current Round card')).toContainText('Once Upon a Time…');
   await page.reload();
   await page.evaluate(() => scrollTo(0, 0));
+  await page.getByRole('button', { name: 'Open audio mixer' }).click();
+  await expect(page.getByRole('region', { name: 'Audio mixer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Unmute music' })).toBeVisible();
+  await expect(page.locator('#effects-volume')).toHaveValue('35');
+  await page.getByRole('button', { name: 'Close audio mixer' }).click();
 
   const expectedHostHand = [
     'Fairies 6', 'Fairies 7', 'Fairies 9', 'Queens 3', 'Queens 8', 'Princes 3',

@@ -5,24 +5,55 @@ import type { TestStepHelper } from './test-step-helper';
 
 export type RoundCardGame = { host: Page; jo: Page; sam: Page; players: Page[]; contexts: BrowserContext[] };
 
+export async function clickAndConfirm(buttonLocator: any, verifyFn: () => Promise<void>) {
+  await expect.poll(async () => {
+    await buttonLocator.click();
+    try {
+      await verifyFn();
+      return true;
+    } catch {
+      return false;
+    }
+  }, { timeout: 10000, intervals: [100, 200, 500] }).toBe(true);
+}
+
 export async function setupRoundCardGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, roundName: string, dealSeed = gameId, followingRounds: string[] = [], passNarrative?: { steps: TestStepHelper; direction: PassDirection; count: number }): Promise<RoundCardGame> {
   const options = { viewport: host.viewportSize() ?? undefined, reducedMotion: 'reduce' as const, serviceWorkers: 'block' as const, deviceScaleFactor: 1 };
   const contexts = [await browser.newContext(options), await browser.newContext(options)];
   const jo = await contexts[0].newPage(); const sam = await contexts[1].newPage();
   const players = [host, jo, sam]; const names = ['Alex', 'Jo', 'Sam'];
-  for (const [index, page] of players.entries()) {
-    await page.goto(`/?gameId=${gameId}&seed=round-${dealSeed}&e2eUid=round-${names[index]}-${testInfo.project.name}-${gameId}`);
-    await page.getByLabel('Your name').fill(names[index]);
-    if (!index) await page.getByRole('button', { name: 'Create a game' }).click();
-    else { await page.getByLabel('Room code').fill(gameId); await page.getByRole('button', { name: 'Join' }).click(); }
-    await expect(page.getByTestId('invite-code')).toHaveText(gameId);
-    await page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first().click();
-    await page.getByRole('button', { name: 'Ready for the ball' }).click();
-  }
   const fallback = ROUND_RULES.map(([, name]) => name).filter((name) => name !== roundName).slice(0, 4);
   const selected = [roundName, ...followingRounds, ...fallback].filter((name, index, names) => names.indexOf(name) === index).slice(0, 5);
-  for (const name of selected) await host.getByRole('button', { name, exact: true }).click();
-  await host.getByRole('button', { name: 'Shuffle and deal' }).click();
+  const selectedIds = selected.map((name) => ROUND_RULES.find(([, candidate]) => candidate === name)?.[0]).filter(Boolean).join(',');
+  for (const [index, page] of players.entries()) {
+    await page.goto(`/?gameId=${gameId}&seed=round-${dealSeed}&e2eRounds=${selectedIds}&e2eUid=round-${names[index]}-${testInfo.project.name}-${gameId}`);
+    await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
+    await page.getByLabel('Your name').fill(names[index]);
+    if (!index) {
+      const createBtn = page.getByRole('button', { name: 'Create a game' });
+      await clickAndConfirm(createBtn, async () => {
+        await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+      });
+    } else {
+      await page.getByLabel('Room code').fill(gameId);
+      const joinBtn = page.getByRole('button', { name: 'Join' });
+      await clickAndConfirm(joinBtn, async () => {
+        await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+      });
+    }
+    const princessBtn = page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first();
+    await clickAndConfirm(princessBtn, async () => {
+      await expect(princessBtn).toHaveAttribute('aria-pressed', 'true');
+    });
+    const readyBtn = page.getByRole('button', { name: 'Ready for the ball' });
+    await clickAndConfirm(readyBtn, async () => {
+      await expect(readyBtn).toHaveCount(0);
+    });
+  }
+  const shuffleBtn = host.getByRole('button', { name: 'Shuffle and deal' });
+  await clickAndConfirm(shuffleBtn, async () => {
+    await expect(shuffleBtn).toHaveCount(0);
+  });
   if (passNarrative) {
     const { steps, direction, count } = passNarrative;
     const hands = players.map((player) => player.getByRole('region', { name: 'Your hand' }));
@@ -39,7 +70,10 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
     for (let index = 0; index < count; index += 1) {
       const card = hands[0].locator('.playing-card:not(.selected)').first();
       const label = await card.getAttribute('aria-label') ?? '';
-      await card.click();
+      const specificCard = hands[0].getByRole('button', { name: label, exact: true });
+      await clickAndConfirm(specificCard, async () => {
+        await expect(hands[0].locator('.playing-card.selected')).toHaveCount(index + 1);
+      });
       const expectedRecipient = direction === 'split' ? (index === 0 ? leftName : rightName) : destination;
       await steps.step(`opening-pass-select-${index + 1}`, { description: `Alex clicks ${label}; it is assignment ${index + 1} of ${count} to ${expectedRecipient}`, verifications: [
         { spec: `Exactly ${index + 1} chosen card${index ? 's are' : ' is'} raised`, check: async () => expect(hands[0].locator('.playing-card.selected')).toHaveCount(index + 1) },
@@ -47,15 +81,30 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
         { spec: index + 1 === count ? 'The complete printed pass is ready to commit' : `${count - index - 1} more selection${count - index - 1 === 1 ? ' is' : 's are'} still required`, check: async () => index + 1 === count ? expect(submit).toBeEnabled() : expect(submit).toBeDisabled() }
       ] });
     }
-    await submit.click();
+    await clickAndConfirm(submit, async () => {
+      await expect(hands[0].locator('.playing-card.committed')).toHaveCount(count);
+    });
     await steps.step('opening-pass-committed', { description: `Alex commits the ${count} cards toward ${destination} while both other players are still choosing`, verifications: [
       { spec: `All ${count} outgoing cards remain visible and raised`, check: async () => expect(hands[0].locator('.playing-card.committed')).toHaveCount(count) },
       { spec: `The waiting message preserves the printed ${direction} direction`, check: async () => expect(host.getByRole('alert')).toContainText(`Passing ${count} ${direction} to ${destination}`) },
       { spec: 'No incoming cards arrive before every player commits', check: async () => expect(await hands[0].getByRole('button').evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label') ?? ''))).toEqual(before[0]) }
     ] });
     for (let playerIndex = 1; playerIndex < players.length; playerIndex += 1) {
-      for (let cardIndex = 0; cardIndex < count; cardIndex += 1) { await hands[playerIndex].locator('.playing-card:not(.selected)').first().click(); await expect(hands[playerIndex].locator('.playing-card.selected')).toHaveCount(cardIndex + 1); }
-      await players[playerIndex].locator('.pass-submit').click();
+      for (let cardIndex = 0; cardIndex < count; cardIndex += 1) {
+        const page = players[playerIndex];
+        const hand = hands[playerIndex];
+        const card = hand.locator('.playing-card:not(.selected)').first();
+        const label = await card.getAttribute('aria-label') ?? '';
+        const specificCard = hand.getByRole('button', { name: label, exact: true });
+        await clickAndConfirm(specificCard, async () => {
+          await expect(hand.locator('.playing-card.selected')).toHaveCount(cardIndex + 1);
+        });
+      }
+      const page = players[playerIndex];
+      const submitBtn = page.locator('.pass-submit');
+      await clickAndConfirm(submitBtn, async () => {
+        await expect(submitBtn).toHaveCount(0);
+      });
       if (playerIndex === 1) await steps.step('opening-pass-one-waiting', { description: 'Jo commits next; Alex still sees the cards held until Sam makes the final decision', verifications: [
         { spec: 'Exactly one other player remains', check: async () => expect(host.getByRole('alert')).toContainText('Waiting for 1 other player.') },
         { spec: 'Alex can still identify every outgoing card', check: async () => expect(hands[0].locator('.playing-card.committed')).toHaveCount(count) }
@@ -74,8 +123,18 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
   for (const page of players) {
     const hand = page.getByRole('region', { name: 'Your hand' }); await expect(hand.getByRole('button')).toHaveCount(12);
     const passCount = Number((await page.locator('.pass-icon').getAttribute('aria-label'))?.match(/Pass (\d+)/)?.[1] ?? 1);
-    for (let index = 0; index < passCount; index += 1) { await hand.locator('.playing-card:not(.selected)').first().click(); await expect(hand.locator('.playing-card.selected')).toHaveCount(index + 1); }
-    await page.locator('.pass-submit').click();
+    for (let index = 0; index < passCount; index += 1) {
+      const card = hand.locator('.playing-card:not(.selected)').first();
+      const label = await card.getAttribute('aria-label') ?? '';
+      const specificCard = hand.getByRole('button', { name: label, exact: true });
+      await clickAndConfirm(specificCard, async () => {
+        await expect(hand.locator('.playing-card.selected')).toHaveCount(index + 1);
+      });
+    }
+    const submitBtn = page.locator('.pass-submit');
+    await clickAndConfirm(submitBtn, async () => {
+      await expect(submitBtn).toHaveCount(0);
+    });
   }
   for (const page of players) await expect(page.locator('.pass-submit')).toHaveCount(0);
   return { host, jo, sam, players, contexts };
@@ -88,8 +147,15 @@ export async function clickCurrentCard(players: Page[], chooseLast: boolean | ((
   const index = counts.findIndex((count) => count > 0); const cards = players[index].locator('.playing-card.playable:not(:disabled)');
   const pickLast = typeof chooseLast === 'function' ? chooseLast(names[index]) : chooseLast;
   const card = pickLast ? cards.last() : cards.first(); const label = await card.getAttribute('aria-label') ?? '';
-  await card.click();
-  for (const page of players) await expect(page.getByLabel(`${names[index]} played ${label}`)).toBeVisible();
+  const page = players[index];
+  const specificCard = page.getByRole('button', { name: label, exact: true });
+
+  await clickAndConfirm(specificCard, async () => {
+    await expect(specificCard).toHaveCount(0);
+  });
+  for (const p of players) {
+    await expect(p.getByLabel(`${names[index]} played ${label}`)).toBeVisible();
+  }
   return { actor: names[index], card: label };
 }
 

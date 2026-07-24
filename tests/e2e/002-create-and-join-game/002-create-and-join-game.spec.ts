@@ -31,6 +31,7 @@ test('two anonymous clients create, join, synchronize, and replay a game', async
 
   await expect(page.getByRole('heading', { name: 'Players · 2' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Players' })).toContainText('Jo');
+
   await page.reload();
 
   await steps.step('shared-room-after-reload', {

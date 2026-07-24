@@ -70,13 +70,12 @@ test('three players complete every pass, card, trick, and score across all five 
   const sam = await samContext.newPage();
   const players = [page, jo, sam];
 
-  await page.goto(`/?gameId=${gameId}&seed=complete-007&e2eUid=full-host-${suffix}`);
+  await page.goto(`/?gameId=${gameId}&seed=complete-007&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=full-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await join(jo, gameId, `full-jo-${suffix}`, 'Jo');
   await join(sam, gameId, `full-sam-${suffix}`, 'Sam');
   for (const player of players) await ready(player);
-  for (const round of ['Once Upon a Time…', 'Magic Beans', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs']) await page.getByRole('button', { name: round, exact: true }).click();
   await page.getByRole('button', { name: 'Shuffle and deal' }).click();
 
   for (let round = 1; round <= 5; round += 1) {
@@ -87,6 +86,8 @@ test('three players complete every pass, card, trick, and score across all five 
 
     const scoring = page.getByLabel(`Round ${round} scoring`);
     await expect(scoring).toBeVisible();
+    await expect(scoring.getByRole('table', { name: 'Five-round score card' }).locator('td.filled')).toHaveCount(round * 3);
+    await expect(scoring.getByRole('table', { name: 'Five-round score card' }).locator('td.pending')).toHaveCount((5 - round) * 3);
     await expect(scoreRows(page, round)).toHaveCount(3);
     const roundTotal = await scoreRows(page, round).locator('span').evaluateAll((rows) => rows.reduce((sum, row) => sum + Number(row.textContent?.match(/= (\d+)/)?.[1] ?? 0), 0));
     expect(roundTotal).toBe(14);
