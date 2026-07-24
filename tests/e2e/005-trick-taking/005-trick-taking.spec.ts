@@ -1,27 +1,47 @@
 import { expect, test, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
+import { clickAndConfirm } from '../helpers/round-card-game';
 
 async function join(page: Page, gameId: string, uid: string, name: string) {
   await page.goto(`/?e2eUid=${uid}`);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Your name').fill(name);
   await page.getByLabel('Room code').fill(gameId);
-  await page.getByRole('button', { name: 'Join' }).click();
-  await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+  const joinBtn = page.getByRole('button', { name: 'Join' });
+  await clickAndConfirm(joinBtn, async () => {
+    await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+  });
 }
 
 async function ready(page: Page, _princess?: string) {
-  await page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first().click();
-  await page.getByRole('button', { name: 'Ready for the ball' }).click();
+  const princessBtn = page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first();
+  await clickAndConfirm(princessBtn, async () => {
+    await expect(princessBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+  const readyBtn = page.getByRole('button', { name: 'Ready for the ball' });
+  await clickAndConfirm(readyBtn, async () => {
+    await expect(readyBtn).toHaveCount(0);
+  });
 }
 
 async function pass(page: Page, cards: string[]) {
   const submit = page.locator('.pass-submit');
-  for (const [index, card] of cards.entries()) { await page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: card, exact: true }).click(); await expect(page.locator('.playing-card.selected')).toHaveCount(index + 1); }
-  await submit.click();
+  for (const [index, card] of cards.entries()) {
+    const specificCard = page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: card, exact: true });
+    await clickAndConfirm(specificCard, async () => {
+      await expect(page.locator('.playing-card.selected')).toHaveCount(index + 1);
+    });
+  }
+  await clickAndConfirm(submit, async () => {
+    await expect(submit).toHaveCount(0);
+  });
 }
 
 async function play(page: Page, card: string) {
-  await page.getByRole('button', { name: card, exact: true }).click();
+  const specificCard = page.getByRole('button', { name: card, exact: true });
+  await clickAndConfirm(specificCard, async () => {
+    await expect(specificCard).toHaveCount(0);
+  });
 }
 
 test('three clients follow suit, break Princes, resolve winners, and rotate leadership', async ({ page, browser }, testInfo) => {
@@ -36,9 +56,12 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
   const sam = await samContext.newPage();
 
   await page.goto(`/?gameId=${gameId}&seed=fixed-004&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=trick-host-${suffix}`);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Your name').fill('Alex');
-  await page.getByRole('button', { name: 'Create a game' }).click();
-  await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+  const createBtn = page.getByRole('button', { name: 'Create a game' });
+  await clickAndConfirm(createBtn, async () => {
+    await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+  });
   await join(jo, gameId, `trick-jo-${suffix}`, 'Jo');
   await join(sam, gameId, `trick-sam-${suffix}`, 'Sam');
   await ready(page, 'Snow White');

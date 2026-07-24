@@ -1,4 +1,5 @@
 import { expect, type Browser, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
+import { clickAndConfirm } from './round-card-game';
 
 export type PrincessGame = { host: Page; jo: Page; sam: Page; players: Page[]; contexts: BrowserContext[] };
 
@@ -11,25 +12,59 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
   for (const [index, page] of players.entries()) {
     const name = ['Alex', 'Jo', 'Sam'][index];
     await page.goto(`/?gameId=${gameId}&seed=${seedPrefix}-${gameId}&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=click-${name}-${suffix}-${gameId}`);
+    await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
     await page.getByLabel('Your name').fill(name);
-    if (!index) await page.getByRole('button', { name: 'Create a game' }).click();
-    else { await page.getByLabel('Room code').fill(gameId); await page.getByRole('button', { name: 'Join' }).click(); }
-    await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+    if (!index) {
+      const createBtn = page.getByRole('button', { name: 'Create a game' });
+      await clickAndConfirm(createBtn, async () => {
+        await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+      });
+    } else {
+      await page.getByLabel('Room code').fill(gameId);
+      const joinBtn = page.getByRole('button', { name: 'Join' });
+      await clickAndConfirm(joinBtn, async () => {
+        await expect(page.getByTestId('invite-code')).toHaveText(gameId);
+      });
+    }
   }
-  await host.getByLabel('Choose one of your two Princesses').getByRole('button', { name: princess, exact: true }).click();
-  await host.getByRole('button', { name: 'Ready for the ball' }).click();
+  const hostPrincessBtn = host.getByLabel('Choose one of your two Princesses').getByRole('button', { name: princess, exact: true });
+  await clickAndConfirm(hostPrincessBtn, async () => {
+    await expect(hostPrincessBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+  const hostReadyBtn = host.getByRole('button', { name: 'Ready for the ball' });
+  await clickAndConfirm(hostReadyBtn, async () => {
+    await expect(hostReadyBtn).toHaveCount(0);
+  });
   for (const page of [jo, sam]) {
-    await page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first().click();
-    await page.getByRole('button', { name: 'Ready for the ball' }).click();
+    const princessBtn = page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first();
+    await clickAndConfirm(princessBtn, async () => {
+      await expect(princessBtn).toHaveAttribute('aria-pressed', 'true');
+    });
+    const readyBtn = page.getByRole('button', { name: 'Ready for the ball' });
+    await clickAndConfirm(readyBtn, async () => {
+      await expect(readyBtn).toHaveCount(0);
+    });
   }
-  await host.getByRole('button', { name: 'Shuffle and deal' }).click();
+  const shuffleBtn = host.getByRole('button', { name: 'Shuffle and deal' });
+  await clickAndConfirm(shuffleBtn, async () => {
+    await expect(shuffleBtn).toHaveCount(0);
+  });
   for (const page of players) {
     const hand = page.getByRole('region', { name: 'Your hand' });
     await expect(hand.getByRole('button')).toHaveCount(12);
     const submit = page.locator('.pass-submit');
     const count = Number((await submit.textContent())?.match(/Pass (\d+)/)?.[1]);
-    for (let index = 0; index < count; index += 1) { await hand.locator('.playing-card:not(.selected)').first().click(); await expect(hand.locator('.playing-card.selected')).toHaveCount(index + 1); }
-    await submit.click();
+    for (let index = 0; index < count; index += 1) {
+      const card = hand.locator('.playing-card:not(.selected)').first();
+      const label = await card.getAttribute('aria-label') ?? '';
+      const specificCard = hand.getByRole('button', { name: label, exact: true });
+      await clickAndConfirm(specificCard, async () => {
+        await expect(hand.locator('.playing-card.selected')).toHaveCount(index + 1);
+      });
+    }
+    await clickAndConfirm(submit, async () => {
+      await expect(submit).toHaveCount(0);
+    });
   }
   for (const page of players) await expect(page.getByRole('alert')).toContainText('Passing complete');
   return { host, jo, sam, players, contexts };
@@ -50,9 +85,13 @@ export async function playOneClick(players: Page[], observer = players[0], choos
   const label = await card.getAttribute('aria-label') ?? '';
   const before = Number((await observer.getByTestId('stream-card-count').textContent())?.match(/(\d+)/)?.[1]);
   const beforeStatuses = JSON.stringify(await Promise.all(players.map((page) => page.getByRole('alert').textContent())));
-  await card.click();
+
+  const specificCard = actor.getByRole('button', { name: label, exact: true });
+  await clickAndConfirm(specificCard, async () => {
+    await expect(specificCard).toHaveCount(0);
+  });
+
   await expect(observer.getByTestId('stream-card-count')).toHaveText(`Shared stream contains ${before - 1} cards`);
-  await expect(actor.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: label, exact: true })).toHaveCount(0);
   const actorName = names[players.indexOf(actor)];
   for (const player of players) await expect(player.getByLabel(`${actorName} played ${label}`)).toBeVisible();
   await expect.poll(async () => JSON.stringify(await Promise.all(players.map((page) => page.getByRole('alert').textContent())))).not.toBe(beforeStatuses);

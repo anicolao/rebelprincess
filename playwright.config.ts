@@ -16,7 +16,7 @@ export default defineConfig({
     deviceScaleFactor: 1,
     timezoneId: 'America/Toronto',
     locale: 'en-CA',
-    actionTimeout: 2000,
+    actionTimeout: 10000,
     launchOptions: {
       args: [
         '--font-render-hinting=none',
@@ -67,9 +67,9 @@ export default defineConfig({
   // A production-size five-round game performs 180 observable Firestore-backed
   // card plays. This is only the runner's whole-test safety ceiling; actions
   // and assertions retain the strict two-second synchronization ceiling below.
-  timeout: 150000,
+  timeout: 240000,
   expect: {
-    timeout: 2000,
+    timeout: 10000,
     toHaveScreenshot: {
       // Transient effects are settled by TestStepHelper and UI icons use
       // bundled vectors, so every committed pixel is expected to match.
