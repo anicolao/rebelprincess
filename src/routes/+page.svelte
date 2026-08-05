@@ -40,6 +40,8 @@
   let selectedPrincess = '';
   let selectedPassCards: Array<string | null> = [];
   let observedRoundIndex = -1;
+  let observedGameNumber = -1;
+  let observedSleepingBeautyPendingKey = '';
   let snowWhiteArmed = false;
   let thumbelinaArmed = false;
   let openPrincessPower = '';
@@ -99,14 +101,30 @@
   function watchGame(gameId: string) {
     unsubscribe();
     activeGameId = gameId;
+    observedRoundIndex = -1;
+    observedGameNumber = -1;
+    observedSleepingBeautyPendingKey = '';
+    openPrincessPower = '';
+    selectedPowerCards = [];
     const parameters = new URL(location.href).searchParams;
     parameters.set('game', gameId);
     parameters.delete('gameId');
     replaceState(`?${parameters.toString()}`, {});
     unsubscribe = subscribeToGame(firebaseDatabase(), gameId, (next) => {
-      if (next.roundIndex !== observedRoundIndex) {
+      if (next.roundIndex !== observedRoundIndex || next.gameNumber !== observedGameNumber) {
         selectedPassCards = [];
+        openPrincessPower = '';
+        selectedPowerCards = [];
         observedRoundIndex = next.roundIndex;
+        observedGameNumber = next.gameNumber;
+      }
+      const sleepingBeautyPendingKey = next.pendingPower?.powerId === 'sleeping-beauty'
+        ? `${next.gameNumber}:${next.roundIndex}:${next.pendingPower.actorUid}`
+        : '';
+      if (sleepingBeautyPendingKey !== observedSleepingBeautyPendingKey) {
+        openPrincessPower = '';
+        selectedPowerCards = [];
+        observedSleepingBeautyPendingKey = sleepingBeautyPendingKey;
       }
       const nextPrincessPower = next.powerIdsThisTrick.at(-1) ?? '';
       if (nextPrincessPower !== celebratedPrincessId) {
@@ -483,7 +501,8 @@
 
   async function activatePower(powerId: string, targetUid?: string, card?: Card, suit?: Card['suit'], cards?: Card[]) {
     const resolvingMulan = powerId === 'mulan' && game?.pendingMulanUid === currentUid;
-    if ((!resolvingMulan && !powerAvailable(powerId)) || localPlayer()?.princessId !== powerId) return;
+    const resolvingPendingPower = game?.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === powerId;
+    if ((!resolvingMulan && !resolvingPendingPower && !princessUsable(powerId)) || localPlayer()?.princessId !== powerId) return;
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activated', { powerId, ...(targetUid ? { targetUid } : {}), ...(card ? { card } : {}), ...(suit ? { suit } : {}), ...(cards ? { cards } : {}) });
   }
 
@@ -517,9 +536,31 @@
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/contributed', { powerId: 'sleeping-beauty', card });
   }
 
+  async function beginSleepingBeauty() {
+    if (game?.pendingPower || !princessUsable('sleeping-beauty')) return;
+    openPrincessPower = '';
+    selectedPowerCards = [];
+    await activatePower('sleeping-beauty');
+  }
+
+  function sleepingBeautySelectionComplete() {
+    if (game?.pendingPower?.powerId !== 'sleeping-beauty' || game.pendingPower.actorUid !== currentUid || game.pendingPower.cards.length !== game.players.length) return false;
+    const contributed = new Set(game.pendingPower.cards.map((entry) => cardLabel(entry.card)));
+    const selected = selectedPowerCards.map(cardLabel);
+    return selected.length === game.players.length && new Set(selected).size === game.players.length && selected.every((label) => contributed.has(label));
+  }
+
   function selectRedistribution(card: Card) {
-    if (selectedPowerCards.some((entry) => cardLabel(entry) === cardLabel(card))) selectedPowerCards = selectedPowerCards.filter((entry) => cardLabel(entry) !== cardLabel(card));
-    else if (selectedPowerCards.length < (game?.players.length ?? 0)) selectedPowerCards = [...selectedPowerCards, card];
+    const contributed = new Set(game?.pendingPower?.powerId === 'sleeping-beauty' ? game.pendingPower.cards.map((entry) => cardLabel(entry.card)) : []);
+    if (!contributed.has(cardLabel(card))) return;
+    const current = selectedPowerCards.filter((entry) => contributed.has(cardLabel(entry)));
+    if (current.some((entry) => cardLabel(entry) === cardLabel(card))) selectedPowerCards = current.filter((entry) => cardLabel(entry) !== cardLabel(card));
+    else if (current.length < (game?.players.length ?? 0)) selectedPowerCards = [...current, card];
+  }
+
+  async function redistributeSleepingBeauty() {
+    if (!sleepingBeautySelectionComplete()) return;
+    await activatePower('sleeping-beauty', undefined, undefined, undefined, selectedPowerCards);
   }
 
   async function declineMulan() {
@@ -739,15 +780,15 @@
                 <div class="power-controls" role="group" aria-label="Ice Princess power"><strong>Choose a player</strong>{#each game.players as player}<button type="button" on:click={() => activatePower('ice-princess', player.uid)}>{player.displayName}</button>{/each}</div>
               {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && openPrincessPower === 'scheherazade'}
                 <div class="power-controls" role="group" aria-label="Scheherazade power"><strong>Choose another hand</strong>{#each game.players.filter((player) => player.uid !== currentUid) as player}<button type="button" on:click={() => activatePower('scheherazade', player.uid)}>{player.displayName}</button>{/each}</div>
-              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && openPrincessPower === 'sleeping-beauty'}
-                <div class="power-controls" role="group" aria-label="Sleeping Beauty power"><strong>Collect one card from every player</strong><button type="button" on:click={() => activatePower('sleeping-beauty')}>Begin collection</button></div>
+              {:else if princessUsable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && openPrincessPower === 'sleeping-beauty'}
+                <div class="power-controls" role="group" aria-label="Sleeping Beauty power"><strong>Collect one card from every player</strong><button type="button" on:click={beginSleepingBeauty}>Begin collection</button></div>
               {/if}
               {#if game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'ice-princess'}
                 <div class="power-controls power-choice" role="group" aria-label="Ice Princess cards"><strong>Choose the frozen card</strong>{#each game.pendingPower.cards as entry}<button type="button" on:click={() => activatePower('ice-princess', undefined, entry.card)}>{cardLabel(entry.card)}</button>{/each}</div>
               {:else if game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'scheherazade'}
                 <div class="power-controls power-choice" role="group" aria-label="Scheherazade swap"><strong>Took {cardLabel(game.pendingPower.cards[0].card)}</strong>{#each game.hands[currentUid] ?? [] as card}<button type="button" on:click={() => activatePower('scheherazade', undefined, card)}>Swap {cardLabel(card)}</button>{/each}<button type="button" class="secondary" on:click={() => appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/declined', { powerId: 'scheherazade' })}>Return it</button></div>
               {:else if game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'sleeping-beauty' && game.pendingPower.cards.length === game.players.length}
-                <div class="power-controls power-choice" role="group" aria-label="Sleeping Beauty redistribution"><strong>Choose in order: keep, then {game.players.filter((player) => player.uid !== currentUid).map((player) => player.displayName).join(', ')}</strong>{#each game.pendingPower.cards as entry}<button type="button" class:chosen={selectedPowerCards.some((card) => cardLabel(card) === cardLabel(entry.card))} on:click={() => selectRedistribution(entry.card)}>{selectedPowerCards.findIndex((card) => cardLabel(card) === cardLabel(entry.card)) + 1 || ''} {cardLabel(entry.card)}</button>{/each}<button type="button" disabled={selectedPowerCards.length !== game.players.length} on:click={() => activatePower('sleeping-beauty', undefined, undefined, undefined, selectedPowerCards)}>Redistribute</button></div>
+                <div class="power-controls power-choice" role="group" aria-label="Sleeping Beauty redistribution"><strong>Choose in order: keep, then {game.players.filter((player) => player.uid !== currentUid).map((player) => player.displayName).join(', ')}</strong>{#each game.pendingPower.cards as entry}<button type="button" class:chosen={selectedPowerCards.some((card) => cardLabel(card) === cardLabel(entry.card))} on:click={() => selectRedistribution(entry.card)}>{selectedPowerCards.findIndex((card) => cardLabel(card) === cardLabel(entry.card)) + 1 || ''} {cardLabel(entry.card)}</button>{/each}<button type="button" disabled={!sleepingBeautySelectionComplete()} on:click={redistributeSleepingBeauty}>Redistribute</button></div>
               {:else if game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid)}
                 <p class="power-prompt">Sleeping Beauty asks you to contribute one card.</p>
               {/if}
