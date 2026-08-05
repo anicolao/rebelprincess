@@ -3,7 +3,7 @@ import { clickAndConfirm } from './round-card-game';
 
 export type PrincessGame = { host: Page; jo: Page; sam: Page; players: Page[]; contexts: BrowserContext[] };
 
-export async function setupPrincessGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, princess: string, seedPrefix = 'power'): Promise<PrincessGame> {
+export async function setupPrincessGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, princess: string, seedPrefix = 'power', roundIds = 'once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs'): Promise<PrincessGame> {
   const options = { viewport: host.viewportSize() ?? undefined, reducedMotion: 'reduce' as const, serviceWorkers: 'block' as const, deviceScaleFactor: 1 };
   const contexts = [await browser.newContext(options), await browser.newContext(options)];
   const jo = await contexts[0].newPage(); const sam = await contexts[1].newPage();
@@ -11,7 +11,7 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
   const suffix = testInfo.project.name;
   for (const [index, page] of players.entries()) {
     const name = ['Alex', 'Jo', 'Sam'][index];
-    await page.goto(`/?gameId=${gameId}&seed=${seedPrefix}-${gameId}&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=click-${name}-${suffix}-${gameId}`);
+    await page.goto(`/?gameId=${gameId}&seed=${seedPrefix}-${gameId}&e2eRounds=${roundIds}&e2eUid=click-${name}-${suffix}-${gameId}`);
     await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
     await page.getByLabel('Your name').fill(name);
     if (!index) {
