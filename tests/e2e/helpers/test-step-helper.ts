@@ -95,7 +95,28 @@ export class TestStepHelper {
 
     const paddedIndex = String(this.stepCount++).padStart(3, '0');
     const filename = `${paddedIndex}-${id.replaceAll('_', '-')}-${this.testInfo.project.name}.png`;
-    await expect(this.page).toHaveScreenshot(filename);
+    // Firestore can replace an element after the settling loop and start a new
+    // entrance animation immediately before Playwright captures the page. Keep
+    // trick-card entrance motion at its final keyframe for the entire capture,
+    // then restore it so scenarios can continue to exercise and assert the real
+    // animation. Retaining the keyframe avoids changing its rendered pixels.
+    const settledMotionStyle = await this.page.addStyleTag({
+      content: `
+        @media (min-width: 1000px) {
+          [data-e2e-layout] .trick-card {
+            animation-delay: -1s !important;
+          }
+        }
+      `
+    });
+    try {
+      await this.page.evaluate(() => new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }));
+      await expect(this.page).toHaveScreenshot(filename);
+    } finally {
+      await settledMotionStyle.evaluate((style) => style.parentNode?.removeChild(style)).catch(() => {});
+    }
 
     this.steps.push({
       title: options.description,
