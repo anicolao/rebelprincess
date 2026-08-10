@@ -179,6 +179,59 @@ describe('append-only game events', () => {
     expect(advanced.trick).toBeNull();
   });
 
+  it('keeps the round open while Sleeping Beauty holds every final card', () => {
+    let sequence = 0;
+    const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
+      id: String(++sequence).padStart(2, '0'), type, payload: { gameId: 'SLEEP6', ...payload }, actorUid,
+      clientSeq: sequence, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    });
+    const fairies = (rank: number) => ({ suit: 'fairies' as const, rank });
+    const events = [
+      make('game/created', 'a', { displayName: 'Alex' }),
+      make('player/joined', 'b', { displayName: 'Jo' }),
+      make('player/joined', 'c', { displayName: 'Sam' }),
+      make('player/configured', 'a', { princessId: 'sleeping-beauty', ready: true }),
+      make('game/dealt', 'a', { seed: 'last-trick', roundIds: ['single-fairy', 'once-upon-a-time', 'masquerade-ball', 'royal-decree', 'musical-chairs'], hands: {
+        a: [fairies(2)], b: [fairies(3)], c: [fairies(4)]
+      } }),
+      make('pass/submitted', 'a', { cards: [fairies(2)] }),
+      make('pass/submitted', 'b', { cards: [fairies(3)] }),
+      make('pass/submitted', 'c', { cards: [fairies(4)] }),
+      make('power/activated', 'a', { powerId: 'sleeping-beauty' }),
+      make('power/contributed', 'a', { powerId: 'sleeping-beauty', card: fairies(4) }),
+      make('power/contributed', 'b', { powerId: 'sleeping-beauty', card: fairies(2) }),
+      make('power/contributed', 'c', { powerId: 'sleeping-beauty', card: fairies(3) })
+    ];
+
+    const collecting = deriveGame(events);
+    expect(collecting.hands).toEqual({ a: [], b: [], c: [] });
+    expect(collecting.pendingPower).toEqual({
+      powerId: 'sleeping-beauty', actorUid: 'a', cards: [
+        { uid: 'a', card: fairies(4) }, { uid: 'b', card: fairies(2) }, { uid: 'c', card: fairies(3) }
+      ]
+    });
+    expect(collecting.roundComplete).toBe(false);
+    expect(collecting.roundScoreHistory).toEqual([]);
+
+    events.push(make('power/activated', 'a', {
+      powerId: 'sleeping-beauty', cards: [fairies(4), fairies(2), fairies(3)]
+    }));
+    const redistributed = deriveGame(events);
+    expect(redistributed.pendingPower).toBeNull();
+    expect(redistributed.hands).toEqual({ a: [fairies(4)], b: [fairies(2)], c: [fairies(3)] });
+    expect(redistributed.roundComplete).toBe(false);
+
+    events.push(
+      make('card/played', 'a', { card: fairies(4) }),
+      make('card/played', 'b', { card: fairies(2) }),
+      make('card/played', 'c', { card: fairies(3) })
+    );
+    const completed = deriveGame(events);
+    expect(completed.roundComplete).toBe(true);
+    expect(completed.completedTricks).toBe(1);
+    expect(completed.capturedCounts.a).toBe(3);
+  });
+
   it('chooses the unique lowest total, then breaks a low-score tie clockwise after the last leader', () => {
     expect(nextRoundLeader(['a', 'b', 'c'], { a: 4, b: 1, c: 7 }, 'a')).toBe('b');
     expect(nextRoundLeader(['a', 'b', 'c'], { a: 2, b: 2, c: 5 }, 'c')).toBe('a');

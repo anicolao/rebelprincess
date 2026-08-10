@@ -473,7 +473,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         } else resolveTrick();
       } else turnUid = playerList[(playerList.findIndex((player) => player.uid === event.actorUid) + 1) % playerList.length].uid;
     }
-    const finished = Boolean(roundHands && Object.values(roundHands).every((hand) => hand.length === 0));
+    const finished = Boolean(roundHands && !pendingPower && Object.values(roundHands).every((hand) => hand.length === 0));
     const princeCountInDeck = Object.values(deal.payload.hands ?? {}).flat().filter((card) => card.suit === 'princes').length;
     const capturedCards = Object.fromEntries(playerList.map((player) => [player.uid, [...tricks[player.uid].flat().map((play) => play.card), ...retainedCards[player.uid]]]));
     const rebelUids = playerList.filter((player) => isRebelOfBall(capturedCards[player.uid], roundId, princeCountInDeck)).map((player) => player.uid);
