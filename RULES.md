@@ -130,8 +130,10 @@ Each card also supplies its printed opening-pass instruction.
   card to a gift pile captured by that trick’s winner.
 - **Haggle with the Hag:** a trick winner may exchange one shown hand card for
   any card in that trick except their own play.
-- **Blind Man’s Bluff:** after playing half a hand, pass the remaining half to
-  the player on the right to play.
+- **Blind Man’s Bluff:** after playing half the number of cards originally
+  dealt, pass the remaining hand to the player on the right to play. Cards
+  returned by Alice do not delay this handoff and travel with the remaining
+  hand.
 - **Poisoned Apple:** a void player wins; highest void value wins, with the
   earliest play breaking an exact tie.
 - **Odds and Evens:** follow suit and the lead card’s parity when possible; suit

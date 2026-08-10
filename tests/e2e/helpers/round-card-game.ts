@@ -17,11 +17,12 @@ export async function clickAndConfirm(buttonLocator: any, verifyFn: () => Promis
   }, { timeout: 10000, intervals: [100, 200, 500] }).toBe(true);
 }
 
-export async function setupRoundCardGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, roundName: string, dealSeed = gameId, followingRounds: string[] = [], passNarrative?: { steps: TestStepHelper; direction: PassDirection; count: number }): Promise<RoundCardGame> {
+export async function setupRoundCardGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, roundName: string, dealSeed = gameId, followingRounds: string[] = [], passNarrative?: { steps: TestStepHelper; direction: PassDirection; count: number }, names = ['Alex', 'Jo', 'Sam']): Promise<RoundCardGame> {
+  if (names.length < 3 || names.length > 6) throw new Error('Round-card browser games require 3–6 player names');
   const options = { viewport: host.viewportSize() ?? undefined, reducedMotion: 'reduce' as const, serviceWorkers: 'block' as const, deviceScaleFactor: 1 };
-  const contexts = [await browser.newContext(options), await browser.newContext(options)];
-  const jo = await contexts[0].newPage(); const sam = await contexts[1].newPage();
-  const players = [host, jo, sam]; const names = ['Alex', 'Jo', 'Sam'];
+  const contexts = await Promise.all(names.slice(1).map(() => browser.newContext(options)));
+  const players = [host, ...await Promise.all(contexts.map((context) => context.newPage()))];
+  const jo = players[1]; const sam = players[2];
   const fallback = ROUND_RULES.map(([, name]) => name).filter((name) => name !== roundName).slice(0, 4);
   const selected = [roundName, ...followingRounds, ...fallback].filter((name, index, names) => names.indexOf(name) === index).slice(0, 5);
   const selectedIds = selected.map((name) => ROUND_RULES.find(([, candidate]) => candidate === name)?.[0]).filter(Boolean).join(',');
@@ -59,10 +60,11 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
   if (passNarrative) {
     const { steps, direction, count } = passNarrative;
     const hands = players.map((player) => player.getByRole('region', { name: 'Your hand' }));
-    for (const hand of hands) await expect(hand.getByRole('button')).toHaveCount(12);
+    const initialHandSize = names.length === 3 ? 12 : names.length === 4 ? 10 : 8;
+    for (const hand of hands) await expect(hand.getByRole('button')).toHaveCount(initialHandSize);
     const before = await Promise.all(hands.map((hand) => hand.getByRole('button').evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label') ?? ''))));
     const submit = host.locator('.pass-submit');
-    const leftName = 'Jo'; const rightName = 'Sam';
+    const leftName = names[1]; const rightName = names.at(-1)!;
     const destination = direction === 'left' ? leftName : direction === 'right' ? rightName : `${leftName} and ${rightName}`;
     await steps.step('opening-pass-prompt', { description: `${roundName} prints a ${count}-card ${direction} pass before play begins`, verifications: [
       { spec: `The center icon announces Pass ${count} ${direction}`, check: async () => expect(host.getByLabel(`Pass ${count} ${direction}`)).toBeVisible() },
@@ -86,7 +88,8 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
     await clickAndConfirm(submit, async () => {
       await expect(hands[0].locator('.playing-card.committed')).toHaveCount(count);
     });
-    await steps.step('opening-pass-committed', { description: `Alex commits the ${count} cards toward ${destination} while both other players are still choosing`, verifications: [
+    const waitingPlayers = players.length === 3 ? 'both other players' : `${players.length - 1} other players`;
+    await steps.step('opening-pass-committed', { description: `Alex commits the ${count} cards toward ${destination} while ${waitingPlayers} are still choosing`, verifications: [
       { spec: `All ${count} outgoing cards remain visible and raised`, check: async () => expect(hands[0].locator('.playing-card.committed')).toHaveCount(count) },
       { spec: `The waiting message preserves the printed ${direction} direction`, check: async () => expect(host.getByRole('alert')).toContainText(`Passing ${count} ${direction} to ${destination}`) },
       { spec: 'No incoming cards arrive before every player commits', check: async () => expect(await hands[0].getByRole('button').evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label') ?? ''))).toEqual(before[0]) }
@@ -107,23 +110,25 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
       await clickAndConfirm(submitBtn, async () => {
         await expect(submitBtn).toHaveCount(0);
       });
-      if (playerIndex === 1) await steps.step('opening-pass-one-waiting', { description: 'Jo commits next; Alex still sees the cards held until Sam makes the final decision', verifications: [
-        { spec: 'Exactly one other player remains', check: async () => expect(host.getByRole('alert')).toContainText('Waiting for 1 other player.') },
+      if (playerIndex === 1) await steps.step('opening-pass-one-waiting', { description: `${names[1]} commits next; Alex still sees the cards held until ${names.at(-1)} makes the final decision`, verifications: [
+        { spec: players.length === 3 ? 'Exactly one other player remains' : `Exactly ${players.length - 2} other players remain`, check: async () => expect(host.getByRole('alert')).toContainText(`Waiting for ${players.length - 2} other player`) },
         { spec: 'Alex can still identify every outgoing card', check: async () => expect(hands[0].locator('.playing-card.committed')).toHaveCount(count) }
       ] });
     }
     for (const page of players) await expect(page.locator('.pass-submit')).toHaveCount(0);
-    const sourceIndex = direction === 'left' ? 2 : 1;
-    const expectedIncoming = direction === 'split' ? [before[2][0], before[1][1]] : before[sourceIndex].slice(0, count);
-    await steps.step('opening-pass-resolved', { description: `Sam commits last; all three ${direction} transfers resolve simultaneously and play can begin`, verifications: [
-      { spec: 'Every player again holds twelve cards', check: async () => { for (const hand of hands) await expect(hand.getByRole('button')).toHaveCount(12); } },
+    const sourceIndex = direction === 'left' ? players.length - 1 : 1;
+    const expectedIncoming = direction === 'split' ? [before.at(-1)![0], before[1][1]] : before[sourceIndex].slice(0, count);
+    const playerCount = players.length === 3 ? 'three' : String(players.length);
+    await steps.step('opening-pass-resolved', { description: `${names.at(-1)} commits last; all ${playerCount} ${direction} transfers resolve simultaneously and play can begin`, verifications: [
+      { spec: `Every player again holds ${players.length === 3 ? 'twelve' : initialHandSize} cards`, check: async () => { for (const hand of hands) await expect(hand.getByRole('button')).toHaveCount(initialHandSize); } },
       { spec: `Alex receives the exact ${direction} incoming card${count === 1 ? '' : 's'}`, check: async () => { for (const label of expectedIncoming) await expect(hands[0].getByRole('button', { name: label, exact: true })).toBeVisible(); } },
       { spec: 'The table leaves the simultaneous pass phase for play or the Round card’s next action', check: async () => { await expect(host.locator('.pass-submit')).toHaveCount(0); await expect(hands[0].locator('.playing-card.committed')).toHaveCount(0); } }
     ] });
     return { host, jo, sam, players, contexts };
   }
+  const initialHandSize = names.length === 3 ? 12 : names.length === 4 ? 10 : 8;
   for (const page of players) {
-    const hand = page.getByRole('region', { name: 'Your hand' }); await expect(hand.getByRole('button')).toHaveCount(12);
+    const hand = page.getByRole('region', { name: 'Your hand' }); await expect(hand.getByRole('button')).toHaveCount(initialHandSize);
     const passCount = Number((await page.locator('.pass-icon').getAttribute('aria-label'))?.match(/Pass (\d+)/)?.[1] ?? 1);
     for (let index = 0; index < passCount; index += 1) {
       const card = hand.locator('.playing-card:not(.selected)').first();
@@ -142,8 +147,7 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
   return { host, jo, sam, players, contexts };
 }
 
-export async function clickCurrentCard(players: Page[], chooseLast: boolean | ((actor: string) => boolean) = false): Promise<{ actor: string; card: string }> {
-  const names = ['Alex', 'Jo', 'Sam'];
+export async function clickCurrentCard(players: Page[], chooseLast: boolean | ((actor: string) => boolean) = false, names = ['Alex', 'Jo', 'Sam']): Promise<{ actor: string; card: string }> {
   await expect.poll(async () => (await Promise.all(players.map((page) => page.locator('.playing-card.playable:not(:disabled)').count()))).findIndex((count) => count > 0)).toBeGreaterThanOrEqual(0);
   const counts = await Promise.all(players.map((page) => page.locator('.playing-card.playable:not(:disabled)').count()));
   const index = counts.findIndex((count) => count > 0); const cards = players[index].locator('.playing-card.playable:not(:disabled)');

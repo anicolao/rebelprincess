@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deriveGame, eventCursor, eventId, gameWinners, isGameEvent, nextRoundLeader, normalizeGameId, replayCacheKey, type GameEvent, type GameEventType, type GameEventPayload } from './game-events';
-import { princessOptionsForPlayers } from './setup';
+import { cardLabel, princessOptionsForPlayers, type Card } from './setup';
 import { choiceCommitment, crystalClearChoiceScope, princessChoiceScope } from './choice-commitment';
 
 const event = (id: string, type: GameEventType, uid: string, name: string) => ({
@@ -13,6 +13,42 @@ const event = (id: string, type: GameEventType, uid: string, name: string) => ({
   schemaVersion: 1 as const,
   reducerVersion: 1 as const
 });
+
+function blindMansBluffEvents(playerCount: number, completedTricks: number, aliceReturnsFirstTrick = false): GameEvent[] {
+  let sequence = 0;
+  const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
+    id: String(++sequence).padStart(4, '0'), type, payload: { gameId: `BLIND${playerCount}`, ...payload }, actorUid,
+    clientSeq: sequence, createdAt: null, schemaVersion: 1, reducerVersion: 1
+  });
+  const uids = Array.from({ length: playerCount }, (_, index) => String.fromCharCode(97 + index));
+  const handSize = playerCount === 3 ? 12 : playerCount === 4 ? 10 : 8;
+  const transferAfter = handSize / 2;
+  const fillerSuits: Card['suit'][] = ['queens', 'princes', 'pets'];
+  const hands = Object.fromEntries(uids.map((uid, playerIndex) => {
+    const fairies: Card[] = Array.from({ length: transferAfter }, (_, index) => ({ suit: 'fairies', rank: index + 1 }));
+    const fillers: Card[] = Array.from({ length: handSize - transferAfter }, (_, index) => {
+      const offset = playerIndex * (handSize - transferAfter) + index;
+      return { suit: fillerSuits[Math.floor(offset / 12)], rank: offset % 12 + 1 };
+    });
+    return [uid, [...fairies, ...fillers]];
+  }));
+  const events = [
+    make('game/created', uids[0], { displayName: 'Player 1' }),
+    ...uids.slice(1).map((uid, index) => make('player/joined', uid, { displayName: `Player ${index + 2}` })),
+    ...(aliceReturnsFirstTrick ? [make('player/configured', uids[0], { princessId: 'alice', ready: true })] : []),
+    make('game/dealt', uids[0], {
+      seed: `blind-${playerCount}`,
+      roundIds: ['blind-mans-bluff', 'once-upon-a-time', 'masquerade-ball', 'royal-decree', 'musical-chairs'],
+      hands
+    }),
+    ...uids.map((uid) => make('pass/submitted', uid, { cards: [hands[uid].at(-1)!] }))
+  ];
+  for (let trick = 1; trick <= completedTricks; trick += 1) {
+    events.push(...uids.map((uid) => make('card/played', uid, { card: { suit: 'fairies', rank: trick } })));
+    if (trick === 1 && aliceReturnsFirstTrick) events.push(make('power/activated', uids[0], { powerId: 'alice' }));
+  }
+  return events;
+}
 
 describe('append-only game events', () => {
   it('normalizes invite codes and creates stable event identifiers', () => {
@@ -171,6 +207,44 @@ describe('append-only game events', () => {
     expect(revealedTogether.revealedSuits).toEqual(choices);
     expect(revealedTogether.awaitingRoundAction).toBeNull();
     expect(revealedTogether.currentTurnUid).toBe('a');
+  });
+
+  it.each([
+    { playerCount: 3, originalHandSize: 12, transferAfter: 6 },
+    { playerCount: 4, originalHandSize: 10, transferAfter: 5 },
+    { playerCount: 5, originalHandSize: 8, transferAfter: 4 },
+    { playerCount: 6, originalHandSize: 8, transferAfter: 4 }
+  ])('passes Blind Man’s Bluff hands after half the original $originalHandSize-card deal for $playerCount players', ({ playerCount, originalHandSize, transferAfter }) => {
+    const before = deriveGame(blindMansBluffEvents(playerCount, transferAfter - 1));
+    expect(before.completedTricks).toBe(transferAfter - 1);
+    expect(before.blindTransferComplete).toBe(false);
+
+    const after = deriveGame(blindMansBluffEvents(playerCount, transferAfter));
+    const uids = after.players.map((player) => player.uid);
+    const remainingBeforeTransfer = Object.fromEntries(uids.map((uid) => [
+      uid,
+      before.hands![uid].filter((card) => card.suit !== 'fairies' || card.rank !== transferAfter)
+    ]));
+    expect(after.completedTricks).toBe(transferAfter);
+    expect(after.blindTransferComplete).toBe(true);
+    for (const [index, uid] of uids.entries()) {
+      const sourceOnLeft = uids[(index + 1) % uids.length];
+      expect(after.hands![uid].map(cardLabel)).toEqual(remainingBeforeTransfer[sourceOnLeft].map(cardLabel));
+    }
+    expect(Object.values(after.hands!).flat()).toHaveLength(playerCount * (originalHandSize - transferAfter));
+  });
+
+  it('uses the original Blind Man’s Bluff deal size when Alice adds cards back to every hand', () => {
+    const before = deriveGame(blindMansBluffEvents(5, 3, true));
+    expect(before.completedTricks).toBe(3);
+    expect(before.blindTransferComplete).toBe(false);
+    expect(Object.values(before.hands!).every((hand) => hand.length === 6)).toBe(true);
+
+    const after = deriveGame(blindMansBluffEvents(5, 4, true));
+    expect(after.completedTricks).toBe(4);
+    expect(after.blindTransferComplete).toBe(true);
+    expect(Object.values(after.hands!).every((hand) => hand.length === 5)).toBe(true);
+    expect(Object.values(after.hands!).flat()).toHaveLength(25);
   });
 
   it('versions the replay cache with the reducer', () => {
