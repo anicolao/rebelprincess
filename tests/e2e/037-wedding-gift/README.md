@@ -74,6 +74,7 @@ Contribute gifts one client at a time, prove the first winner captures all six c
 **Verifications:**
 - [x] The exact gift rule is readable
 - [x] Every client has selectable gift cards
+- [x] Alex sees all three seats highlighted as owing a gift
 
 ---
 
@@ -83,6 +84,7 @@ Contribute gifts one client at a time, prove the first winner captures all six c
 
 **Verifications:**
 - [x] Alex sees the wrapped waiting state
+- [x] Alex is marked complete while Jo and Sam remain visibly active
 - [x] No ordinary card can be played while gifts are missing
 
 ---
