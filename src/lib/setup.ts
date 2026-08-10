@@ -51,7 +51,7 @@ export const ROUND_RULE_TEXT: Record<string, string> = {
   'bathroom-break': 'Princes score double, except for the player or players currently carrying the most proposals.',
   'single-fairy': 'Each captured Fairy removes one proposal; round scores may be negative.',
   'midnight-makeover': 'Fairies are wild for following suit. Highest leading-suit card or Fairy wins, with latest play breaking ties.',
-  'blind-mans-bluff': 'Play half your hand, then give the other half to the player on your right for them to play.',
+  'blind-mans-bluff': 'After playing half the number of cards originally dealt to you, give your remaining hand to the player on your right to play.',
   'odds-and-evens': 'Follow both suit and the lead card’s parity when possible, with suit taking priority and parity applying again when void.',
   'pass-the-bouquet': 'Every newly played suit becomes the leading suit. The highest card of the last new suit wins.',
   'haggle-with-the-hag': 'A trick winner may show and swap a card from their hand for any card in the trick except the card they played.'

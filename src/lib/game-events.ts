@@ -233,6 +233,8 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   const emptyTricks = () => Object.fromEntries(playerList.map((player) => [player.uid, [] as TrickPlay[][]]));
   type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores' | 'exhaustedPrincessUids' | 'powerIdsThisTrick' | 'pendingMulanUid' | 'pendingPower' | 'forcedCards' | 'awaitingRoundAction' | 'roundActionSubmissions' | 'roundCardSubmissions' | 'revealedSuits' | 'suitCommitments' | 'retainedCards' | 'haggleWinnerUid' | 'blindTransferComplete' | 'rebelUids'> & { lastWinnerUid: string | null };
   const replayRound = (deal: GameEvent, segment: GameEvent[], leaderUid: string, priorTotals: Record<string, number>): RoundProjection => {
+    const originalHandSize = deal.payload.hands?.[playerList[0]?.uid]?.length ?? 0;
+    const blindTransferAfterTricks = originalHandSize / 2;
     let roundHands = deal.payload.hands
       ? Object.fromEntries(Object.entries(deal.payload.hands).map(([uid, cards]) => [uid, cards.map((card) => ({ ...card }))]))
       : null;
@@ -293,7 +295,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       powersThisTrick = [];
       powerTargets = {};
       giftPile = [];
-      if (roundId === 'blind-mans-bluff' && trickCount === 6 && !blindTransferComplete) {
+      if (roundId === 'blind-mans-bluff' && trickCount === blindTransferAfterTricks && !blindTransferComplete) {
         const before = Object.fromEntries(playerList.map((player) => [player.uid, roundHands![player.uid]]));
         playerList.forEach((player, index) => { roundHands![playerList[(index - 1 + playerList.length) % playerList.length].uid] = before[player.uid]; });
         blindTransferComplete = true;
