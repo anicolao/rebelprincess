@@ -77,9 +77,20 @@ Each player chooses through the UI, everyone sees the original revealed cards, a
 
 ---
 
+## Committed suits stay face down while Sam is still choosing
+
+![Committed suits stay face down while Sam is still choosing](./screenshots/007-crystal-choices-sealed-desktop.png)
+
+**Verifications:**
+- [x] Alex receives a locked-choice receipt instead of revealing a suit
+- [x] No client can see Alex’s or Jo’s revealed cards yet
+- [x] Sam still has all legal suit choices available
+
+---
+
 ## Jo reveals fairies and Sam reveals fairies; their exact original cards are face up to Alex
 
-![Jo reveals fairies and Sam reveals fairies; their exact original cards are face up to Alex](./screenshots/007-crystal-public-desktop.png)
+![Jo reveals fairies and Sam reveals fairies; their exact original cards are face up to Alex](./screenshots/008-crystal-public-desktop.png)
 
 **Verifications:**
 - [x] Every Jo card selected by the reveal is publicly labelled
@@ -89,7 +100,7 @@ Each player chooses through the UI, everyone sees the original revealed cards, a
 
 ## Alex clicks the revealed Fairies 2; revealing gave information but never removed or disabled it
 
-![Alex clicks the revealed Fairies 2; revealing gave information but never removed or disabled it](./screenshots/008-crystal-played-desktop.png)
+![Alex clicks the revealed Fairies 2; revealing gave information but never removed or disabled it](./screenshots/009-crystal-played-desktop.png)
 
 **Verifications:**
 - [x] The actual revealed card graphic is now in the trick

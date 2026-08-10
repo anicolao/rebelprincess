@@ -27,6 +27,7 @@
   import { passInstruction } from '$lib/passing';
   import { mulanReplacements, PRINCESS_POWER_TEXT, snowWhiteCanZero, thumbelinaCanPlay } from '$lib/princess-powers';
   import { isMasqueradeHidden, roundLegalCards } from '$lib/round-rules';
+  import { choiceCommitment, crystalClearChoiceScope, princessChoiceScope } from '$lib/choice-commitment';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -57,6 +58,8 @@
   let celebrationKey = 0;
   let showPrincessBurst = false;
   let celebrationTimer: ReturnType<typeof setTimeout> | null = null;
+  const submittedPrincessReveals = new Set<string>();
+  const submittedSuitReveals = new Set<string>();
 
   const build = import.meta.env.VITE_GIT_HASH ?? 'local';
   const audioMixStorageKey = 'rebel-princess:audio-mix';
@@ -140,10 +143,70 @@
       game = next;
       connection = 'synced';
       connectionLabel = 'Game synchronized';
+      void revealCommittedPrincess(next);
+      void revealCommittedCrystalSuit(next);
     }, () => {
       connection = 'error';
       connectionLabel = 'Synchronization failed';
     });
+  }
+
+  type StoredChoice = { choice: string; nonce: string };
+
+  function sealedChoiceKey(kind: 'princess' | 'crystal-clear', projection: GameProjection, uid: string): string {
+    const phase = kind === 'princess' ? projection.gameNumber : `${projection.gameNumber}:${projection.roundIndex}`;
+    return `rebel-princess:sealed-choice:${kind}:${projection.gameId}:${phase}:${uid}`;
+  }
+
+  function readStoredChoice(key: string): StoredChoice | null {
+    try {
+      const value = JSON.parse(localStorage.getItem(key) ?? 'null');
+      return value && typeof value.choice === 'string' && typeof value.nonce === 'string' ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function revealCommittedPrincess(projection: GameProjection) {
+    const player = projection.players.find((candidate) => candidate.uid === currentUid);
+    const commitment = projection.princessCommitments[currentUid];
+    if (!player || player.ready || !commitment || projection.players.length < 3 || !projection.players.every((candidate) => projection.princessCommitments[candidate.uid])) return;
+    const key = sealedChoiceKey('princess', projection, currentUid);
+    if (submittedPrincessReveals.has(key)) return;
+    const stored = readStoredChoice(key);
+    if (!stored || choiceCommitment(princessChoiceScope(projection.gameId, projection.gameNumber, currentUid), stored.choice, stored.nonce) !== commitment) {
+      actionError = 'Your sealed Princess choice is unavailable in this browser.';
+      return;
+    }
+    submittedPrincessReveals.add(key);
+    try {
+      await appendGameEvent(firebaseDatabase(), projection.gameId, currentUid, 'player/configured', {
+        princessId: stored.choice, nonce: stored.nonce, ready: true
+      });
+    } catch {
+      submittedPrincessReveals.delete(key);
+    }
+  }
+
+  async function revealCommittedCrystalSuit(projection: GameProjection) {
+    if (projection.awaitingRoundAction !== 'reveal-suit' || projection.revealedSuits[currentUid]) return;
+    const commitment = projection.suitCommitments[currentUid];
+    if (!commitment || !projection.players.every((player) => projection.suitCommitments[player.uid])) return;
+    const key = sealedChoiceKey('crystal-clear', projection, currentUid);
+    if (submittedSuitReveals.has(key)) return;
+    const stored = readStoredChoice(key);
+    if (!stored || choiceCommitment(crystalClearChoiceScope(projection.gameId, projection.gameNumber, projection.roundIndex, currentUid), stored.choice, stored.nonce) !== commitment) {
+      actionError = 'Your sealed Crystal Clear choice is unavailable in this browser.';
+      return;
+    }
+    submittedSuitReveals.add(key);
+    try {
+      await appendGameEvent(firebaseDatabase(), projection.gameId, currentUid, 'round/suit-revealed', {
+        suit: stored.choice as Card['suit'], nonce: stored.nonce
+      });
+    } catch {
+      submittedSuitReveals.delete(key);
+    }
   }
 
   function applyAudioMix(persist = true) {
@@ -217,14 +280,15 @@
   }
 
   async function becomeReady() {
-    if (!selectedPrincess || !game || !game.princessOptions[currentUid]?.includes(selectedPrincess)) return;
+    if (!selectedPrincess || !game || game.players.length < 3 || game.princessCommitments[currentUid] || !game.princessOptions[currentUid]?.includes(selectedPrincess)) return;
     connection = 'checking';
-    connectionLabel = 'Saving your Princess…';
-    const payload: any = {
-      princessId: selectedPrincess,
-      ready: true
-    };
-    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/configured', payload);
+    connectionLabel = 'Sealing your Princess…';
+    const nonce = `${crypto.randomUUID()}${crypto.randomUUID()}`;
+    const key = sealedChoiceKey('princess', game, currentUid);
+    localStorage.setItem(key, JSON.stringify({ choice: selectedPrincess, nonce } satisfies StoredChoice));
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/princess-committed', {
+      commitment: choiceCommitment(princessChoiceScope(game.gameId, game.gameNumber, currentUid), selectedPrincess, nonce)
+    });
   }
 
   const previewCards = [
@@ -455,9 +519,14 @@
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, type, { card });
   }
 
-  async function revealCrystalSuit(suit: Card['suit']) {
-    if (game?.awaitingRoundAction !== 'reveal-suit' || game.revealedSuits[currentUid] || !game.hands?.[currentUid]?.some((card) => card.suit === suit)) return;
-    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'round/suit-revealed', { suit });
+  async function commitCrystalSuit(suit: Card['suit']) {
+    if (game?.awaitingRoundAction !== 'reveal-suit' || game.suitCommitments[currentUid] || !game.hands?.[currentUid]?.some((card) => card.suit === suit)) return;
+    const nonce = `${crypto.randomUUID()}${crypto.randomUUID()}`;
+    const key = sealedChoiceKey('crystal-clear', game, currentUid);
+    localStorage.setItem(key, JSON.stringify({ choice: suit, nonce } satisfies StoredChoice));
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'round/suit-committed', {
+      commitment: choiceCommitment(crystalClearChoiceScope(game.gameId, game.gameNumber, game.roundIndex, currentUid), suit, nonce)
+    });
   }
 
   function toggleRoundCard(card: Card) {
@@ -832,7 +901,7 @@
                   {:else if game.awaitingRoundAction === 'musical-pass'}<p class="pass-waiting" role="alert">Musical Chairs · {game.roundActionSubmissions[currentUid] ? 'Waiting for the other chairs' : 'Choose one card to pass right'}</p>
                   {:else if game.awaitingRoundAction === 'wedding-gift'}<p class="pass-waiting" role="alert">Wedding Gift · {game.roundActionSubmissions[currentUid] ? 'Gift wrapped · waiting for everyone' : 'Choose one face-down card for the gift pile'}</p>
                   {:else if game.awaitingRoundAction === 'reveal-suit'}
-                    <div class="power-controls" role="group" aria-label="Crystal Clear suit choice"><strong>{game.revealedSuits[currentUid] ? `Revealed ${game.revealedSuits[currentUid]} · waiting for everyone` : 'Choose one suit in your hand to reveal'}</strong>{#if !game.revealedSuits[currentUid]}{#each SUITS.filter((suit) => game?.hands?.[currentUid]?.some((card) => card.suit === suit)) as suit}<button type="button" on:click={() => revealCrystalSuit(suit)}>{suit}</button>{/each}{/if}</div>
+                    <div class="power-controls" role="group" aria-label="Crystal Clear suit choice"><strong>{game.suitCommitments[currentUid] ? (game.players.every((player) => game?.suitCommitments[player.uid]) ? 'All suits locked · revealing together' : 'Suit locked face down · waiting for everyone') : 'Choose one suit to lock face down'}</strong>{#if !game.suitCommitments[currentUid]}{#each SUITS.filter((suit) => game?.hands?.[currentUid]?.some((card) => card.suit === suit)) as suit}<button type="button" on:click={() => commitCrystalSuit(suit)}>{suit}</button>{/each}{/if}</div>
                   {:else if game.awaitingRoundAction === 'split-hand'}
                     <div class="power-controls" role="group" aria-label="After Party first hand"><strong>{game.roundCardSubmissions[currentUid] ? 'First hand chosen · waiting for everyone' : `Choose 6 cards for your first hand (${selectedRoundCards.length}/6)`}</strong>{#if !game.roundCardSubmissions[currentUid]}<button type="button" disabled={selectedRoundCards.length !== 6} on:click={submitAfterPartyHalf}>Set first hand</button>{/if}</div>
                   {:else if game.awaitingRoundAction === 'haggle'}
@@ -913,10 +982,10 @@
           <h2>Players · {game?.players.length ?? 0}</h2>
           <ul aria-label="Players">
             {#each game?.players ?? [] as player (player.uid)}
-              <li><span>{player.displayName} · {princessName(player.princessId)}</span><span>{#if player.host}<small>Host</small>{/if} {player.ready ? 'Ready' : 'Waiting'}</span></li>
+              <li><span>{player.displayName}{#if game?.players.every((candidate) => candidate.ready)}{' · '}{princessName(player.princessId)}{:else}{' · Princess hidden'}{/if}</span><span>{#if player.host}<small>Host</small>{/if} {player.ready || game?.princessCommitments[player.uid] ? 'Ready' : 'Choosing'}</span></li>
             {/each}
           </ul>
-          {#if !game?.players.find((player) => player.uid === currentUid)?.ready}
+          {#if !game?.players.find((player) => player.uid === currentUid)?.ready && !game?.princessCommitments[currentUid]}
             <fieldset class="choice-grid" aria-label="Choose one of your two Princesses">
               <legend>Choose one of your two dealt Princesses</legend>
               {#each game?.princessOptions[currentUid] ?? [] as princessId}
@@ -941,7 +1010,9 @@
                 </button>
               {/each}
             </fieldset>
-            <button type="button" disabled={!selectedPrincess} on:click={becomeReady}>Ready for the ball</button>
+            <button type="button" disabled={!selectedPrincess || (game?.players.length ?? 0) < 3} on:click={becomeReady}>Ready for the ball</button>
+          {:else if !game?.players.find((player) => player.uid === currentUid)?.ready}
+            <p class="waiting" role="status">Your Princess is sealed · waiting for every player to lock a choice</p>
           {/if}
 
           {#if game?.players[0]?.uid === currentUid}

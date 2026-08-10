@@ -15,11 +15,12 @@ import { breaksPrinces, trickWinner, type TrickPlay, type TrickState } from './t
 import { mulanReplacements, snowWhiteCanZero, thumbelinaCanPlay } from './princess-powers';
 import { deterministicCards, exchangeCards, redistributeCards, returnedTrickCards } from './interactive-princess-powers';
 import { cardsPerTrick, isRebelOfBall, roundCardScore, roundLegalCards, roundTrickWinner } from './round-rules';
+import { choiceCommitment, crystalClearChoiceScope, princessChoiceScope } from './choice-commitment';
 
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
 
-export type GameEventType = 'game/created' | 'game/rematched' | 'player/joined' | 'player/configured' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played' | 'power/activated' | 'power/contributed' | 'power/declined' | 'round/card-set-aside' | 'round/pass-submitted' | 'round/suit-revealed' | 'round/half-selected' | 'round/gift-submitted' | 'round/haggle-swapped' | 'round/haggle-declined';
+export type GameEventType = 'game/created' | 'game/rematched' | 'player/joined' | 'player/princess-committed' | 'player/configured' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played' | 'power/activated' | 'power/contributed' | 'power/declined' | 'round/card-set-aside' | 'round/pass-submitted' | 'round/suit-committed' | 'round/suit-revealed' | 'round/half-selected' | 'round/gift-submitted' | 'round/haggle-swapped' | 'round/haggle-declined';
 export type GameEventPayload = {
   gameId: string;
   displayName?: string;
@@ -33,6 +34,8 @@ export type GameEventPayload = {
   powerId?: string;
   targetUid?: string;
   suit?: Card['suit'];
+  commitment?: string;
+  nonce?: string;
   artworkOption?: string;
 };
 
@@ -71,6 +74,7 @@ export interface GameProjection {
   totalScores: Record<string, number>;
   nextLeaderUid: string | null;
   princessOptions: Record<string, string[]>;
+  princessCommitments: Record<string, string>;
   gameNumber: number;
   gameComplete: boolean;
   zeroRounds: Record<string, number>;
@@ -84,6 +88,7 @@ export interface GameProjection {
   roundActionSubmissions: Record<string, Card>;
   roundCardSubmissions: Record<string, Card[]>;
   revealedSuits: Record<string, Card['suit']>;
+  suitCommitments: Record<string, string>;
   retainedCards: Record<string, Card[]>;
   haggleWinnerUid: string | null;
   blindTransferComplete: boolean;
@@ -128,7 +133,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   const event = value as Record<string, unknown>;
   const payload = event.payload as Record<string, unknown> | undefined;
   const common = (
-    ['game/created', 'game/rematched', 'player/joined', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted', 'round/haggle-swapped', 'round/haggle-declined'].includes(String(event.type)) &&
+    ['game/created', 'game/rematched', 'player/joined', 'player/princess-committed', 'player/configured', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-committed', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted', 'round/haggle-swapped', 'round/haggle-declined'].includes(String(event.type)) &&
     typeof event.actorUid === 'string' &&
     Number.isInteger(event.clientSeq) &&
     event.schemaVersion === SCHEMA_VERSION &&
@@ -138,7 +143,8 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   );
   if (!common) return false;
   if (event.type === 'game/created' || event.type === 'player/joined') return typeof payload.displayName === 'string';
-  if (event.type === 'player/configured') return (payload.princessId === undefined || typeof payload.princessId === 'string') && typeof payload.ready === 'boolean';
+  if (event.type === 'player/princess-committed' || event.type === 'round/suit-committed') return typeof payload.commitment === 'string' && /^[a-f0-9]{64}$/.test(payload.commitment);
+  if (event.type === 'player/configured') return (payload.princessId === undefined || typeof payload.princessId === 'string') && (payload.nonce === undefined || typeof payload.nonce === 'string') && typeof payload.ready === 'boolean';
   if (event.type === 'game/dealt') return typeof payload.seed === 'string' && Array.isArray(payload.roundIds) && payload.roundIds.length === 5 && !!payload.hands && typeof payload.hands === 'object';
   if (event.type === 'pass/submitted') return Array.isArray(payload.cards) && payload.cards.length > 0;
   if (event.type === 'card/played') return !!payload.card && typeof payload.card === 'object';
@@ -146,7 +152,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   if (event.type === 'power/contributed') return payload.powerId === 'sleeping-beauty' && !!payload.card;
   if (event.type === 'power/declined') return payload.powerId === 'mulan' || payload.powerId === 'scheherazade';
   if (event.type === 'round/card-set-aside' || event.type === 'round/pass-submitted' || event.type === 'round/gift-submitted') return !!payload.card;
-  if (event.type === 'round/suit-revealed') return typeof payload.suit === 'string' && SUITS.includes(payload.suit as Card['suit']);
+  if (event.type === 'round/suit-revealed') return typeof payload.suit === 'string' && SUITS.includes(payload.suit as Card['suit']) && (payload.nonce === undefined || typeof payload.nonce === 'string');
   if (event.type === 'round/half-selected') return Array.isArray(payload.cards) && payload.cards.length > 0;
   if (event.type === 'round/haggle-swapped') return Array.isArray(payload.cards) && payload.cards.length === 2;
   if (event.type === 'round/haggle-declined') return Object.keys(payload).length === 1;
@@ -174,11 +180,15 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let seed: string | null = null;
   const lastRematchIndex = ordered.findLastIndex((event) => event.type === 'game/rematched');
   const gameNumber = ordered.filter((event) => event.type === 'game/rematched').length;
+  const usesSealedPrincesses = ordered.some((event, index) => index > lastRematchIndex && event.type === 'player/princess-committed');
+  const firstPrincessCommitmentIndex = usesSealedPrincesses
+    ? ordered.findIndex((event, index) => index > lastRematchIndex && event.type === 'player/princess-committed')
+    : -1;
 
   let artworkOption = 'classic';
   for (const [index, event] of ordered.entries()) {
     gameId ||= event.payload.gameId;
-    if ((event.type === 'game/created' || event.type === 'player/joined') && !players.has(event.actorUid)) {
+    if ((event.type === 'game/created' || event.type === 'player/joined') && !players.has(event.actorUid) && (firstPrincessCommitmentIndex < 0 || index < firstPrincessCommitmentIndex)) {
       players.set(event.actorUid, {
         uid: event.actorUid,
         displayName: event.payload.displayName ?? 'Player',
@@ -186,21 +196,42 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         ready: false
       });
     }
-    if (event.type === 'player/configured' && index > lastRematchIndex) {
-      const player = players.get(event.actorUid);
-      if (player) players.set(event.actorUid, { ...player, princessId: event.payload.princessId, ready: event.payload.ready === true });
-    }
     if (event.payload.artworkOption) {
       artworkOption = event.payload.artworkOption;
     }
   }
 
+  const setupPlayers = [...players.values()];
+  const princessOptions = princessOptionsForPlayers(setupPlayers.map((player) => player.uid), gameNumber ? `${gameId}:rematch:${gameNumber}` : gameId);
+  const princessCommitments: Record<string, string> = {};
+  const princessReveals: Record<string, string> = {};
+  for (const [index, event] of ordered.entries()) {
+    if (index <= lastRematchIndex) continue;
+    const player = players.get(event.actorUid);
+    if (event.type === 'player/princess-committed' && player && event.payload.commitment && !princessCommitments[player.uid]) {
+      princessCommitments[player.uid] = event.payload.commitment;
+    }
+    if (event.type !== 'player/configured' || !player) continue;
+    if (!usesSealedPrincesses) {
+      players.set(player.uid, { ...player, princessId: event.payload.princessId, ready: event.payload.ready === true });
+      continue;
+    }
+    const princessId = event.payload.princessId;
+    const nonce = event.payload.nonce;
+    if (!princessId || !nonce || event.payload.ready !== true || princessReveals[player.uid] || !setupPlayers.every((candidate) => princessCommitments[candidate.uid])) continue;
+    if (!princessOptions[player.uid]?.includes(princessId)) continue;
+    if (choiceCommitment(princessChoiceScope(gameId, gameNumber, player.uid), princessId, nonce) !== princessCommitments[player.uid]) continue;
+    princessReveals[player.uid] = princessId;
+  }
+  if (usesSealedPrincesses && setupPlayers.length >= 3 && setupPlayers.every((player) => princessReveals[player.uid])) {
+    for (const player of setupPlayers) players.set(player.uid, { ...player, princessId: princessReveals[player.uid], ready: true });
+  }
+
   const playerList = [...players.values()];
-  const princessOptions = princessOptionsForPlayers(playerList.map((player) => player.uid), gameNumber ? `${gameId}:rematch:${gameNumber}` : gameId);
   const deals = ordered.map((event, index) => ({ event, index })).filter(({ event, index }) => event.type === 'game/dealt' && index > lastRematchIndex);
   const emptyCounts = () => Object.fromEntries(playerList.map((player) => [player.uid, 0]));
   const emptyTricks = () => Object.fromEntries(playerList.map((player) => [player.uid, [] as TrickPlay[][]]));
-  type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores' | 'exhaustedPrincessUids' | 'powerIdsThisTrick' | 'pendingMulanUid' | 'pendingPower' | 'forcedCards' | 'awaitingRoundAction' | 'roundActionSubmissions' | 'roundCardSubmissions' | 'revealedSuits' | 'retainedCards' | 'haggleWinnerUid' | 'blindTransferComplete' | 'rebelUids'> & { lastWinnerUid: string | null };
+  type RoundProjection = Pick<GameProjection, 'hands' | 'passSubmissions' | 'passComplete' | 'trick' | 'currentTurnUid' | 'princesBroken' | 'capturedCounts' | 'capturedTricks' | 'lastCompletedTrick' | 'completedTricks' | 'roundComplete' | 'roundScores' | 'exhaustedPrincessUids' | 'powerIdsThisTrick' | 'pendingMulanUid' | 'pendingPower' | 'forcedCards' | 'awaitingRoundAction' | 'roundActionSubmissions' | 'roundCardSubmissions' | 'revealedSuits' | 'suitCommitments' | 'retainedCards' | 'haggleWinnerUid' | 'blindTransferComplete' | 'rebelUids'> & { lastWinnerUid: string | null };
   const replayRound = (deal: GameEvent, segment: GameEvent[], leaderUid: string, priorTotals: Record<string, number>): RoundProjection => {
     let roundHands = deal.payload.hands
       ? Object.fromEntries(Object.entries(deal.payload.hands).map(([uid, cards]) => [uid, cards.map((card) => ({ ...card }))]))
@@ -233,6 +264,9 @@ export function deriveGame(events: GameEvent[]): GameProjection {
     let roundActionSubmissions: Record<string, Card> = {};
     let roundCardSubmissions: Record<string, Card[]> = {};
     const revealedSuits: Record<string, Card['suit']> = {};
+    const pendingRevealedSuits: Record<string, Card['suit']> = {};
+    const suitCommitments: Record<string, string> = {};
+    const usesSealedSuits = segment.some((event) => event.type === 'round/suit-committed');
     const retainedCards: Record<string, Card[]> = Object.fromEntries(playerList.map((player) => [player.uid, []]));
     const afterPartyReserves: Record<string, Card[]> = {};
     let afterPartyReleased = false;
@@ -287,7 +321,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       return deterministicCards(hand, `${deal.payload.seed}:${trickCount}:${powerId}:${uid}`, count);
     };
     const sortHand = (uid: string) => roundHands?.[uid]?.sort((left, right) => SUITS.indexOf(left.suit) - SUITS.indexOf(right.suit) || left.rank - right.rank);
-    if (roundHands && roundTrick) for (const event of segment.filter((entry) => ['card/played', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted', 'round/haggle-swapped', 'round/haggle-declined'].includes(entry.type))) {
+    if (roundHands && roundTrick) for (const event of segment.filter((entry) => ['card/played', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-committed', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted', 'round/haggle-swapped', 'round/haggle-declined'].includes(entry.type))) {
       const player = playerList.find((candidate) => candidate.uid === event.actorUid);
       if (event.type === 'round/haggle-declined') {
         const activeAction = awaitingRoundAction as GameProjection['awaitingRoundAction'];
@@ -326,11 +360,24 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         if (playerList.every((candidate) => roundCardSubmissions[candidate.uid])) { awaitingRoundAction = null; turnUid = roundTrick.leaderUid; }
         continue;
       }
+      if (event.type === 'round/suit-committed') {
+        if (awaitingRoundAction !== 'reveal-suit' || !player || !event.payload.commitment || suitCommitments[player.uid]) continue;
+        suitCommitments[player.uid] = event.payload.commitment;
+        continue;
+      }
       if (event.type === 'round/suit-revealed') {
         const suit = event.payload.suit;
-        if (awaitingRoundAction !== 'reveal-suit' || !player || !suit || revealedSuits[player.uid] || !roundHands[player.uid].some((card) => card.suit === suit)) continue;
-        revealedSuits[player.uid] = suit;
-        if (playerList.every((candidate) => revealedSuits[candidate.uid])) { awaitingRoundAction = null; turnUid = roundTrick.leaderUid; }
+        if (awaitingRoundAction !== 'reveal-suit' || !player || !suit || pendingRevealedSuits[player.uid] || !roundHands[player.uid].some((card) => card.suit === suit)) continue;
+        if (usesSealedSuits) {
+          if (!event.payload.nonce || !playerList.every((candidate) => suitCommitments[candidate.uid])) continue;
+          if (choiceCommitment(crystalClearChoiceScope(gameId, gameNumber, roundNumber, player.uid), suit, event.payload.nonce) !== suitCommitments[player.uid]) continue;
+        }
+        pendingRevealedSuits[player.uid] = suit;
+        if (playerList.every((candidate) => pendingRevealedSuits[candidate.uid])) {
+          Object.assign(revealedSuits, pendingRevealedSuits);
+          awaitingRoundAction = null;
+          turnUid = roundTrick.leaderUid;
+        }
         continue;
       }
       if (event.type === 'round/card-set-aside') {
@@ -483,10 +530,10 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       const bathroomExempt = roundId === 'bathroom-break' && (priorTotals[player.uid] ?? 0) === highestPrior;
       return [player.uid, roundCardScore(cards, roundId, bathroomExempt, princeCountInDeck)];
     }));
-    return { hands: roundHands, passSubmissions: submissions, passComplete: completePass, trick: roundTrick, currentTurnUid: finished ? null : turnUid || null, princesBroken: broken, capturedCounts: counts, capturedTricks: tricks, lastCompletedTrick: latest, completedTricks: trickCount, roundComplete: finished, roundScores: scores, lastWinnerUid, exhaustedPrincessUids: [...exhausted], powerIdsThisTrick: powersThisTrick, pendingMulanUid, pendingPower, forcedCards, awaitingRoundAction, roundActionSubmissions, roundCardSubmissions, revealedSuits, retainedCards, haggleWinnerUid, blindTransferComplete, rebelUids };
+    return { hands: roundHands, passSubmissions: submissions, passComplete: completePass, trick: roundTrick, currentTurnUid: finished ? null : turnUid || null, princesBroken: broken, capturedCounts: counts, capturedTricks: tricks, lastCompletedTrick: latest, completedTricks: trickCount, roundComplete: finished, roundScores: scores, lastWinnerUid, exhaustedPrincessUids: [...exhausted], powerIdsThisTrick: powersThisTrick, pendingMulanUid, pendingPower, forcedCards, awaitingRoundAction, roundActionSubmissions, roundCardSubmissions, revealedSuits, suitCommitments, retainedCards, haggleWinnerUid, blindTransferComplete, rebelUids };
   };
   let leaderUid = playerList[0]?.uid ?? '';
-  let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, roundRule: 0, total: 0 }])), lastWinnerUid: null, exhaustedPrincessUids: [], powerIdsThisTrick: [], pendingMulanUid: null, pendingPower: null, forcedCards: {}, awaitingRoundAction: null, roundActionSubmissions: {}, roundCardSubmissions: {}, revealedSuits: {}, retainedCards: Object.fromEntries(playerList.map((player) => [player.uid, []])), haggleWinnerUid: null, blindTransferComplete: false, rebelUids: [] };
+  let active: RoundProjection = { hands: null, passSubmissions: {}, passComplete: false, trick: null, currentTurnUid: null, princesBroken: false, capturedCounts: emptyCounts(), capturedTricks: emptyTricks(), lastCompletedTrick: null, completedTricks: 0, roundComplete: false, roundScores: Object.fromEntries(playerList.map((player) => [player.uid, { princes: 0, frog: 0, roundRule: 0, total: 0 }])), lastWinnerUid: null, exhaustedPrincessUids: [], powerIdsThisTrick: [], pendingMulanUid: null, pendingPower: null, forcedCards: {}, awaitingRoundAction: null, roundActionSubmissions: {}, roundCardSubmissions: {}, revealedSuits: {}, suitCommitments: {}, retainedCards: Object.fromEntries(playerList.map((player) => [player.uid, []])), haggleWinnerUid: null, blindTransferComplete: false, rebelUids: [] };
   const totalScores = emptyCounts();
   const zeroRounds = emptyCounts();
   const roundScoreHistory: Array<Record<string, RoundScore>> = [];
@@ -510,7 +557,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let winnerUids: string[] = [];
   if (gameComplete) winnerUids = gameWinners(playerList.map((player) => player.uid), totalScores, zeroRounds);
   const { lastWinnerUid: _lastWinnerUid, ...activeProjection } = active;
-  return { gameId, players: playerList, roundIds, seed, ...activeProjection, roundScoreHistory, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions, gameNumber, gameComplete, zeroRounds, winnerUids, artworkOption };
+  return { gameId, players: playerList, roundIds, seed, ...activeProjection, roundScoreHistory, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions, princessCommitments, gameNumber, gameComplete, zeroRounds, winnerUids, artworkOption };
 }
 
 export function replayCacheKey(gameId: string): string {
