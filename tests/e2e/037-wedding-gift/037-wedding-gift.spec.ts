@@ -10,7 +10,8 @@ test('Wedding Gift contributes and awards a face-down card before every trick', 
   const game = await setupRoundCardGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'Wedding Gift', undefined, [], { steps, direction: 'split', count: 2 });
   await steps.step('wedding-ready', { description: 'Before trick one, every client is prompted to put one hand card face down into the gift pile', verifications: [
     { spec: 'The exact gift rule is readable', check: async () => expect(page.getByText('Before each trick, everyone adds one face-down card to a gift pile won with that trick.')).toBeVisible() },
-    { spec: 'Every client has selectable gift cards', check: async () => { for (const player of game.players) await expect(player.locator('.playing-card.contributable').first()).toBeVisible(); } }
+    { spec: 'Every client has selectable gift cards', check: async () => { for (const player of game.players) await expect(player.locator('.playing-card.contributable').first()).toBeVisible(); } },
+    { spec: 'Alex sees all three seats highlighted as owing a gift', check: async () => { await expect(page.getByLabel('You: Choose gift')).toBeVisible(); await expect(page.getByLabel('Jo: Choose gift')).toBeVisible(); await expect(page.getByLabel('Sam: Choose gift')).toBeVisible(); } }
   ] });
   const gifts = await Promise.all(game.players.map(async (player) => await player.locator('.playing-card.contributable').first().getAttribute('aria-label') ?? ''));
 
@@ -21,6 +22,7 @@ test('Wedding Gift contributes and awards a face-down card before every trick', 
 
   await steps.step('wedding-one-wrapped', { description: `Alex clicks ${gifts[0]} as a face-down gift and waits without exposing it to the table center`, verifications: [
     { spec: 'Alex sees the wrapped waiting state', check: async () => expect(page.getByRole('alert')).toContainText('Gift wrapped · waiting for everyone') },
+    { spec: 'Alex is marked complete while Jo and Sam remain visibly active', check: async () => { await expect(page.getByLabel('You: Gift wrapped')).toBeVisible(); await expect(page.getByLabel('Jo: Choose gift')).toBeVisible(); await expect(page.getByLabel('Sam: Choose gift')).toBeVisible(); } },
     { spec: 'No ordinary card can be played while gifts are missing', check: async () => expect(page.locator('.playing-card.playable:not(:disabled)')).toHaveCount(0) }
   ] });
 
@@ -32,6 +34,8 @@ test('Wedding Gift contributes and awards a face-down card before every trick', 
   await clickAndConfirm(samGiftBtn, async () => {
     await expect(samGiftBtn).toHaveCount(0);
   });
+  await expect(page.locator('[data-action-state="active"]')).toHaveCount(1);
+  await expect(page.getByLabel(/Play a card$/)).toBeVisible();
 
   const played = [await clickCurrentCard(game.players), await clickCurrentCard(game.players), await clickCurrentCard(game.players)];
   const winner = (await Promise.all(['Alex', 'Jo', 'Sam'].map(async (name) => ({ name, count: await page.getByLabel(`${name} tricks`).textContent() })))).find((entry) => entry.count === '1')!.name;
