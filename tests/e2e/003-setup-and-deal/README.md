@@ -13,9 +13,19 @@ Three players choose from two deterministically dealt Princesses, ready themselv
 
 ---
 
+## Alex locks a Princess choice without exposing it to players who are still choosing
+
+![Alex locks a Princess choice without exposing it to players who are still choosing](./screenshots/001-princess-choice-sealed-desktop.png)
+
+**Verifications:**
+- [x] Jo sees that Alex is ready but not which Princess Alex selected
+- [x] Jo can still choose freely from both dealt Princesses
+
+---
+
 ## Five Round powers are drawn automatically instead of being chosen by the host
 
-![Five Round powers are drawn automatically instead of being chosen by the host](./screenshots/001-automatic-round-powers-desktop.png)
+![Five Round powers are drawn automatically instead of being chosen by the host](./screenshots/002-automatic-round-powers-desktop.png)
 
 **Verifications:**
 - [x] The host is told that Round powers will be drawn automatically
@@ -25,7 +35,7 @@ Three players choose from two deterministically dealt Princesses, ready themselv
 
 ## The first round is ready with the host’s exact twelve-card hand
 
-![The first round is ready with the host’s exact twelve-card hand](./screenshots/002-fixed-three-player-deal-desktop.png)
+![The first round is ready with the host’s exact twelve-card hand](./screenshots/003-fixed-three-player-deal-desktop.png)
 
 **Verifications:**
 - [x] The selected first Round card is illustrated at the center of Round 1 of 5

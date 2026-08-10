@@ -25,7 +25,9 @@ deals, passes, plays, Princess powers, captured tricks, scoring, and terminal
 events. All players may read all of it, including every hand and card exchange.
 A trustworthy client derives the full state but displays only the information
 the local player should see. There is deliberately no server-enforced private
-subtree and no attempt to prevent a curious or modified client from cheating.
+subtree. Commit/reveal prevents a player from changing a Princess or Crystal
+Clear choice after learning another player's choice, but a curious or modified
+client can still inspect hands and other shared event data.
 
 The game ID can also serve as its room/invite ID. Lobby and membership state are
 projections of the same stream rather than separate mutable documents. If a
@@ -33,12 +35,17 @@ public game browser is later required, it can be a disposable projection; it is
 not part of the canonical game record.
 
 Increment 3 deterministically deals two Princess options per seat from the game
-ID; one `player/configured` event records each player's game-long choice and
-readiness. A host-authored `game/dealt` event then contains the shuffle
-seed, the ordered five Round-card IDs, and every player's complete hand. The
-versioned reducer keeps all hands, while the trustworthy view renders only the
-local UID's cards and opponent card counts. Deck composition is 36 cards for
-three players, 40 for four or five, and 48 for six as specified in `RULES.md`.
+ID. Once at least three players are seated, the first
+`player/princess-committed` event locks that setup's roster; each such event
+contains a salted SHA-256 commitment. Only after every seated player has committed do
+clients append `player/configured` reveals containing the Princess and nonce.
+The reducer verifies every reveal and publishes all choices and readiness
+together; older streams without commitment events retain their original replay
+semantics. A host-authored `game/dealt` event then contains the shuffle seed,
+the ordered five Round-card IDs, and every player's complete hand. The versioned
+reducer keeps all hands, while the trustworthy view renders only the local UID's
+cards and opponent card counts. Deck composition is 36 cards for three players,
+40 for four or five, and 48 for six as specified in `RULES.md`.
 
 Increment 4 adds `pass/submitted` events and compensating `pass/retracted`
 events. Submissions contain the outgoing cards and are readable in the trusted
@@ -96,6 +103,14 @@ events: `round/card-set-aside` records each Late to the Ball reserve, and
 ordinary turns until every player contributes, after which replay releases or
 exchanges the cards deterministically in the same readable stream.
 
+Crystal Clear uses the same sealed-choice protocol: each player appends a
+`round/suit-committed` salted hash, then reveals the suit and nonce only after
+all players have committed. The reducer exposes no selected suits until every
+reveal validates, then publishes them simultaneously. The nonce and pending
+choice are kept in that browser's local storage until revealed; clearing that
+storage or switching devices mid-choice can therefore require recovery support
+in a future increment.
+
 Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt` (server
 timestamp), `schemaVersion`, and `reducerVersion`. Event documents are immutable.
 Increment 2 uses `{actorUid}-{zero-padded clientSeq}` as the stable event ID and
@@ -110,6 +125,9 @@ can identify duplicates or concurrent actions and resolve them deterministically
 - Every signed-in player may read the entire game stream, including all hands.
 - A client may append an event attributed to its own UID; events cannot be
   updated or deleted.
+- Salted commitments bind Princess and Crystal Clear choices before collective
+  reveal, preventing a later chooser from reacting to earlier revealed values.
+  This is fairness protection, not server-enforced secrecy for the full stream.
 - Trustworthy clients enforce turns and legal moves, validate the stream, and
   display only the hand and choices appropriate to the local player.
 - Reducer/hash mismatches should be visible because they indicate a bug or

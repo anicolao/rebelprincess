@@ -24,7 +24,14 @@ test('Crystal Clear reveals a chosen suit and keeps those cards playable', async
     { spec: 'All three clients have suit-choice buttons', check: async () => { for (const player of game.players) await expect(player.getByRole('group', { name: 'Crystal Clear suit choice' }).getByRole('button').first()).toBeVisible(); } }
   ] });
   const selections: Array<{ suit: string; labels: string[] }> = [];
-  for (const player of game.players) selections.push(await chooseFirstSuit(player));
+  selections.push(await chooseFirstSuit(game.players[0]));
+  selections.push(await chooseFirstSuit(game.players[1]));
+  await steps.step('crystal-choices-sealed', { description: 'Committed suits stay face down while Sam is still choosing', verifications: [
+    { spec: 'Alex receives a locked-choice receipt instead of revealing a suit', check: async () => expect(page.getByRole('group', { name: 'Crystal Clear suit choice' })).toContainText('Suit locked face down') },
+    { spec: 'No client can see Alex’s or Jo’s revealed cards yet', check: async () => { for (const player of game.players) await expect(player.getByRole('group', { name: /revealed .* cards/ })).toHaveCount(0); } },
+    { spec: 'Sam still has all legal suit choices available', check: async () => expect(game.players[2].getByRole('group', { name: 'Crystal Clear suit choice' }).getByRole('button').first()).toBeVisible() }
+  ] });
+  selections.push(await chooseFirstSuit(game.players[2]));
   await expect(page.getByRole('group', { name: "Jo's revealed fairies cards" }).or(page.getByRole('group', { name: new RegExp("Jo's revealed .* cards") }))).toBeVisible();
   await steps.step('crystal-public', { description: `Jo reveals ${selections[1].suit} and Sam reveals ${selections[2].suit}; their exact original cards are face up to Alex`, verifications: [
     { spec: 'Every Jo card selected by the reveal is publicly labelled', check: async () => { const group = page.getByRole('group', { name: new RegExp("Jo's revealed .* cards") }); for (const label of selections[1].labels) await expect(group.getByLabel(label, { exact: true })).toBeVisible(); } },

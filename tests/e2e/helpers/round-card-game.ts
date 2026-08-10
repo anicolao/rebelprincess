@@ -41,6 +41,8 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
         await expect(page.getByTestId('invite-code')).toHaveText(gameId);
       });
     }
+  }
+  for (const page of players) {
     const princessBtn = page.getByLabel('Choose one of your two Princesses').getByRole('button').filter({ hasNotText: 'Mulan' }).first();
     await clickAndConfirm(princessBtn, async () => {
       await expect(princessBtn).toHaveAttribute('aria-pressed', 'true');

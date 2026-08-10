@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { deriveGame, eventCursor, eventId, gameWinners, isGameEvent, nextRoundLeader, normalizeGameId, replayCacheKey, type GameEvent, type GameEventType, type GameEventPayload } from './game-events';
 import { princessOptionsForPlayers } from './setup';
+import { choiceCommitment, crystalClearChoiceScope, princessChoiceScope } from './choice-commitment';
 
 const event = (id: string, type: GameEventType, uid: string, name: string) => ({
   id,
@@ -48,6 +49,7 @@ describe('append-only game events', () => {
       totalScores: { host: 0, guest: 0 },
       nextLeaderUid: 'host',
       princessOptions: princessOptionsForPlayers(['host', 'guest'], 'MOON42'),
+      princessCommitments: {},
       gameNumber: 0,
       gameComplete: false,
       zeroRounds: { host: 0, guest: 0 },
@@ -61,6 +63,7 @@ describe('append-only game events', () => {
       roundActionSubmissions: {},
       roundCardSubmissions: {},
       revealedSuits: {},
+      suitCommitments: {},
       retainedCards: { host: [], guest: [] },
       haggleWinnerUid: null,
       blindTransferComplete: false,
@@ -92,6 +95,82 @@ describe('append-only game events', () => {
     ]);
     expect(projection.roundIds).toEqual(['a', 'b', 'c', 'd', 'e']);
     expect(projection.hands?.guest[0]).toEqual({ suit: 'pets', rank: 8 });
+  });
+
+  it('keeps Princess choices sealed until every committed choice is validly revealed', () => {
+    let sequence = 0;
+    const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
+      id: String(++sequence).padStart(2, '0'), type, payload: { gameId: 'SEALED6', ...payload }, actorUid,
+      clientSeq: sequence, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    });
+    const uids = ['a', 'b', 'c'];
+    const options = princessOptionsForPlayers(uids, 'SEALED6');
+    const choices = Object.fromEntries(uids.map((uid) => [uid, options[uid][0]]));
+    const nonces = { a: 'nonce-a', b: 'nonce-b', c: 'nonce-c' };
+    const events = [
+      make('game/created', 'a', { displayName: 'Alex' }),
+      make('player/joined', 'b', { displayName: 'Jo' }),
+      make('player/joined', 'c', { displayName: 'Sam' }),
+      ...uids.map((uid) => make('player/princess-committed', uid, {
+        commitment: choiceCommitment(princessChoiceScope('SEALED6', 0, uid), choices[uid], nonces[uid as keyof typeof nonces])
+      })),
+      make('player/joined', 'late', { displayName: 'Late arrival' }),
+      make('player/configured', 'a', { princessId: choices.a, nonce: nonces.a, ready: true }),
+      make('player/configured', 'b', { princessId: choices.b, nonce: nonces.b, ready: true }),
+      make('player/configured', 'c', { princessId: choices.c, nonce: 'wrong', ready: true })
+    ];
+
+    const stillSealed = deriveGame(events);
+    expect(stillSealed.players.map((player) => player.uid)).toEqual(uids);
+    expect(stillSealed.players.every((player) => !player.ready && player.princessId === undefined)).toBe(true);
+    expect(Object.keys(stillSealed.princessCommitments)).toEqual(uids);
+
+    events.push(make('player/configured', 'c', { princessId: choices.c, nonce: nonces.c, ready: true }));
+    const revealedTogether = deriveGame(events);
+    expect(revealedTogether.players.map((player) => ({ uid: player.uid, princessId: player.princessId, ready: player.ready }))).toEqual(
+      uids.map((uid) => ({ uid, princessId: choices[uid], ready: true }))
+    );
+  });
+
+  it('keeps Crystal Clear suits private until every commitment is validly revealed', () => {
+    let sequence = 0;
+    const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
+      id: String(++sequence).padStart(2, '0'), type, payload: { gameId: 'CRYSTAL6', ...payload }, actorUid,
+      clientSeq: sequence, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    });
+    const card = (suit: 'fairies' | 'queens', rank: number) => ({ suit, rank });
+    const choices = { a: 'fairies' as const, b: 'queens' as const, c: 'fairies' as const };
+    const nonces = { a: 'nonce-a', b: 'nonce-b', c: 'nonce-c' };
+    const events = [
+      make('game/created', 'a', { displayName: 'Alex' }),
+      make('player/joined', 'b', { displayName: 'Jo' }),
+      make('player/joined', 'c', { displayName: 'Sam' }),
+      make('game/dealt', 'a', { seed: 'crystal', roundIds: ['crystal-clear', 'once-upon-a-time', 'masquerade-ball', 'royal-decree', 'musical-chairs'], hands: {
+        a: [card('fairies', 2), card('queens', 2)],
+        b: [card('fairies', 3), card('queens', 3)],
+        c: [card('fairies', 4), card('queens', 4)]
+      } }),
+      make('pass/submitted', 'a', { cards: [card('fairies', 2), card('queens', 2)] }),
+      make('pass/submitted', 'b', { cards: [card('fairies', 3), card('queens', 3)] }),
+      make('pass/submitted', 'c', { cards: [card('fairies', 4), card('queens', 4)] }),
+      ...(['a', 'b', 'c'] as const).map((uid) => make('round/suit-committed', uid, {
+        commitment: choiceCommitment(crystalClearChoiceScope('CRYSTAL6', 0, 0, uid), choices[uid], nonces[uid])
+      })),
+      make('round/suit-revealed', 'a', { suit: choices.a, nonce: nonces.a }),
+      make('round/suit-revealed', 'b', { suit: choices.b, nonce: nonces.b }),
+      make('round/suit-revealed', 'c', { suit: choices.c, nonce: 'wrong' })
+    ];
+
+    const stillSealed = deriveGame(events);
+    expect(stillSealed.revealedSuits).toEqual({});
+    expect(Object.keys(stillSealed.suitCommitments)).toEqual(['a', 'b', 'c']);
+    expect(stillSealed.awaitingRoundAction).toBe('reveal-suit');
+
+    events.push(make('round/suit-revealed', 'c', { suit: choices.c, nonce: nonces.c }));
+    const revealedTogether = deriveGame(events);
+    expect(revealedTogether.revealedSuits).toEqual(choices);
+    expect(revealedTogether.awaitingRoundAction).toBeNull();
+    expect(revealedTogether.currentTurnUid).toBe('a');
   });
 
   it('versions the replay cache with the reducer', () => {
@@ -132,6 +211,17 @@ describe('append-only game events', () => {
       type, payload: { gameId: 'MOON42', card: { suit: 'queens', rank: 4 } }, actorUid: 'host',
       clientSeq: 9, createdAt: null, schemaVersion: 1, reducerVersion: 1
     })).toBe(true);
+  });
+
+  it('validates sealed-choice commitment envelopes', () => {
+    for (const type of ['player/princess-committed', 'round/suit-committed'] as const) expect(isGameEvent({
+      type, payload: { gameId: 'MOON42', commitment: 'a'.repeat(64) }, actorUid: 'host',
+      clientSeq: 10, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    })).toBe(true);
+    expect(isGameEvent({
+      type: 'round/suit-committed', payload: { gameId: 'MOON42', commitment: 'not-a-hash' }, actorUid: 'host',
+      clientSeq: 11, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    })).toBe(false);
   });
 
   it('scores Princes and the Frog and carries the last winner into the next round', () => {

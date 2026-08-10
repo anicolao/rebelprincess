@@ -76,6 +76,18 @@ test('three clients choose setup and receive a deterministic selective deal', as
   });
 
   const hostPrincess = await choose(page);
+  await steps.step('princess-choice-sealed', {
+    description: 'Alex locks a Princess choice without exposing it to players who are still choosing',
+    verifications: [
+      { spec: 'Jo sees that Alex is ready but not which Princess Alex selected', check: async () => {
+        const alex = guest.getByRole('list', { name: 'Players' }).getByRole('listitem').filter({ hasText: 'Alex' });
+        await expect(alex).toContainText('Princess hidden');
+        await expect(alex).toContainText('Ready');
+        await expect(alex).not.toContainText(hostPrincess);
+      } },
+      { spec: 'Jo can still choose freely from both dealt Princesses', check: async () => expect(guest.getByLabel('Choose one of your two Princesses').getByRole('button')).toHaveCount(2) }
+    ]
+  });
   const guestPrincess = await choose(guest);
   const thirdPrincess = await choose(third);
   await expect(page.getByRole('list', { name: 'Players' })).toContainText(`Alex · ${hostPrincess}`);
