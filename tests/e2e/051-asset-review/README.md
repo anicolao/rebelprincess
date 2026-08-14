@@ -1,49 +1,111 @@
 # Asset review
 
-Review raw sprite sheets, source-specific cell boundaries, and every in-game crop without entering a game.
+Review all nine regenerated atlases and verify that every sprite uses the same exact regular-grid crop path.
 
-## The review route opens the irregular Fairy atlas with all twelve complete frames and their source coordinates
+## Fairy cards uses a complete edge-to-edge 6 × 2 uniform grid
 
-![The review route opens the irregular Fairy atlas with all twelve complete frames and their source coordinates](./screenshots/000-fairy-crops-desktop.png)
+![Fairy cards uses a complete edge-to-edge 6 × 2 uniform grid](./screenshots/000-fairy-crops-desktop.png)
 
 **Verifications:**
-- [x] The route keeps its GitHub Pages-compatible trailing slash
-- [x] All nine source atlases are available
-- [x] The route reports all ninety-one sprites
-- [x] Every Fairy rank has one computed crop
-- [x] Generated gameplay cards fill their canonical frame
-- [x] The indivisible sheet ends exactly at pixel 1651
+- [x] All 12 sprites are rendered
+- [x] Every sprite uses the shared 6x2 grid renderer
+- [x] The first crop starts at the source origin
+- [x] The final crop reaches the source bottom-right edge
 
 ---
 
-## The four original suit-family panels use their native source widths instead of a shared gameplay-card ratio
+## Queen cards uses a complete edge-to-edge 6 × 2 uniform grid
 
-![The four original suit-family panels use their native source widths instead of a shared gameplay-card ratio](./screenshots/001-original-family-crops-desktop.png)
+![Queen cards uses a complete edge-to-edge 6 × 2 uniform grid](./screenshots/001-queen-crops-desktop.png)
 
 **Verifications:**
-- [x] All four original suit families are rendered
-- [x] The first panel reports its native frame aspect
+- [x] All 12 sprites are rendered
+- [x] Every sprite uses the shared 6x2 grid renderer
+- [x] The first crop starts at the source origin
+- [x] The final crop reaches the source bottom-right edge
 
 ---
 
-## Measured Princess rectangles exclude every unequal white gutter in the original portrait sheet
+## Prince cards uses a complete edge-to-edge 6 × 2 uniform grid
 
-![Measured Princess rectangles exclude every unequal white gutter in the original portrait sheet](./screenshots/002-princess-crops-desktop.png)
+![Prince cards uses a complete edge-to-edge 6 × 2 uniform grid](./screenshots/002-prince-crops-desktop.png)
 
 **Verifications:**
-- [x] All ten original Princess portraits are rendered
-- [x] The first portrait starts after the outer gutter
-- [x] The final portrait stops before the bottom and right gutters
+- [x] All 12 sprites are rendered
+- [x] Every sprite uses the shared 6x2 grid renderer
+- [x] The first crop starts at the source origin
+- [x] The final crop reaches the source bottom-right edge
 
 ---
 
-## Measured Round-card rectangles exclude the unequal cream gutters around all twenty-one vignettes
+## Pet cards uses a complete edge-to-edge 6 × 2 uniform grid
 
-![Measured Round-card rectangles exclude the unequal cream gutters around all twenty-one vignettes](./screenshots/003-round-crops-desktop.png)
+![Pet cards uses a complete edge-to-edge 6 × 2 uniform grid](./screenshots/003-pet-crops-desktop.png)
 
 **Verifications:**
-- [x] All twenty-one Round crops are rendered
-- [x] The first crop excludes its top and left gutters
-- [x] The final crop excludes its bottom and right gutters
+- [x] All 12 sprites are rendered
+- [x] Every sprite uses the shared 6x2 grid renderer
+- [x] The first crop starts at the source origin
+- [x] The final crop reaches the source bottom-right edge
+
+---
+
+## Original suit families uses a complete edge-to-edge 4 × 1 uniform grid
+
+![Original suit families uses a complete edge-to-edge 4 × 1 uniform grid](./screenshots/004-family-crops-desktop.png)
+
+**Verifications:**
+- [x] All 4 sprites are rendered
+- [x] Every sprite uses the shared 4x1 grid renderer
+- [x] The first crop starts at the source origin
+- [x] The final crop reaches the source bottom-right edge
+
+---
+
+## Princesses uses a complete edge-to-edge 5 × 2 uniform grid
+
+![Princesses uses a complete edge-to-edge 5 × 2 uniform grid](./screenshots/005-princess-crops-desktop.png)
+
+**Verifications:**
+- [x] All 10 sprites are rendered
+- [x] Every sprite uses the shared 5x2 grid renderer
+- [x] The first crop starts at the source origin
+- [x] The final crop reaches the source bottom-right edge
+
+---
+
+## Deluxe Princesses uses a complete edge-to-edge 2 × 1 uniform grid
+
+![Deluxe Princesses uses a complete edge-to-edge 2 × 1 uniform grid](./screenshots/006-deluxe-princess-crops-desktop.png)
+
+**Verifications:**
+- [x] All 2 sprites are rendered
+- [x] Every sprite uses the shared 2x1 grid renderer
+- [x] The first crop starts at the source origin
+- [x] The final crop reaches the source bottom-right edge
+
+---
+
+## Round cards uses a complete edge-to-edge 7 × 3 uniform grid
+
+![Round cards uses a complete edge-to-edge 7 × 3 uniform grid](./screenshots/007-round-crops-desktop.png)
+
+**Verifications:**
+- [x] All 21 sprites are rendered
+- [x] Every sprite uses the shared 7x3 grid renderer
+- [x] The first crop starts at the source origin
+- [x] The final crop reaches the source bottom-right edge
+
+---
+
+## Deluxe Round cards uses a complete edge-to-edge 3 × 2 uniform grid
+
+![Deluxe Round cards uses a complete edge-to-edge 3 × 2 uniform grid](./screenshots/008-deluxe-round-crops-desktop.png)
+
+**Verifications:**
+- [x] All 6 sprites are rendered
+- [x] Every sprite uses the shared 3x2 grid renderer
+- [x] The first crop starts at the source origin
+- [x] The final crop reaches the source bottom-right edge
 
 ---

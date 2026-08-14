@@ -1,42 +1,40 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
-test('asset review exposes every atlas and its source-specific crop map', async ({ page }, testInfo) => {
+const atlases = [
+  { button: 'Fairy cards 12 cells', name: 'Fairy cards', id: 'fairy-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500' },
+  { button: 'Queen cards 12 cells', name: 'Queen cards', id: 'queen-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500' },
+  { button: 'Prince cards 12 cells', name: 'Prince cards', id: 'prince-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500' },
+  { button: 'Pet cards 12 cells', name: 'Pet cards', id: 'pet-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500' },
+  { button: 'Original suit families 4 cells', name: 'Original suit families', id: 'family-crops', grid: '4x1', count: 4, first: '0,0 · 300×500', last: '900,0 · 300×500' },
+  { button: 'Princesses 10 cells', name: 'Princesses', id: 'princess-crops', grid: '5x2', count: 10, first: '0,0 · 300×500', last: '1200,500 · 300×500' },
+  { button: 'Deluxe Princesses 2 cells', name: 'Deluxe Princesses', id: 'deluxe-princess-crops', grid: '2x1', count: 2, first: '0,0 · 600×1000', last: '600,0 · 600×1000' },
+  { button: 'Round cards 21 cells', name: 'Round cards', id: 'round-crops', grid: '7x3', count: 21, first: '0,0 · 240×280', last: '1440,560 · 240×280' },
+  { button: 'Deluxe Round cards 6 cells', name: 'Deluxe Round cards', id: 'deluxe-round-crops', grid: '3x2', count: 6, first: '0,0 · 500×500', last: '1000,500 · 500×500' }
+] as const;
+
+test('asset review exposes every regenerated atlas through one uniform grid renderer', async ({ page }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
-  steps.setMetadata('Asset review', 'Review raw sprite sheets, source-specific cell boundaries, and every in-game crop without entering a game.');
+  steps.setMetadata('Asset review', 'Review all nine regenerated atlases and verify that every sprite uses the same exact regular-grid crop path.');
 
   await page.goto('/assets/');
-  await steps.step('fairy-crops', { description: 'The review route opens the irregular Fairy atlas with all twelve complete frames and their source coordinates', verifications: [
-    { spec: 'The route keeps its GitHub Pages-compatible trailing slash', check: async () => expect(page).toHaveURL(/\/assets\/$/) },
-    { spec: 'All nine source atlases are available', check: async () => expect(page.getByRole('navigation', { name: 'Asset atlases' }).getByRole('button')).toHaveCount(9) },
-    { spec: 'The route reports all ninety-one sprites', check: async () => expect(page.getByRole('status')).toContainText('91 sprites') },
-    { spec: 'Every Fairy rank has one computed crop', check: async () => expect(page.getByLabel('Fairy cards computed crops').locator('.crop-card')).toHaveCount(12) },
-    { spec: 'Generated gameplay cards fill their canonical frame', check: async () => expect(page.getByLabel('Fairy cards computed crops').locator('.card-art[data-fit="stretch"]')).toHaveCount(12) },
-    { spec: 'The indivisible sheet ends exactly at pixel 1651', check: async () => expect(page.getByText('1376,477 · 275×476')).toBeVisible() }
-  ] });
+  await expect(page).toHaveURL(/\/assets\/$/);
+  await expect(page.getByRole('navigation', { name: 'Asset atlases' }).getByRole('button')).toHaveCount(9);
+  await expect(page.getByRole('status')).toContainText('91 sprites');
 
-  await page.getByRole('button', { name: 'Original suit families 4 cells', exact: true }).click();
-  await steps.step('original-family-crops', { description: 'The four original suit-family panels use their native source widths instead of a shared gameplay-card ratio', verifications: [
-    { spec: 'All four original suit families are rendered', check: async () => expect(page.getByLabel('Original suit families computed crops').locator('.crop-card')).toHaveCount(4) },
-    { spec: 'The first panel reports its native frame aspect', check: async () => expect(page.getByLabel('Original suit families computed crops').locator('.card-art').first()).toHaveAttribute('data-frame-aspect', '0.46834') }
-  ] });
-
-  await page.getByRole('button', { name: 'Princesses 10 cells', exact: true }).click();
-  await steps.step('princess-crops', { description: 'Measured Princess rectangles exclude every unequal white gutter in the original portrait sheet', verifications: [
-    { spec: 'All ten original Princess portraits are rendered', check: async () => expect(page.getByLabel('Princesses computed crops').locator('.crop-card')).toHaveCount(10) },
-    { spec: 'The first portrait starts after the outer gutter', check: async () => expect(page.getByText('6,5 · 312×504')).toBeVisible() },
-    { spec: 'The final portrait stops before the bottom and right gutters', check: async () => expect(page.getByText('1219,516 · 309×499')).toBeVisible() }
-  ] });
-
-  await page.getByRole('button', { name: 'Round cards 21 cells', exact: true }).click();
-  await steps.step('round-crops', { description: 'Measured Round-card rectangles exclude the unequal cream gutters around all twenty-one vignettes', verifications: [
-    { spec: 'All twenty-one Round crops are rendered', check: async () => expect(page.getByLabel('Round cards computed crops').locator('.crop-card')).toHaveCount(21) },
-    { spec: 'The first crop excludes its top and left gutters', check: async () => expect(page.getByText('7,7 · 243×263')).toBeVisible() },
-    { spec: 'The final crop excludes its bottom and right gutters', check: async () => expect(page.getByText('1525,580 · 243×276')).toBeVisible() }
-  ] });
-
-  await page.getByRole('button', { name: 'Deluxe Round cards 6 cells', exact: true }).click();
-  await expect(page.getByLabel('Deluxe Round cards computed crops').locator('.card-art[data-fit="contain"]')).toHaveCount(6);
+  for (const atlas of atlases) {
+    await page.getByRole('button', { name: atlas.button, exact: true }).click();
+    const crops = page.getByLabel(`${atlas.name} computed crops`);
+    await steps.step(atlas.id, {
+      description: `${atlas.name} uses a complete edge-to-edge ${atlas.grid.replace('x', ' × ')} uniform grid`,
+      verifications: [
+        { spec: `All ${atlas.count} sprites are rendered`, check: async () => expect(crops.locator('.crop-card')).toHaveCount(atlas.count) },
+        { spec: `Every sprite uses the shared ${atlas.grid} grid renderer`, check: async () => expect(crops.locator(`.card-art[data-grid="${atlas.grid}"]`)).toHaveCount(atlas.count) },
+        { spec: 'The first crop starts at the source origin', check: async () => expect(page.getByText(atlas.first, { exact: true })).toBeVisible() },
+        { spec: 'The final crop reaches the source bottom-right edge', check: async () => expect(page.getByText(atlas.last, { exact: true })).toBeVisible() }
+      ]
+    });
+  }
 
   steps.generateDocs();
 });

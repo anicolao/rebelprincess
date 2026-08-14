@@ -104,7 +104,7 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
         const played = page.getByLabel('Alex played Fairies 6');
         const art = played.locator('.trick-card .card-art');
         await expect(art.locator('image')).toHaveAttribute('href', /fairies.*\.png/);
-        await expect(art).toHaveAttribute('data-cell', '1376,0,275,477');
+        await expect(art).toHaveAttribute('data-cell', '1500,0,300,500');
         await expect(played.locator('strong')).toHaveText('6');
       } },
       { spec: 'The played card animates from the hand into the table', check: async () => expect(page.getByLabel('Alex played Fairies 6').locator('.trick-card')).toHaveCSS('animation-name', /play-to-table$/) },
@@ -137,7 +137,7 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
         await expect(completedPlay).toHaveCSS('animation-timing-function', 'ease-in-out');
         const art = completedPlay.locator('.trick-card .card-art');
         await expect(art.locator('image')).toHaveAttribute('href', /fairies.*\.png/);
-        await expect(art).toHaveAttribute('data-cell', '1101,0,275,477');
+        await expect(art).toHaveAttribute('data-cell', '1200,0,300,500');
       } }
     ]
   });
