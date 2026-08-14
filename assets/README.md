@@ -36,8 +36,13 @@ without imitating the original illustrator or any other named artist.
 
 Every source image is an edge-to-edge regular grid with equal cells. Each cell
 owns its complete ornamental border; there are no outer margins, inter-cell
-gutters, shared borders, crop marks, or material outside the grid. Generated
-outputs were normalized to dimensions exactly divisible by their grids:
+gutters, shared borders, crop marks, or material outside the grid. The Fairy,
+Queen, Prince, Deluxe Princess, Round, and Deluxe Round sheets are assembled
+from independently generated illustrations by `scripts/assemble-generated-atlas.ts`.
+That tool center-crops each illustration into a fixed interior, draws one
+identical frame template per family, and rejects an atlas unless all four frame
+strip hashes match across every cell. Outputs use dimensions exactly divisible
+by their grids:
 
 - gameplay suits: 1800 × 1000, 6 × 2, 300 × 500 cells
 - suit families: 1200 × 500, 4 × 1, 300 × 500 cells
@@ -58,38 +63,40 @@ edge-to-edge into its matching frame. No atlas has crop overrides or fit modes.
 
 ## Prompt record
 
-All nine final prompts requested original hand-painted storybook gouache,
-subtle paper texture, crisp card-size silhouettes, generic ornamental geometry,
-no logos, no readable text, no watermarks, no existing Rebel Princess artwork,
-and no imitation of a named artist. Existing atlases were supplied only as
-style references; every character, pose, setting, and symbolic composition was
-regenerated.
+All final prompts requested original hand-painted storybook gouache, subtle
+paper texture, no logos, no readable text, no watermarks, no existing Rebel
+Princess artwork, and no imitation of a named artist. Existing atlases were
+supplied only as style references; every character, pose, setting, and symbolic
+composition was regenerated.
 
-Every prompt stated the grid dimensions, complete-cell aspect ratio, exact
-row-major count, edge-to-edge canvas extent, and independent ownership of a
-complete border on all four cell edges. They explicitly prohibited outer
-margins, gutters, gaps, shared seams, blank strips, checkerboards, crop marks,
-and content crossing a cell boundary.
+An initial attempt asked image generation to produce complete multi-card grids.
+Although the output bitmap dimensions were divisible by the declared grids,
+the model drew ornamental frames at inconsistent offsets inside those cells.
+The runtime crop math was exact but some visible cards were therefore narrower,
+wider, or clipped. The rejected sheets were replaced by standalone prompts:
+one full-bleed illustration per card, explicitly prohibiting borders, outlines,
+ornamental frames, rounded rectangles, margins, gutters, and blank strips.
+Mechanical card geometry now comes only from the deterministic assembler.
 
-The four gameplay-suit prompts each specified a 6 × 2 grid of 3:5 cells. Fairies
-use amber, honey-gold, and bronze; Queens use plum, aubergine, burgundy, and
-rose-gold; Princes use midnight blue, cobalt, and silver; Pets use moss green,
-emerald, and antique gold. Queen cells 11 and 12 explicitly prohibit blue
-dominance, and Fairy cell 10 explicitly remains amber rather than blue. Pet
-species and the rank-8-only Frog remain fixed by row-major position.
+The standalone Fairy prompts use amber, honey-gold, ochre, and bronze; Fairy 10
+explicitly remains amber rather than blue. Queen prompts use plum, aubergine,
+burgundy, wine, and rose-gold, with blue dominance prohibited in every card.
+Prince prompts use midnight blue, cobalt, navy, silver, and restrained antique
+gold. Each rank requests a distinct adult character pose, prop, and setting.
+The accepted Pet sheet remains moss green, emerald, and antique gold, with its
+fixed species order and the only Frog at rank 8.
 
 The suit-family prompt specified four 3:5 concept panels: luminous Fairies with
 a crystal wand, an empty Queen throne, an abandoned Prince sword/boot/bouquet,
 and enchanted Pets centered on a crowned frog. Its palette constraints match
 the four gameplay sheets.
 
-The Princess prompt specified ten diverse adult fairy-tale archetypes in a
-5 × 2 grid with a complete intentional ivory border. The Deluxe Princess prompt
-uses the same geometry and border language for Rapunzel with a practical
-climbing braid and Thumbelina among oversized clover and bellflowers.
+The accepted original Princess prompt specified ten diverse adult fairy-tale
+archetypes. The two replacement Deluxe Princess prompts independently generate
+Rapunzel with a practical climbing braid and Thumbelina among oversized clover
+and bellflowers; the assembler gives both the same 600 × 1000 ivory frame.
 
-The original Round prompt specified the twenty-one row-major symbolic scenes
-enumerated in `manifest.json` in a 7 × 3 grid of 6:7 cells with complete beige
-borders. A targeted follow-up removed only an unwanted outer parchment band.
-The Deluxe Round prompt specified its six enumerated scenes in a 3 × 2 grid of
-square cells with the same complete-border requirement.
+The twenty-one original Round prompts and six Deluxe Round prompts each request
+one standalone symbolic scene matching the row-major IDs in `manifest.json`.
+The assembler center-crops them and applies identical beige frames at 240 × 280
+and 500 × 500 respectively.
