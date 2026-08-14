@@ -362,9 +362,9 @@ describe('append-only game events', () => {
       make('pass/submitted', 'b', { cards: [fairies(3)] }),
       make('pass/submitted', 'c', { cards: [fairies(4)] }),
       make('power/activated', 'a', { powerId: 'sleeping-beauty' }),
+      make('power/contributed', 'c', { powerId: 'sleeping-beauty', card: fairies(3) }),
       make('power/contributed', 'a', { powerId: 'sleeping-beauty', card: fairies(4) }),
-      make('power/contributed', 'b', { powerId: 'sleeping-beauty', card: fairies(2) }),
-      make('power/contributed', 'c', { powerId: 'sleeping-beauty', card: fairies(3) })
+      make('power/contributed', 'b', { powerId: 'sleeping-beauty', card: fairies(2) })
     ];
 
     const collecting = deriveGame(events);
