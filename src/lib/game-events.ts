@@ -407,6 +407,9 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         if (!roundHands[event.actorUid]?.some((card) => cardLabel(card) === cardLabel(event.payload.card!))) continue;
         roundHands[event.actorUid] = roundHands[event.actorUid].filter((card) => cardLabel(card) !== cardLabel(event.payload.card!));
         pendingPower.cards.push({ uid: event.actorUid, card: event.payload.card });
+        pendingPower.cards.sort((left, right) =>
+          playerList.findIndex((player) => player.uid === left.uid) - playerList.findIndex((player) => player.uid === right.uid)
+        );
         continue;
       }
       if (event.type === 'power/declined') {
