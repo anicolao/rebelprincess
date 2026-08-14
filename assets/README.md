@@ -14,14 +14,14 @@ without imitating the original illustrator or any other named artist.
 
 - `generated/suited-card-families.png`: four panels for Fairies, Queens,
   Princes, and Pets. Values and suit labels should be rendered by the client.
-- `generated/alternate-suits-review/fairies.png`: review-only alternate Fairy
-  art for ranks 1–12 in a 6 × 2 row-major grid.
-- `generated/alternate-suits-review/queens.png`: review-only alternate Queen
-  art for ranks 1–12 in a 6 × 2 row-major grid.
-- `generated/alternate-suits-review/princes.png`: review-only alternate Prince
-  art for ranks 1–12 in a 6 × 2 row-major grid.
-- `generated/alternate-suits-review/pets.png`: review-only alternate Pet art
-  for ranks 1–12 in a 6 × 2 row-major grid. The species are rabbit, fox,
+- `generated/alternate-suits-review/fairies.png`: gameplay Fairy art for ranks
+  1–12 in a 6 × 2 row-major grid.
+- `generated/alternate-suits-review/queens.png`: gameplay Queen art for ranks
+  1–12 in a 6 × 2 row-major grid.
+- `generated/alternate-suits-review/princes.png`: gameplay Prince art for ranks
+  1–12 in a 6 × 2 row-major grid.
+- `generated/alternate-suits-review/pets.png`: gameplay Pet art for ranks 1–12
+  in a 6 × 2 row-major grid. The species are rabbit, fox,
   hedgehog, owl, cat, tortoise, squirrel, frog, dragon, dog, raven, and fawn.
 - `generated/princess-portraits.png`: ten portraits in a 5 × 2 grid.
 - `generated/princess-portraits-deluxe.png`: Rapunzel and Thumbelina in a
@@ -36,6 +36,12 @@ Keep typography out of the bitmap assets. HTML-rendered names, values, and rule
 text remain exact, accessible, localizable, and deterministic under E2E tests.
 The atlases are source assets; an implementation may crop optimized derivatives
 during its build without changing the canonical IDs in the manifest.
+
+The app's `/assets` route displays every source atlas, its computed integer-pixel
+grid, and all 91 rendered cells. Runtime crops use shared rounded pixel edges so
+atlases whose dimensions are not evenly divisible by their grid never sample a
+neighbouring cell. The complete source cell is contained in the game's target
+frame instead of being center-cropped, preserving ornamental card borders.
 
 ## Prompt record
 
@@ -64,10 +70,11 @@ Lady, Arranged Marriage, Always the Bridesmaid, Sisterhood, and Late for a Very
 Important Date. It uses original symbolic compositions and contains no copied
 commercial artwork or readable text.
 
-The alternate suit review set was generated with `suited-card-families.png` as
+The alternate suit set was generated with `suited-card-families.png` as
 a palette, texture, framing, and crop-safety reference. Each suit uses a fixed
 6 × 2 row-major grid for ranks 1–12 and requests a distinct character, pose,
 setting, and motif in every cell. The Pet prompt fixes every species by rank and
 explicitly reserves the only frog or frog imagery for rank 8. These four sheets
-are intentionally absent from `manifest.json` until their art direction is
-approved and the client is changed to use them.
+are used by the client; their stable runtime mapping lives in
+`src/lib/asset-sprites.ts` while `manifest.json` retains the original concept
+atlas mapping.

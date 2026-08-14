@@ -102,7 +102,9 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
       { spec: 'The shared trick shows Alex’s Fairy 6', check: async () => expect(page.getByLabel('Alex played Fairies 6')).toBeVisible() },
       { spec: 'The played card uses the Fairies atlas graphic and visible value', check: async () => {
         const played = page.getByLabel('Alex played Fairies 6');
-        await expect(played.locator('.trick-card .card-art')).toHaveCSS('background-image', /fairies/);
+        const art = played.locator('.trick-card .card-art');
+        await expect(art.locator('image')).toHaveAttribute('href', /fairies.*\.png/);
+        await expect(art).toHaveAttribute('data-cell', '1376,0,275,477');
         await expect(played.locator('strong')).toHaveText('6');
       } },
       { spec: 'The played card animates from the hand into the table', check: async () => expect(page.getByLabel('Alex played Fairies 6').locator('.trick-card')).toHaveCSS('animation-name', /play-to-table$/) },
@@ -133,7 +135,9 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
         const completedPlay = page.getByLabel('Sam played Fairies 5');
         await expect(completedPlay).toHaveCSS('animation-duration', '3s');
         await expect(completedPlay).toHaveCSS('animation-timing-function', 'ease-in-out');
-        await expect(completedPlay.locator('.trick-card .card-art')).toHaveCSS('background-image', /fairies/);
+        const art = completedPlay.locator('.trick-card .card-art');
+        await expect(art.locator('image')).toHaveAttribute('href', /fairies.*\.png/);
+        await expect(art).toHaveAttribute('data-cell', '1101,0,275,477');
       } }
     ]
   });
