@@ -4,9 +4,8 @@
   import '@fontsource/cormorant-garamond/latin-600.css';
   import '@fontsource/cormorant-garamond/latin-700.css';
   import { base } from '$app/paths';
-  import { assetAtlases, atlasSpriteProps } from '$lib/asset-sprites';
+  import { assetAtlases, atlasCell, atlasFrameAspect, atlasSpriteProps } from '$lib/asset-sprites';
   import SpriteCard from '$lib/components/SpriteCard.svelte';
-  import { spriteCell } from '$lib/sprite-crop';
 
   let selectedId = assetAtlases[0].id;
   $: selected = assetAtlases.find(({ id }) => id === selectedId) ?? assetAtlases[0];
@@ -27,7 +26,7 @@
     <div>
       <p class="eyebrow">Visual QA</p>
       <h1 id="asset-title">Asset review</h1>
-      <p>Inspect the original atlas, its integer pixel grid, and every in-game crop. Cells use shared rounded pixel edges and preserve the complete source frame.</p>
+      <p>Inspect each source atlas, its measured pixel boundaries, and every in-game crop. Uniform sheets use an integer grid; irregular sheets use explicit rectangles that exclude their gutters.</p>
     </div>
     <p class="review-status" role="status" data-status="synced"><strong>{assetAtlases.length}</strong> atlases · <strong>{assetAtlases.reduce((sum, atlas) => sum + atlas.cells.length, 0)}</strong> sprites</p>
   </section>
@@ -42,10 +41,10 @@
 
   <section class="atlas-review" aria-labelledby="selected-atlas-name">
     <header class="atlas-heading">
-      <div><p class="eyebrow">{selected.cols} × {selected.rows} atlas</p><h2 id="selected-atlas-name">{selected.name}</h2><p>{selected.description}</p></div>
+      <div><p class="eyebrow">{selected.cols} × {selected.rows} atlas · {selected.crops ? 'measured crops' : 'integer grid'}</p><h2 id="selected-atlas-name">{selected.name}</h2><p>{selected.description}</p></div>
       <dl>
         <div><dt>Source</dt><dd>{selected.sheetWidth} × {selected.sheetHeight}px</dd></div>
-        <div><dt>Frame</dt><dd>{selected.targetAspect.toFixed(3)} aspect</dd></div>
+        <div><dt>Frame</dt><dd>{selected.targetAspect === 'source' ? 'native crop' : `${selected.targetAspect.toFixed(3)} aspect`}</dd></div>
         <div><dt>Fit</dt><dd>{selected.fit}</dd></div>
       </dl>
     </header>
@@ -53,8 +52,11 @@
     <figure class="source-atlas">
       <div class="source-image">
         <img src={selected.src} alt={`${selected.name} source atlas`} width={selected.sheetWidth} height={selected.sheetHeight} />
-        <div class="grid-overlay" style={`--cols: ${selected.cols}; --rows: ${selected.rows}`} aria-hidden="true">
-          {#each selected.cells as _}<i></i>{/each}
+        <div class="grid-overlay" aria-hidden="true">
+          {#each selected.cells as _, index}
+            {@const crop = atlasCell(selected, index)}
+            <i style={`left:${crop.x / selected.sheetWidth * 100}%;top:${crop.y / selected.sheetHeight * 100}%;width:${crop.width / selected.sheetWidth * 100}%;height:${crop.height / selected.sheetHeight * 100}%`}></i>
+          {/each}
         </div>
       </div>
       <figcaption>Source atlas with computed cell boundaries</figcaption>
@@ -62,15 +64,16 @@
 
     <div class="crop-grid" aria-label={`${selected.name} computed crops`}>
       {#each selected.cells as cell, index}
-        {@const crop = spriteCell(selected.sheetWidth, selected.sheetHeight, selected.cols, selected.rows, index % selected.cols, Math.floor(index / selected.cols))}
+        {@const crop = atlasCell(selected, index)}
+        {@const frameAspect = atlasFrameAspect(selected, index)}
         <article class="crop-card">
-          <div class="crop-frame" style={`aspect-ratio: ${selected.targetAspect}`}>
+          <div class="crop-frame" style={`aspect-ratio: ${frameAspect}`}>
             <SpriteCard {...atlasSpriteProps(selected, index)} />
           </div>
           <div class="crop-copy">
             <strong>{cell.name}</strong>
             <code>{crop.x},{crop.y} · {crop.width}×{crop.height}</code>
-            <span>source {crop.aspect.toFixed(3)} → frame {selected.targetAspect.toFixed(3)}</span>
+            <span>source {crop.aspect.toFixed(3)} → frame {frameAspect.toFixed(3)}</span>
           </div>
         </article>
       {/each}
@@ -111,8 +114,8 @@
   .source-atlas { margin: 0 0 28px; }
   .source-image { position: relative; overflow: hidden; border: 1px solid rgba(255, 226, 163, .4); border-radius: 9px; background: #08070b; }
   .source-image img { display: block; width: 100%; height: auto; }
-  .grid-overlay { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); pointer-events: none; }
-  .grid-overlay i { border: 1px solid rgba(125, 226, 167, .85); box-shadow: inset 0 0 0 1px rgba(16, 26, 24, .55); }
+  .grid-overlay { position: absolute; inset: 0; pointer-events: none; }
+  .grid-overlay i { position: absolute; border: 1px solid rgba(125, 226, 167, .85); box-shadow: inset 0 0 0 1px rgba(16, 26, 24, .55); }
   figcaption { margin-top: 6px; color: #9e8ba9; font-size: 11px; }
   .crop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: clamp(10px, 1.5vw, 18px); }
   .crop-card { min-width: 0; padding: 10px; border: 1px solid rgba(255, 226, 163, .2); border-radius: 9px; background: rgba(35, 23, 45, .7); }
