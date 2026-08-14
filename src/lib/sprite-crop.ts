@@ -1,12 +1,3 @@
-export type SpriteFit = 'contain' | 'cover' | 'stretch';
-
-export type SpriteRect = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
 export type SpriteCell = {
   x: number;
   y: number;
@@ -15,21 +6,6 @@ export type SpriteCell = {
   aspect: number;
   viewBox: string;
 };
-
-export function spriteRect(
-  sheetWidth: number,
-  sheetHeight: number,
-  rect: SpriteRect
-): SpriteCell {
-  const { x, y, width, height } = rect;
-  if (![sheetWidth, sheetHeight, x, y, width, height].every(Number.isInteger)) {
-    throw new Error('Sprite sheet dimensions and crop rectangle must use integer pixels');
-  }
-  if (sheetWidth <= 0 || sheetHeight <= 0 || x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > sheetWidth || y + height > sheetHeight) {
-    throw new Error(`Sprite crop ${x},${y},${width},${height} is outside the ${sheetWidth}×${sheetHeight} atlas`);
-  }
-  return { x, y, width, height, aspect: width / height, viewBox: `${x} ${y} ${width} ${height}` };
-}
 
 /**
  * Split an atlas into integer pixel cells. Rounding each shared edge once

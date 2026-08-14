@@ -26,7 +26,7 @@
     <div>
       <p class="eyebrow">Visual QA</p>
       <h1 id="asset-title">Asset review</h1>
-      <p>Inspect each source atlas, its measured pixel boundaries, and every in-game crop. Uniform sheets use an integer grid; irregular sheets use explicit rectangles that exclude their gutters.</p>
+      <p>Inspect each regenerated source atlas, its uniform pixel grid, and every in-game crop. Every sheet uses the same regular-grid renderer with complete borders inside each cell.</p>
     </div>
     <p class="review-status" role="status" data-status="synced"><strong>{assetAtlases.length}</strong> atlases · <strong>{assetAtlases.reduce((sum, atlas) => sum + atlas.cells.length, 0)}</strong> sprites</p>
   </section>
@@ -41,11 +41,11 @@
 
   <section class="atlas-review" aria-labelledby="selected-atlas-name">
     <header class="atlas-heading">
-      <div><p class="eyebrow">{selected.cols} × {selected.rows} atlas · {selected.crops ? 'measured crops' : 'integer grid'}</p><h2 id="selected-atlas-name">{selected.name}</h2><p>{selected.description}</p></div>
+      <div><p class="eyebrow">{selected.cols} × {selected.rows} atlas · uniform grid</p><h2 id="selected-atlas-name">{selected.name}</h2><p>{selected.description}</p></div>
       <dl>
         <div><dt>Source</dt><dd>{selected.sheetWidth} × {selected.sheetHeight}px</dd></div>
-        <div><dt>Frame</dt><dd>{selected.targetAspect === 'source' ? 'native crop' : `${selected.targetAspect.toFixed(3)} aspect`}</dd></div>
-        <div><dt>Fit</dt><dd>{selected.fit}</dd></div>
+        <div><dt>Cell</dt><dd>{selected.targetAspect.toFixed(3)} aspect</dd></div>
+        <div><dt>Render</dt><dd>edge to edge</dd></div>
       </dl>
     </header>
 
@@ -65,7 +65,7 @@
     <div class="crop-grid" aria-label={`${selected.name} computed crops`}>
       {#each selected.cells as cell, index}
         {@const crop = atlasCell(selected, index)}
-        {@const frameAspect = atlasFrameAspect(selected, index)}
+        {@const frameAspect = atlasFrameAspect(selected)}
         <article class="crop-card">
           <div class="crop-frame" style={`aspect-ratio: ${frameAspect}`}>
             <SpriteCard {...atlasSpriteProps(selected, index)} />
