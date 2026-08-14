@@ -78,6 +78,11 @@ export class TestStepHelper {
       }
 
       for (const element of document.querySelectorAll<HTMLElement>('[data-e2e-layout] *')) {
+        // SpriteCard renders a full atlas image inside a clipped SVG viewBox.
+        // Internal SVG coordinates can extend far outside the CSS viewport even
+        // though the outer SVG is correctly contained, so measure that viewport
+        // rather than its deliberately oversized source-image child.
+        if (element instanceof SVGGraphicsElement && element.ownerSVGElement) continue;
         const style = getComputedStyle(element);
         if (style.display === 'none' || style.visibility === 'hidden') continue;
         const rect = element.getBoundingClientRect();
