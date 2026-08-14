@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { spriteCell } from './sprite-crop';
+import { spriteCell, spriteRect } from './sprite-crop';
 
 describe('spriteCell', () => {
   it('returns exact cells for evenly divisible sheets', () => {
@@ -25,5 +25,16 @@ describe('spriteCell', () => {
   it('rejects invalid grids and out-of-range cells', () => {
     expect(() => spriteCell(100, 100, 0, 1, 0, 0)).toThrow('positive integers');
     expect(() => spriteCell(100, 100, 2, 2, 2, 0)).toThrow('outside');
+  });
+
+  it('uses measured integer rectangles for atlases with gutters', () => {
+    expect(spriteRect(1536, 1024, { x: 325, y: 5, width: 291, height: 504 })).toEqual({
+      x: 325, y: 5, width: 291, height: 504, aspect: 291 / 504, viewBox: '325 5 291 504'
+    });
+  });
+
+  it('rejects measured rectangles outside their atlas', () => {
+    expect(() => spriteRect(100, 100, { x: 90, y: 0, width: 11, height: 10 })).toThrow('outside');
+    expect(() => spriteRect(100, 100, { x: 0.5, y: 0, width: 10, height: 10 })).toThrow('integer pixels');
   });
 });
