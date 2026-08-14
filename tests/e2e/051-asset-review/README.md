@@ -11,6 +11,7 @@ Review all nine regenerated atlases and verify that every sprite uses the same e
 - [x] Every sprite uses the shared 6x2 grid renderer
 - [x] The first crop starts at the source origin
 - [x] The final crop reaches the source bottom-right edge
+- [x] Every card has the same 14px frame on all four edges
 
 ---
 
@@ -23,6 +24,7 @@ Review all nine regenerated atlases and verify that every sprite uses the same e
 - [x] Every sprite uses the shared 6x2 grid renderer
 - [x] The first crop starts at the source origin
 - [x] The final crop reaches the source bottom-right edge
+- [x] Every card has the same 14px frame on all four edges
 
 ---
 
@@ -35,6 +37,7 @@ Review all nine regenerated atlases and verify that every sprite uses the same e
 - [x] Every sprite uses the shared 6x2 grid renderer
 - [x] The first crop starts at the source origin
 - [x] The final crop reaches the source bottom-right edge
+- [x] Every card has the same 14px frame on all four edges
 
 ---
 
@@ -83,6 +86,7 @@ Review all nine regenerated atlases and verify that every sprite uses the same e
 - [x] Every sprite uses the shared 2x1 grid renderer
 - [x] The first crop starts at the source origin
 - [x] The final crop reaches the source bottom-right edge
+- [x] Every card has the same 28px frame on all four edges
 
 ---
 
@@ -95,6 +99,7 @@ Review all nine regenerated atlases and verify that every sprite uses the same e
 - [x] Every sprite uses the shared 7x3 grid renderer
 - [x] The first crop starts at the source origin
 - [x] The final crop reaches the source bottom-right edge
+- [x] Every card has the same 11px frame on all four edges
 
 ---
 
@@ -107,5 +112,6 @@ Review all nine regenerated atlases and verify that every sprite uses the same e
 - [x] Every sprite uses the shared 3x2 grid renderer
 - [x] The first crop starts at the source origin
 - [x] The final crop reaches the source bottom-right edge
+- [x] Every card has the same 23px frame on all four edges
 
 ---
