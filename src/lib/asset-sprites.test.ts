@@ -13,20 +13,18 @@ describe('asset atlas crop maps', () => {
     }
   });
 
-  it('builds exact 3:5 cells for every suit and Princess atlas', () => {
+  it('builds exact 3:5 cells for every suit and the unified Princess atlas', () => {
     for (const id of ['cards-fairies', 'cards-queens', 'cards-princes', 'cards-pets']) {
       expect(atlasCell(atlas(id), 0)).toMatchObject({ x: 0, y: 0, width: 300, height: 500, aspect: 3 / 5 });
       expect(atlasCell(atlas(id), 11)).toMatchObject({ x: 1500, y: 500, width: 300, height: 500, aspect: 3 / 5 });
     }
     expect(atlasCell(atlas('suit-families'), 3)).toMatchObject({ x: 900, y: 0, width: 300, height: 500, aspect: 3 / 5 });
-    expect(atlasCell(atlas('princesses'), 9)).toMatchObject({ x: 1200, y: 500, width: 300, height: 500, aspect: 3 / 5 });
-    expect(atlasCell(atlas('princesses-deluxe'), 1)).toMatchObject({ x: 600, y: 0, width: 600, height: 1000, aspect: 3 / 5 });
+    expect(atlasCell(atlas('princesses'), 11)).toMatchObject({ x: 1500, y: 500, width: 300, height: 500, aspect: 3 / 5 });
   });
 
-  it('builds exact uniform cells for both Round atlases', () => {
-    expect(atlasCell(atlas('rounds'), 0)).toMatchObject({ x: 0, y: 0, width: 240, height: 280, aspect: 6 / 7 });
-    expect(atlasCell(atlas('rounds'), 20)).toMatchObject({ x: 1440, y: 560, width: 240, height: 280, aspect: 6 / 7 });
-    expect(atlasCell(atlas('rounds-deluxe'), 5)).toMatchObject({ x: 1000, y: 500, width: 500, height: 500, aspect: 1 });
+  it('builds exact square cells for the unified Round atlas', () => {
+    expect(atlasCell(atlas('rounds'), 0)).toMatchObject({ x: 0, y: 0, width: 300, height: 300, aspect: 1 });
+    expect(atlasCell(atlas('rounds'), 26)).toMatchObject({ x: 2400, y: 600, width: 300, height: 300, aspect: 1 });
   });
 
   it('uses each atlas cell aspect as its display frame', () => {

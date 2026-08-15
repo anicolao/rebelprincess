@@ -12,52 +12,44 @@ without imitating the original illustrator or any other named artist.
 
 ## Files
 
-- `generated/suited-card-families.png`: four panels for Fairies, Queens,
-  Princes, and Pets. Values and suit labels should be rendered by the client.
-- `generated/alternate-suits-review/fairies.png`: gameplay Fairy art for ranks
-  1–12 in a 6 × 2 row-major grid.
-- `generated/alternate-suits-review/queens.png`: gameplay Queen art for ranks
-  1–12 in a 6 × 2 row-major grid.
-- `generated/alternate-suits-review/princes.png`: gameplay Prince art for ranks
-  1–12 in a 6 × 2 row-major grid.
-- `generated/alternate-suits-review/pets.png`: gameplay Pet art for ranks 1–12
-  in a 6 × 2 row-major grid. The species are rabbit, fox,
-  hedgehog, owl, cat, tortoise, squirrel, frog, dragon, dog, raven, and fawn.
-- `generated/princess-portraits.png`: ten portraits in a 5 × 2 grid.
-- `generated/princess-portraits-deluxe.png`: Rapunzel and Thumbelina in a
-  2 × 1 extension grid matching the original Princess portraits.
-- `generated/round-rule-vignettes.png`: twenty-one symbolic scenes in a 7 × 3
-  grid. Rule names and text should be rendered by the client.
-- `generated/round-rule-vignettes-deluxe.png`: six additional Deluxe symbolic
-  scenes in a 3 × 2 extension grid.
+- `generated/cards/fairies.png`: Fairy ranks 1–12 in a 6 × 2 row-major grid.
+- `generated/cards/queens.png`: Queen ranks 1–12 in a 6 × 2 row-major grid.
+- `generated/cards/princes.png`: Prince ranks 1–12 in a 6 × 2 row-major grid.
+- `generated/cards/pets.png`: Pet ranks 1–12 in a 6 × 2 row-major grid.
+  The species are rabbit, fox, hedgehog, owl, cat, tortoise, squirrel, frog,
+  dragon, dog, raven, and fawn.
+- `generated/princesses.png`: all twelve Princesses in one 6 × 2 row-major
+  grid.
+- `generated/round-cards.png`: all twenty-seven Round cards in one 9 × 3
+  row-major grid.
+- `generated/suit-families.png`: four panels for Fairies, Queens, Princes, and
+  Pets. Values, names, and rules are rendered by the client.
 - `manifest.json`: stable row-major mapping from grid cells to game IDs.
 
 ## Uniform atlas contract
 
 Every source image is an edge-to-edge regular grid with equal cells. Each cell
 owns its complete ornamental border; there are no outer margins, inter-cell
-gutters, shared borders, crop marks, or material outside the grid. The Fairy,
-Queen, Prince, Deluxe Princess, Round, and Deluxe Round sheets are assembled
-from independently generated illustrations by `scripts/assemble-generated-atlas.ts`.
-That tool center-crops each illustration into a fixed interior, draws one
-identical frame template per family, and rejects an atlas unless all four frame
-strip hashes match across every cell. Outputs use dimensions exactly divisible
-by their grids:
+gutters, shared borders, crop marks, or material outside the grid. Every sheet
+is assembled by `scripts/assemble-atlas.ts`. The tool center-crops each source
+illustration into a fixed interior and draws the same Pet-inspired frame
+geometry: a dark jewel-toned ground, layered gold rules, angular corner
+filigree, and centered diamond medallions. Only the dark family accent changes.
+The tool rejects an atlas unless all four 20-pixel frame-strip hashes match
+across every cell. Outputs use dimensions exactly divisible by their grids:
 
-- gameplay suits: 1800 × 1000, 6 × 2, 300 × 500 cells
+- each gameplay suit: 1800 × 1000, 6 × 2, 300 × 500 cells
 - suit families: 1200 × 500, 4 × 1, 300 × 500 cells
-- Princesses: 1500 × 1000, 5 × 2, 300 × 500 cells
-- Deluxe Princesses: 1200 × 1000, 2 × 1, 600 × 1000 cells
-- Round cards: 1680 × 840, 7 × 3, 240 × 280 cells
-- Deluxe Round cards: 1500 × 1000, 3 × 2, 500 × 500 cells
+- Princesses: 1800 × 1000, 6 × 2, 300 × 500 cells
+- Round cards: 2700 × 900, 9 × 3, 300 × 300 cells
 
 Keep typography out of the bitmap assets. HTML-rendered names, values, and rule
 text remain exact, accessible, localizable, and deterministic under E2E tests.
 The atlases are source assets; an implementation may crop optimized derivatives
 during its build without changing the canonical IDs in the manifest.
 
-The app's `/assets` route displays every source atlas, its computed integer-pixel
-grid, and all 91 rendered cells. Runtime rendering has one path: `SpriteCard`
+The app's `/assets` route displays the seven logical atlases, their computed
+integer-pixel grids, and all 91 rendered cells. Runtime rendering has one path: `SpriteCard`
 selects a regular grid cell with an SVG view box and maps that complete cell
 edge-to-edge into its matching frame. No atlas has crop overrides or fit modes.
 
@@ -83,20 +75,19 @@ explicitly remains amber rather than blue. Queen prompts use plum, aubergine,
 burgundy, wine, and rose-gold, with blue dominance prohibited in every card.
 Prince prompts use midnight blue, cobalt, navy, silver, and restrained antique
 gold. Each rank requests a distinct adult character pose, prop, and setting.
-The accepted Pet sheet remains moss green, emerald, and antique gold, with its
-fixed species order and the only Frog at rank 8.
+Pet artwork remains moss green and emerald, with its fixed species order and the
+only Frog at rank 8. Its ornamental frame established the shared frame language
+now used across all seven atlases.
 
 The suit-family prompt specified four 3:5 concept panels: luminous Fairies with
 a crystal wand, an empty Queen throne, an abandoned Prince sword/boot/bouquet,
 and enchanted Pets centered on a crowned frog. Its palette constraints match
 the four gameplay sheets.
 
-The accepted original Princess prompt specified ten diverse adult fairy-tale
-archetypes. The two replacement Deluxe Princess prompts independently generate
-Rapunzel with a practical climbing braid and Thumbelina among oversized clover
-and bellflowers; the assembler gives both the same 600 × 1000 ivory frame.
+The Princess prompts specified twelve diverse adult fairy-tale archetypes,
+including Rapunzel with a practical climbing braid and Thumbelina among
+oversized clover and bellflowers. They now share one atlas and one frame.
 
-The twenty-one original Round prompts and six Deluxe Round prompts each request
-one standalone symbolic scene matching the row-major IDs in `manifest.json`.
-The assembler center-crops them and applies identical beige frames at 240 × 280
-and 500 × 500 respectively.
+The twenty-seven Round prompts each request one standalone symbolic scene
+matching the row-major IDs in `manifest.json`. The assembler center-crops them
+into one square-cell atlas and applies the same shared frame geometry.

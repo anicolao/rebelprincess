@@ -1,20 +1,30 @@
 {
-  "version": 1,
+  "version": 2,
   "license": "GPL-3.0-only",
   "atlases": {
-    "suits": {
-      "file": "generated/suited-card-families.png",
-      "grid": { "columns": 4, "rows": 1 },
-      "cells": [
-        { "index": 0, "id": "fairies", "accent": "amber" },
-        { "index": 1, "id": "queens", "accent": "plum" },
-        { "index": 2, "id": "princes", "accent": "midnight-blue" },
-        { "index": 3, "id": "pets", "accent": "moss-green" }
-      ]
+    "fairies": {
+      "file": "generated/cards/fairies.png",
+      "grid": { "columns": 6, "rows": 2 },
+      "cellOrder": ["fairy-1", "fairy-2", "fairy-3", "fairy-4", "fairy-5", "fairy-6", "fairy-7", "fairy-8", "fairy-9", "fairy-10", "fairy-11", "fairy-12"]
+    },
+    "queens": {
+      "file": "generated/cards/queens.png",
+      "grid": { "columns": 6, "rows": 2 },
+      "cellOrder": ["queen-1", "queen-2", "queen-3", "queen-4", "queen-5", "queen-6", "queen-7", "queen-8", "queen-9", "queen-10", "queen-11", "queen-12"]
+    },
+    "princes": {
+      "file": "generated/cards/princes.png",
+      "grid": { "columns": 6, "rows": 2 },
+      "cellOrder": ["prince-1", "prince-2", "prince-3", "prince-4", "prince-5", "prince-6", "prince-7", "prince-8", "prince-9", "prince-10", "prince-11", "prince-12"]
+    },
+    "pets": {
+      "file": "generated/cards/pets.png",
+      "grid": { "columns": 6, "rows": 2 },
+      "cellOrder": ["pet-1", "pet-2", "pet-3", "pet-4", "pet-5", "pet-6", "pet-7", "pet-8", "pet-9", "pet-10", "pet-11", "pet-12"]
     },
     "princesses": {
-      "file": "generated/princess-portraits.png",
-      "grid": { "columns": 5, "rows": 2 },
+      "file": "generated/princesses.png",
+      "grid": { "columns": 6, "rows": 2 },
       "cells": [
         { "index": 0, "id": "snow-white", "name": "Snow White" },
         { "index": 1, "id": "little-mermaid", "name": "The Little Mermaid" },
@@ -25,20 +35,14 @@
         { "index": 6, "id": "mulan", "name": "Mulan" },
         { "index": 7, "id": "scheherazade", "name": "Scheherazade" },
         { "index": 8, "id": "pea-princess", "name": "The Pea Princess" },
-        { "index": 9, "id": "ice-princess", "name": "The Ice Princess" }
-      ]
-    },
-    "deluxePrincesses": {
-      "file": "generated/princess-portraits-deluxe.png",
-      "grid": { "columns": 2, "rows": 1 },
-      "cells": [
-        { "index": 0, "id": "rapunzel", "name": "Rapunzel" },
-        { "index": 1, "id": "thumbelina", "name": "Thumbelina" }
+        { "index": 9, "id": "ice-princess", "name": "The Ice Princess" },
+        { "index": 10, "id": "rapunzel", "name": "Rapunzel" },
+        { "index": 11, "id": "thumbelina", "name": "Thumbelina" }
       ]
     },
     "roundRules": {
-      "file": "generated/round-rule-vignettes.png",
-      "grid": { "columns": 7, "rows": 3 },
+      "file": "generated/round-cards.png",
+      "grid": { "columns": 9, "rows": 3 },
       "cells": [
         { "index": 0, "id": "once-upon-a-time", "name": "Once Upon a Time…" },
         { "index": 1, "id": "invitation", "name": "Invitation" },
@@ -60,20 +64,19 @@
         { "index": 17, "id": "blind-mans-bluff", "name": "Blind Man’s Bluff" },
         { "index": 18, "id": "odds-and-evens", "name": "Odds and Evens" },
         { "index": 19, "id": "pass-the-bouquet", "name": "Pass the Bouquet!" },
-        { "index": 20, "id": "haggle-with-the-hag", "name": "Haggle with the Hag" }
+        { "index": 20, "id": "haggle-with-the-hag", "name": "Haggle with the Hag" },
+        { "index": 21, "id": "magic-beans", "name": "Magic Beans" },
+        { "index": 22, "id": "three-times-a-lady", "name": "Three Times a Lady" },
+        { "index": 23, "id": "arranged-marriage", "name": "Arranged Marriage" },
+        { "index": 24, "id": "always-the-bridesmaid", "name": "Always the Bridesmaid" },
+        { "index": 25, "id": "sisterhood", "name": "Sisterhood" },
+        { "index": 26, "id": "late-for-a-very-important-date", "name": "Late for a Very Important Date" }
       ]
     },
-    "deluxeRoundRules": {
-      "file": "generated/round-rule-vignettes-deluxe.png",
-      "grid": { "columns": 3, "rows": 2 },
-      "cells": [
-        { "index": 0, "id": "magic-beans", "name": "Magic Beans" },
-        { "index": 1, "id": "three-times-a-lady", "name": "Three Times a Lady" },
-        { "index": 2, "id": "arranged-marriage", "name": "Arranged Marriage" },
-        { "index": 3, "id": "always-the-bridesmaid", "name": "Always the Bridesmaid" },
-        { "index": 4, "id": "sisterhood", "name": "Sisterhood" },
-        { "index": 5, "id": "late-for-a-very-important-date", "name": "Late for a Very Important Date" }
-      ]
+    "suitFamilies": {
+      "file": "generated/suit-families.png",
+      "grid": { "columns": 4, "rows": 1 },
+      "cellOrder": ["fairies", "queens", "princes", "pets"]
     }
   }
 }

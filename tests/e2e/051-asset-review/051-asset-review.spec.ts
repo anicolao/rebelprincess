@@ -2,15 +2,13 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
 const atlases = [
-  { button: 'Fairy cards 12 cells', name: 'Fairy cards', id: 'fairy-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 14 },
-  { button: 'Queen cards 12 cells', name: 'Queen cards', id: 'queen-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 14 },
-  { button: 'Prince cards 12 cells', name: 'Prince cards', id: 'prince-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 14 },
-  { button: 'Pet cards 12 cells', name: 'Pet cards', id: 'pet-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500' },
-  { button: 'Original suit families 4 cells', name: 'Original suit families', id: 'family-crops', grid: '4x1', count: 4, first: '0,0 · 300×500', last: '900,0 · 300×500' },
-  { button: 'Princesses 10 cells', name: 'Princesses', id: 'princess-crops', grid: '5x2', count: 10, first: '0,0 · 300×500', last: '1200,500 · 300×500' },
-  { button: 'Deluxe Princesses 2 cells', name: 'Deluxe Princesses', id: 'deluxe-princess-crops', grid: '2x1', count: 2, first: '0,0 · 600×1000', last: '600,0 · 600×1000', frameBand: 28 },
-  { button: 'Round cards 21 cells', name: 'Round cards', id: 'round-crops', grid: '7x3', count: 21, first: '0,0 · 240×280', last: '1440,560 · 240×280', frameBand: 11 },
-  { button: 'Deluxe Round cards 6 cells', name: 'Deluxe Round cards', id: 'deluxe-round-crops', grid: '3x2', count: 6, first: '0,0 · 500×500', last: '1000,500 · 500×500', frameBand: 23 }
+  { button: 'Fairy cards 12 cells', name: 'Fairy cards', id: 'fairy-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 20 },
+  { button: 'Queen cards 12 cells', name: 'Queen cards', id: 'queen-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 20 },
+  { button: 'Prince cards 12 cells', name: 'Prince cards', id: 'prince-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 20 },
+  { button: 'Pet cards 12 cells', name: 'Pet cards', id: 'pet-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 20 },
+  { button: 'Princesses 12 cells', name: 'Princesses', id: 'princess-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 20 },
+  { button: 'Round cards 27 cells', name: 'Round cards', id: 'round-crops', grid: '9x3', count: 27, first: '0,0 · 300×300', last: '2400,600 · 300×300', frameBand: 20 },
+  { button: 'Suit families 4 cells', name: 'Suit families', id: 'family-crops', grid: '4x1', count: 4, first: '0,0 · 300×500', last: '900,0 · 300×500', frameBand: 20 }
 ] as const;
 
 async function frameSignatures(page: Page, crops: Locator, band: number): Promise<string[]> {
@@ -42,13 +40,13 @@ async function frameSignatures(page: Page, crops: Locator, band: number): Promis
   }, { href, cells, band });
 }
 
-test('asset review exposes every regenerated atlas through one uniform grid renderer', async ({ page }, testInfo) => {
+test('asset review exposes every logical atlas through one uniform grid renderer', async ({ page }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
-  steps.setMetadata('Asset review', 'Review all nine regenerated atlases and verify that every sprite uses the same exact regular-grid crop path.');
+  steps.setMetadata('Asset review', 'Review all seven logical atlases and verify that every sprite uses the same Pet-inspired frame and exact regular-grid crop path.');
 
   await page.goto('/assets/');
   await expect(page).toHaveURL(/\/assets\/$/);
-  await expect(page.getByRole('navigation', { name: 'Asset atlases' }).getByRole('button')).toHaveCount(9);
+  await expect(page.getByRole('navigation', { name: 'Asset atlases' }).getByRole('button')).toHaveCount(7);
   await expect(page.getByRole('status')).toContainText('91 sprites');
 
   for (const atlas of atlases) {
