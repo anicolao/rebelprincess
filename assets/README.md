@@ -1,9 +1,11 @@
 # Generated visual assets
 
 These original raster atlases establish the visual direction for the digital
-game. The complete set was regenerated with OpenAI's built-in image-generation
-tool on August 14, 2026 and is licensed with the rest of this repository under
-GPL-3.0-only.
+game. The playing-card, Round, and suit-family art was regenerated with
+OpenAI's built-in image-generation tool on August 14, 2026. The Princess art
+recovers the initial July 15 portrait atlas and its later Deluxe extension,
+reframed into the current unified atlas on August 15, 2026. The complete set is
+licensed with the rest of this repository under GPL-3.0-only.
 
 The commercial Rebel Princess materials were used only to identify the required
 component categories and rule concepts. These images do not copy the published
@@ -18,8 +20,8 @@ without imitating the original illustrator or any other named artist.
 - `generated/cards/pets.png`: Pet ranks 1–12 in a 6 × 2 row-major grid.
   The species are rabbit, fox, hedgehog, owl, cat, tortoise, squirrel, frog,
   dragon, dog, raven, and fawn.
-- `generated/princesses.png`: all twelve Princesses in one 6 × 2 row-major
-  grid.
+- `generated/princesses.png`: all twelve restored Princess portraits in one
+  6 × 2 row-major grid.
 - `generated/round-cards.png`: all twenty-seven Round cards in one 9 × 3
   row-major grid.
 - `generated/suit-families.png`: four panels for Fairies, Queens, Princes, and
@@ -59,11 +61,11 @@ edge-to-edge into its matching frame. No atlas has crop overrides or fit modes.
 
 ## Prompt record
 
-All final prompts requested original hand-painted storybook gouache, subtle
+All source prompts requested original hand-painted storybook gouache, subtle
 paper texture, no logos, no readable text, no watermarks, no existing Rebel
 Princess artwork, and no imitation of a named artist. Existing atlases were
-supplied only as style references; every character, pose, setting, and symbolic
-composition was regenerated.
+supplied only as style references during the August regeneration; every
+playing-card character and symbolic Round composition was regenerated.
 
 An initial attempt asked image generation to produce complete multi-card grids.
 Although the output bitmap dimensions were divisible by the declared grids,
@@ -88,9 +90,13 @@ a crystal wand, an empty Queen throne, an abandoned Prince sword/boot/bouquet,
 and enchanted Pets centered on a crowned frog. Its palette constraints match
 the four gameplay sheets.
 
-The Princess prompts specified twelve diverse adult fairy-tale archetypes,
-including Rapunzel with a practical climbing braid and Thumbelina among
-oversized clover and bellflowers. They share one atlas with a thin white edge.
+The restored Princess art comes from the original ten-portrait atlas generated
+on July 15 and the matching two-portrait Deluxe extension. Their generated
+ornamental frames are cropped away by the same deterministic atlas assembler
+used for the other families. Snow White through the Ice Princess use a shared
+36-pixel source inset; the larger two-card Deluxe source uses a 112-pixel inset.
+All twelve portraits now share one regular 6 × 2 atlas with 300 × 500 cells and
+a thin white edge.
 
 The twenty-seven Round prompts each request one standalone symbolic scene
 matching the row-major IDs in `manifest.json`. The assembler center-crops them
