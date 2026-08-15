@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { closePrincessGame, playOneClick, setupPrincessGame, type PrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, declineRemainingBeforeTrickPlayers, playOneClick, setupPrincessGame, type PrincessGame } from '../helpers/princess-click-game';
 import { clickAndConfirm } from '../helpers/round-card-game';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
@@ -73,6 +73,7 @@ test('Sleeping Beauty starts round two without the previous redistribution selec
   });
   const firstContributions = await contributeOneCard(game.players);
   await orderAndRedistribute(page, firstContributions);
+  await declineRemainingBeforeTrickPlayers(game.players);
   for (const player of game.players) await expect(player.getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(12);
 
   for (let play = 0; play < 36; play += 1) await playOneClick(game.players);
@@ -80,8 +81,12 @@ test('Sleeping Beauty starts round two without the previous redistribution selec
   await clickAndConfirm(nextRound, async () => {
     await expect(page.getByText('Round 2 of 5', { exact: true })).toBeVisible();
   });
+  const raiseSecondRound = page.getByRole('button', { name: 'Raise hand for Sleeping Beauty on the next trick' });
+  await clickAndConfirm(raiseSecondRound, async () => {
+    await expect(page.getByText('Hand raised for trick 1')).toBeVisible();
+  });
   for (const player of game.players) await submitRequiredPass(player);
-  for (const player of game.players) await expect(player.getByRole('alert')).toContainText('Passing complete');
+  await expect(page.getByRole('alert')).toContainText('Your before-trick decision');
 
   const princess = page.getByRole('button', { name: 'Use Sleeping Beauty power' });
   await expect(princess).toHaveAttribute('aria-pressed', 'false');
@@ -105,6 +110,7 @@ test('Sleeping Beauty starts round two without the previous redistribution selec
   ] });
 
   await orderAndRedistribute(page, secondContributions);
+  await declineRemainingBeforeTrickPlayers(game.players);
   await steps.step('round-two-redistributed', { description: 'Sleeping Beauty assigns exactly the three Bathroom Break contributions and ordinary play resumes', verifications: [
     { spec: 'Every player again holds twelve cards', check: async () => { for (const player of game.players) await expect(player.getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(12); } },
     { spec: 'The table is no longer waiting for Sleeping Beauty', check: async () => { for (const player of game.players) await expect(player.getByRole('alert')).not.toContainText('Sleeping Beauty'); } },

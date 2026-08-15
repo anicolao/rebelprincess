@@ -18,6 +18,7 @@ function projection(overrides: Partial<GameProjection> = {}): GameProjection {
     suitCommitments: {},
     pendingMulanUid: null,
     pendingPower: null,
+    beforeTrickWindow: null,
     haggleWinnerUid: null,
     currentTurnUid: 'alex',
     ...overrides
@@ -66,5 +67,16 @@ describe('actionOwnership', () => {
     });
     expect(actionOwnership(redistributing, 'alex')).toEqual({ state: 'active', label: 'Redistribute cards' });
     expect(actionOwnership(redistributing, 'jo')).toEqual({ state: 'complete', label: 'Card given' });
+  });
+
+  it('marks only the rolling-priority holder as responsible for a before-trick decision', () => {
+    const game = projection({
+      currentTurnUid: null,
+      beforeTrickWindow: {
+        id: '0:0:alex', startingLeaderUid: 'alex', eligibleUids: ['alex', 'jo'], priorityUid: 'jo', actedUids: [], declinedSinceActivation: ['alex']
+      }
+    });
+    expect(actionOwnership(game, 'alex').state).toBe('idle');
+    expect(actionOwnership(game, 'jo')).toEqual({ state: 'active', label: 'Before-trick decision' });
   });
 });

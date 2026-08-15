@@ -103,6 +103,25 @@ The interactive powers follow these Deluxe rules:
 - **Thumbelina — Ignorance is Bliss:** when she is not leading, she may play any
   card except a Prince or the Frog without following suit.
 
+### Before-trick priority and composition
+
+During the preceding trick—or during the opening pass for trick one—an owner of
+an unused before-trick power may raise or lower their hand for the next trick.
+If anyone remains raised at the boundary, every owner of an unused before-trick
+power receives priority in clockwise order from the captured leader. A player
+may activate or decline. An activation resolves completely and resets the
+decline sequence, allowing earlier decliners to reconsider; the window closes
+only after every player who has not activated declines consecutively. Card play
+is blocked for the entire window.
+
+Powers apply in their resolved order. Cinderella and the Pea Princess compose
+with the other effects. Pocahontas changes the eventual leader but not the
+already-captured priority order. For conflicting lead requirements, a later
+Little Mermaid or Rapunzel activation replaces the earlier lead requirement.
+An Ice Princess forced card overrides following suit and all ordinary play and
+lead restrictions. Sleeping Beauty and Scheherazade finish changing hands
+before the next player receives priority.
+
 ## Deluxe Round cards
 
 The selectable deck contains the official twenty-six a–z Deluxe Round cards.

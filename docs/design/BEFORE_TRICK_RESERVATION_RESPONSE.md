@@ -1,6 +1,6 @@
 # Before-trick hand-raise and priority design
 
-**Status:** Revised proposal for review
+**Status:** Implemented on the PR branch
 
 **Scope:** Princess powers whose printed timing is “before a trick”
 
@@ -93,13 +93,13 @@ For the first trick, `Signaling` overlaps the opening pass. For later tricks, it
 
 ### Scope signals to the next trick
 
-A signal targets a derived next-window ID:
+A signal targets the next trick index within the current dealt round:
 
 ```text
-gameNumber:roundIndex:targetTrickIndex
+targetTrickIndex
 ```
 
-During the opening pass, `targetTrickIndex` is `0`. During trick `n`, signals target trick `n + 1`. Stale raise/lower events for another game, round, or target trick remain in history but do not affect projection.
+During the opening pass, `targetTrickIndex` is `0`. During trick `n`, signals target trick `n + 1`. The enclosing game and deal segment supply game and round scope. Stale events for another target trick remain in history but do not affect projection.
 
 ### Raise and lower freely
 
@@ -169,17 +169,15 @@ A player who takes priority must finish their power before anyone else is asked.
 - The Ice Princess and Scheherazade select a target, then complete their deterministic inspection.
 - Sleeping Beauty retains priority through contribution and redistribution.
 
-Interactive selection is a projected `activePower`, not merely an open local chooser. This preserves the lock and reconstructs the correct controls after refresh.
+Interactive selection uses the existing projected `pendingPower`, not merely an open local chooser. This preserves the lock and reconstructs the correct controls after refresh.
 
-Only after `activePower` resolves does the reducer reset declines and advance priority. Other BAT activation and decline events are ignored while a power is resolving.
+Only after `pendingPower` resolves does the reducer reset declines and advance priority. Other BAT activation and decline events are ignored while a power is resolving.
 
 A power is offered only when its base preconditions are currently satisfiable. Because resolution is sequential, another Princess cannot invalidate it midway through its chooser. A successful resolution exhausts the Princess; opening or lowering a signaling hand never does.
 
-## Proposed projection
+## Implemented projection
 
 ```ts
-type BatSignal = 'raised' | 'lowered';
-
 type BeforeTrickWindow = {
   id: string;
   startingLeaderUid: string;
@@ -187,23 +185,20 @@ type BeforeTrickWindow = {
   priorityUid: string;
   actedUids: string[];
   declinedSinceActivation: string[];
-  activePower: null | {
-    actorUid: string;
-    powerId: string;
-    stage: string;
-  };
 };
 
 type BatProjection = {
-  signals: Record<string, {
-    targetWindowId: string;
-    state: BatSignal;
+  batPriorityEnabled: boolean;
+  batSignals: Record<string, {
+    targetTrickIndex: number;
+    raised: boolean;
   }>;
+  batSignalTargetTrick: number | null;
   beforeTrickWindow: BeforeTrickWindow | null;
 };
 ```
 
-The exact `activePower.stage` remains power-specific. Sleeping Beauty, for example, moves through collection and redistribution while retaining priority.
+The existing `pendingPower` shape carries power-specific stages. Sleeping Beauty, for example, moves through collection and redistribution while retaining priority.
 
 ## Event contract
 
@@ -213,18 +208,18 @@ The exact `activePower.stage` remains power-specific. Sleeping Beauty, for examp
 | `power/hand-lowered` | Unexhausted BAT owner | Sets that actor’s signal to Lowered for the target trick |
 | `power/priority-declined` | Current priority holder | Adds a decline and advances or closes the priority circuit |
 | `power/activation-started` | Current priority holder | Takes priority and opens that Princess’s projected resolution controls |
-| `power/resolved` | Active power owner | Applies the completed power and resumes priority |
+| `power/activated` | Active power owner | Applies the completed power and resumes priority |
 | `power/contributed` | Required contributor | Supplies Sleeping Beauty’s cards while her active power is resolving |
 
-Each event contains the target or active `windowId`; resolution events also contain `powerId`. `power/resolved` carries the target, suit, card, or cards currently carried by `power/activated`.
+Priority decisions and activation events contain the active `windowId`; resolution events also contain `powerId`. `power/activated` carries the target, suit, card, or cards.
 
-`power/activated` remains valid for version 1 streams under its existing reducer semantics. The implementation increments `REDUCER_VERSION`; new deals use the signal/priority events, while old deals retain the legacy path.
+`power/activated` remains valid for version 1 streams under its existing reducer semantics. Newly created `game/dealt` events set `batPriority: true`; deals without that feature flag retain the legacy path. This preserves old replays without reinterpreting their existing version-1 events.
 
 ## Determinism and concurrent input
 
 Signals may arrive concurrently, but only their latest canonical state at the boundary matters. Firestore server timestamp and event ID remain the existing total order.
 
-The priority window itself has only one legal decision-maker at a time. If stale clients submit competing events, the reducer accepts only the event authored by the current `priorityUid` or `activePower.actorUid` for the current window.
+The priority window itself has only one legal decision-maker at a time. If stale clients submit competing events, the reducer accepts only the event authored by the current `priorityUid` or `pendingPower.actorUid` for the current window.
 
 Card play is already blocked before priority begins because the trigger was captured during the preceding phase. A lead event for a trick with a derived priority window is rejected regardless of network timing after the boundary.
 
@@ -332,15 +327,14 @@ There is no timeout, auto-pass, or host override in this design. A disconnected 
 
 Existing individual Princess scenarios should be migrated to signal the next window, take priority, and resolve before the lead.
 
-## Delivery plan
+## Delivered implementation
 
-1. Add scoped signal events, boundary derivation, and raise/lower reducer tests.
-2. Add the rolling-priority projection and pure helpers for next eligible player and decline completion.
-3. Extend `actionOwnership` and render signaling and priority controls.
-4. Route direct BAT powers through priority and immediate resolution.
-5. Route interactive BAT powers through projected `activePower` stages and replace `pendingPower`.
-6. Add pairwise conflict tests and document those decisions in `RULES.md`.
-7. Migrate browser scenarios and remove the new-game path that activates BAT powers directly.
+1. Scoped signal events and boundary derivation open the requested window.
+2. Pure rolling-priority helpers determine the next eligible player and decline completion.
+3. `actionOwnership` and the table UI expose signaling, priority, and waiting states.
+4. Direct and interactive BAT powers resolve through priority; interactive powers retain `pendingPower` while locked.
+5. `game/dealt.batPriority` protects legacy replays while enabling the protocol for new games.
+6. Reducer and browser scenarios cover lowering, lead blocking, decline reset, activation, and interactive resolution.
 
 ## Alternatives not chosen
 

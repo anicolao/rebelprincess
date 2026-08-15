@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
+import { declineRemainingBeforeTrickPlayers } from '../helpers/princess-click-game';
+
+const BEFORE_TRICK_PRINCESSES = new Set(['The Little Mermaid', 'Sleeping Beauty', 'Scheherazade', 'The Ice Princess']);
 
 const IDS = {
   phone: { mermaid: 'PI000001', sleeping: 'PI000004', alice: 'PI000016', scheherazade: 'PI000000', ice: 'PI000013' },
@@ -25,6 +28,10 @@ async function setupGame(pages: Page[], gameId: string, princess: string, suffix
     await page.getByRole('button', { name: 'Ready for the ball' }).click();
   }
   await pages[0].getByRole('button', { name: 'Shuffle and deal' }).click();
+  if (BEFORE_TRICK_PRINCESSES.has(princess)) {
+    await pages[0].getByRole('button', { name: `Raise hand for ${princess} on the next trick` }).click();
+    await expect(pages[0].getByText('Hand raised for trick 1')).toBeVisible();
+  }
   for (const page of pages) {
     const hand = page.getByRole('region', { name: 'Your hand' });
     await expect(hand.getByRole('button')).toHaveCount(12);
@@ -33,7 +40,8 @@ async function setupGame(pages: Page[], gameId: string, princess: string, suffix
     for (let index = 0; index < count; index += 1) { await hand.locator('.playing-card:not(.selected)').first().press('Enter'); await expect(hand.locator('.playing-card.selected')).toHaveCount(index + 1); }
     await submit.click();
   }
-  for (const page of pages) await expect(page.getByRole('alert')).toContainText('Passing complete');
+  if (BEFORE_TRICK_PRINCESSES.has(princess)) await expect(pages[0].getByRole('alert')).toContainText('Your before-trick decision');
+  else for (const page of pages) await expect(page.getByRole('alert')).toContainText('Passing complete');
 }
 
 async function playTurn(players: Page[], observer = players[0], highCardPage?: Page) {
@@ -58,6 +66,7 @@ test('five interactive Princesses resolve complete shared-stream choices', async
   await page.getByRole('button', { name: 'Use The Little Mermaid power' }).click();
   const suitButton = page.getByRole('group', { name: 'Little Mermaid power' }).getByRole('button').filter({ hasNotText: 'princes' }).first();
   const requestedSuit = await suitButton.textContent(); await suitButton.click();
+  await declineRemainingBeforeTrickPlayers(players);
   await expect(jo.getByText('Princess power: The Little Mermaid')).toBeVisible();
   const legalSuits = await page.locator('.playing-card.playable small').allTextContents();
   await steps.step('little-mermaid-requests-suit', { description: 'The Little Mermaid requires the leader to play a chosen suit', verifications: [
@@ -70,6 +79,7 @@ test('five interactive Princesses resolve complete shared-stream choices', async
   await page.getByRole('group', { name: 'Ice Princess power' }).getByRole('button', { name: 'Jo' }).click();
   const frozen = page.getByRole('group', { name: 'Ice Princess cards' }).getByRole('button').first();
   const frozenLabel = await frozen.textContent(); await frozen.click();
+  await declineRemainingBeforeTrickPlayers(players);
   await playTurn(players); // Alex leads; Jo must play the frozen card next.
   await expect(jo.locator('.playing-card.playable')).toHaveCount(1);
   await steps.step('ice-princess-freezes-card', { description: 'The Ice Princess inspects two cards and freezes one for its owner', verifications: [
@@ -84,6 +94,7 @@ test('five interactive Princesses resolve complete shared-stream choices', async
   const takenLabel = (await swapGroup.locator('strong').textContent())?.replace('Took ', '') ?? '';
   const swapButton = swapGroup.getByRole('button', { name: /^Swap / }).first(); const givenLabel = (await swapButton.textContent())?.replace('Swap ', '') ?? '';
   await swapButton.click();
+  await declineRemainingBeforeTrickPlayers(players);
   await steps.step('scheherazade-barters-card', { description: 'Scheherazade exchanges a random card from another hand for one of hers', verifications: [
     { spec: 'The inspected card enters Scheherazade’s hand', check: async () => expect(page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: takenLabel, exact: true })).toBeVisible() },
     { spec: 'The card she gave away leaves her hand and hand sizes remain conserved', check: async () => { await expect(page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: givenLabel, exact: true })).toHaveCount(0); for (const client of players) await expect(client.getByRole('region', { name: 'Your hand' }).getByRole('button')).toHaveCount(12); } }
@@ -96,6 +107,7 @@ test('five interactive Princesses resolve complete shared-stream choices', async
   const redistribution = page.getByRole('group', { name: 'Sleeping Beauty redistribution' });
   for (const label of contributed) await redistribution.getByRole('button', { name: new RegExp(`${label}$`) }).click();
   await redistribution.getByRole('button', { name: 'Redistribute' }).click();
+  await declineRemainingBeforeTrickPlayers(players);
   await steps.step('sleeping-beauty-redistributes-cards', { description: 'Every player contributes and Sleeping Beauty assigns every card', verifications: [
     { spec: 'Sleeping Beauty keeps the first selected contribution', check: async () => expect(page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: contributed[0], exact: true })).toBeVisible() },
     { spec: 'Jo and Sam receive their explicitly ordered cards', check: async () => { await expect(jo.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: contributed[1], exact: true })).toBeVisible(); await expect(sam.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: contributed[2], exact: true })).toBeVisible(); } }

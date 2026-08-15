@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
+import { declineRemainingBeforeTrickPlayers } from '../helpers/princess-click-game';
+
+const BEFORE_TRICK_PRINCESSES = new Set(['Cinderella', 'Pocahontas', 'The Pea Princess']);
 
 const IDS = {
   phone: { snow: 'F0000004', cinderella: 'F0000007', pocahontas: 'F0000000', mulan: 'F0000002', pea: 'F0000015' },
@@ -28,6 +31,10 @@ async function setupGame(pages: Page[], gameId: string, princess: string) {
     await page.getByRole('button', { name: 'Ready for the ball' }).click();
   }
   await pages[0].getByRole('button', { name: 'Shuffle and deal' }).click();
+  if (BEFORE_TRICK_PRINCESSES.has(princess)) {
+    await pages[0].getByRole('button', { name: `Raise hand for ${princess} on the next trick` }).click();
+    await expect(pages[0].getByText('Hand raised for trick 1')).toBeVisible();
+  }
   for (const page of pages) {
     const hand = page.getByRole('region', { name: 'Your hand' });
     await expect(hand.getByRole('button')).toHaveCount(12);
@@ -36,7 +43,8 @@ async function setupGame(pages: Page[], gameId: string, princess: string) {
     for (let index = 0; index < count; index += 1) { await hand.locator('.playing-card:not(.selected)').first().click(); await expect(hand.locator('.playing-card.selected')).toHaveCount(index + 1); }
     await submit.click();
   }
-  for (const page of pages) await expect(page.getByRole('alert')).toContainText('Passing complete');
+  if (BEFORE_TRICK_PRINCESSES.has(princess)) await expect(pages[0].getByRole('alert')).toContainText('Your before-trick decision');
+  else for (const page of pages) await expect(page.getByRole('alert')).toContainText('Passing complete');
 }
 
 async function playFirstPlayable(page: Page, observer: Page) {
@@ -85,6 +93,7 @@ test('the five direct Princess powers activate, modify play, and exhaust for the
 
   await setupGame(players, IDS[suffix].cinderella, 'Cinderella');
   await page.getByRole('button', { name: 'Use Cinderella power' }).click();
+  await declineRemainingBeforeTrickPlayers(players);
   await expect(page.getByText('Princess power: Cinderella')).toBeVisible();
   await playCards(players, 3);
   await expect(jo.getByLabel("Alex's Princess: Cinderella")).toHaveClass(/exhausted/);
@@ -99,6 +108,7 @@ test('the five direct Princess powers activate, modify play, and exhaust for the
   await setupGame(players, IDS[suffix].pocahontas, 'Pocahontas');
   await page.getByRole('button', { name: 'Use Pocahontas power' }).click();
   await page.getByRole('group', { name: 'Pocahontas power' }).getByRole('button', { name: 'Jo leads' }).click();
+  await declineRemainingBeforeTrickPlayers(players);
   await steps.step('pocahontas-chooses-leader', {
     description: 'Pocahontas hands the lead to another player',
     verifications: [
@@ -109,6 +119,7 @@ test('the five direct Princess powers activate, modify play, and exhaust for the
 
   await setupGame(players, IDS[suffix].pea, 'The Pea Princess');
   await page.getByRole('button', { name: 'Use The Pea Princess power' }).click();
+  await declineRemainingBeforeTrickPlayers(players);
   await expect(page.getByText('Princess power: The Pea Princess')).toBeVisible();
   const peaRanks = await page.locator('.playing-card.playable strong').allTextContents();
   await steps.step('pea-princess-requires-high-cards', {

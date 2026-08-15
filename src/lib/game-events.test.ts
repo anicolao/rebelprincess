@@ -94,6 +94,10 @@ describe('append-only game events', () => {
       powerIdsThisTrick: [],
       pendingMulanUid: null,
       pendingPower: null,
+      batPriorityEnabled: false,
+      batSignals: {},
+      batSignalTargetTrick: null,
+      beforeTrickWindow: null,
       forcedCards: {},
       awaitingRoundAction: null,
       roundActionSubmissions: {},
@@ -278,6 +282,69 @@ describe('append-only game events', () => {
       type: 'power/declined', payload: { gameId: 'MOON42', powerId: 'mulan' }, actorUid: 'host',
       clientSeq: 7, createdAt: null, schemaVersion: 1, reducerVersion: 1
     })).toBe(true);
+  });
+
+  it('holds the next trick for rolling before-trick priority and lets an earlier decliner reconsider', () => {
+    let sequence = 0;
+    const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
+      id: String(++sequence).padStart(2, '0'), type, payload: { gameId: 'PRIORITY', ...payload }, actorUid,
+      clientSeq: sequence, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    });
+    const fairy = (rank: number) => ({ suit: 'fairies' as const, rank });
+    const queen = (rank: number) => ({ suit: 'queens' as const, rank });
+    const events = [
+      make('game/created', 'a', { displayName: 'Alex' }),
+      make('player/joined', 'b', { displayName: 'Jo' }),
+      make('player/joined', 'c', { displayName: 'Sam' }),
+      make('player/configured', 'a', { princessId: 'cinderella', ready: true }),
+      make('player/configured', 'b', { princessId: 'pea-princess', ready: true }),
+      make('player/configured', 'c', { princessId: 'mulan', ready: true }),
+      make('game/dealt', 'a', { seed: 'priority', batPriority: true, roundIds: ['single-fairy', 'once-upon-a-time', 'masquerade-ball', 'royal-decree', 'musical-chairs'], hands: {
+        a: [fairy(2), queen(2)], b: [fairy(3), queen(3)], c: [fairy(4), queen(4)]
+      } }),
+      make('power/hand-raised', 'a', { targetTrickIndex: 0 }),
+      make('pass/submitted', 'a', { cards: [queen(2)] }),
+      make('pass/submitted', 'b', { cards: [queen(3)] }),
+      make('pass/submitted', 'c', { cards: [queen(4)] })
+    ];
+
+    const opened = deriveGame(events);
+    expect(opened.beforeTrickWindow).toMatchObject({ priorityUid: 'a', eligibleUids: ['a', 'b'], actedUids: [] });
+    expect(opened.currentTurnUid).toBeNull();
+
+    events.push(make('card/played', 'a', { card: fairy(2) }));
+    expect(deriveGame(events).trick?.plays).toEqual([]);
+    events.push(make('power/priority-declined', 'a', { windowId: '0:0:a' }));
+    expect(deriveGame(events).beforeTrickWindow).toMatchObject({ priorityUid: 'b', declinedSinceActivation: ['a'] });
+    events.push(make('power/activated', 'b', { powerId: 'pea-princess', windowId: '0:0:a' }));
+    expect(deriveGame(events).beforeTrickWindow).toMatchObject({ priorityUid: 'a', actedUids: ['b'], declinedSinceActivation: [] });
+    events.push(make('power/activated', 'a', { powerId: 'cinderella', windowId: '0:0:a' }));
+
+    const resolved = deriveGame(events);
+    expect(resolved.beforeTrickWindow).toBeNull();
+    expect(resolved.currentTurnUid).toBe('a');
+    expect(resolved.powerIdsThisTrick).toEqual(['pea-princess', 'cinderella']);
+    expect(resolved.trick?.reversed).toBe(true);
+  });
+
+  it('honors lowering a first-trick hand before the signaling boundary', () => {
+    let sequence = 0;
+    const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
+      id: String(++sequence).padStart(2, '0'), type, payload: { gameId: 'LOWERED', ...payload }, actorUid,
+      clientSeq: sequence, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    });
+    const cards = { a: [{ suit: 'fairies' as const, rank: 2 }], b: [{ suit: 'fairies' as const, rank: 3 }], c: [{ suit: 'fairies' as const, rank: 4 }] };
+    const events = [
+      make('game/created', 'a', { displayName: 'Alex' }), make('player/joined', 'b', { displayName: 'Jo' }), make('player/joined', 'c', { displayName: 'Sam' }),
+      make('player/configured', 'a', { princessId: 'cinderella', ready: true }),
+      make('game/dealt', 'a', { seed: 'lowered', batPriority: true, roundIds: ['single-fairy', 'once-upon-a-time', 'masquerade-ball', 'royal-decree', 'musical-chairs'], hands: cards }),
+      make('power/hand-raised', 'a', { targetTrickIndex: 0 }), make('power/hand-lowered', 'a', { targetTrickIndex: 0 }),
+      ...(['a', 'b', 'c'] as const).map((uid) => make('pass/submitted', uid, { cards: cards[uid] }))
+    ];
+    const projection = deriveGame(events);
+    expect(projection.batSignals).toEqual({});
+    expect(projection.beforeTrickWindow).toBeNull();
+    expect(projection.currentTurnUid).toBe('a');
   });
 
   it('accepts attributed Round-action card envelopes', () => {

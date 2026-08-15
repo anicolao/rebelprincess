@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { closePrincessGame, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, declineRemainingBeforeTrickPlayers, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
 
 const IDS = { phone: 'CPE00001', desktop: 'CPE00002' } as const;
 
@@ -8,11 +8,12 @@ test('The Pea Princess restricts play entirely through clicks', async ({ page, b
   const steps = new TestStepHelper(page, testInfo); steps.setMetadata('Pea Princess click activation', 'Click the Pea Princess, then click through the constrained trick.');
   const game = await setupPrincessGame(browser, page, testInfo, IDS[testInfo.project.name as keyof typeof IDS], 'The Pea Princess');
   const princess = page.getByRole('button', { name: 'Use The Pea Princess power' });
-  await steps.step('pea-princess-ready', { description: 'The Pea Princess is ready before any card is played', verifications: [
+  await steps.step('pea-princess-ready', { description: 'The Pea Princess has priority and the lead is locked before any card is played', verifications: [
     { spec: 'Her Princess card is enabled', check: async () => expect(princess).toBeEnabled() },
-    { spec: 'The full legal lead set is initially visible', check: async () => expect(page.locator('.playing-card.playable:not(:disabled)').first()).toBeVisible() }
+    { spec: 'No lead card is playable until the before-trick decision resolves', check: async () => expect(page.locator('.playing-card.playable:not(:disabled)')).toHaveCount(0) }
   ] });
   await expect(princess).toBeEnabled(); await princess.click();
+  await declineRemainingBeforeTrickPlayers(game.players);
   await expect(page.getByText('Princess power: The Pea Princess')).toBeVisible();
   const ranks = await page.locator('.playing-card.playable:not(:disabled) strong').allTextContents();
   expect(ranks.length).toBeGreaterThan(0); expect(ranks.every((rank) => Number(rank) > 5)).toBe(true);
