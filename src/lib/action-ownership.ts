@@ -18,6 +18,7 @@ type OwnershipProjection = Pick<GameProjection,
   | 'suitCommitments'
   | 'pendingMulanUid'
   | 'pendingPower'
+  | 'beforeTrickWindow'
   | 'haggleWinnerUid'
   | 'currentTurnUid'
 >;
@@ -69,6 +70,10 @@ export function actionOwnership(game: OwnershipProjection, uid: string): ActionO
       return simultaneousChoice(game.pendingPower.cards.some((entry) => entry.uid === uid), 'Choose card', 'Card given');
     }
     return game.pendingPower.actorUid === uid ? { state: 'active', label: 'Resolve power' } : IDLE;
+  }
+
+  if (game.beforeTrickWindow) {
+    return game.beforeTrickWindow.priorityUid === uid ? { state: 'active', label: 'Before-trick decision' } : IDLE;
   }
 
   return game.currentTurnUid === uid ? { state: 'active', label: 'Play a card' } : IDLE;
