@@ -2,6 +2,8 @@
 
 ## Scope and method
 
+**Current-state update (August 15, 2026):** this report now distinguishes the original replay findings from the fixes merged to `main` through `108a0c7`. The replay evidence below is historical and remains useful; the status and plan near the end describe what is true in the current build.
+
 This report correlates the August 9, 2026 chat feedback with read-only replays of the two production Firestore event streams:
 
 | Game | Local time (America/Toronto) | Players | Rounds | Result |
@@ -26,9 +28,33 @@ The playtest found three related classes of problems:
 2. **Hidden-choice fairness:** Princess selections and Crystal Clear reveals become visible as each player submits. The shared event projection also contains information intended to be private, so hiding it only in the UI would not provide strong secrecy.
 3. **Action clarity:** legal cards, the active player, simultaneous responders, successful powers, transfers, and committed choices are not visually prominent enough. This made correct state look broken and made actual races difficult to understand.
 
-Blind Man’s Bluff has a separate confirmed rule bug: it always transfers after six tricks instead of after half of the dealt hand. Mulan’s trigger logic is working independently of trick winner, but its displayed rules omit two important conditions. Alice’s lingering highlight has a likely concrete UI-state cause.
+The original build had a separate confirmed Blind Man’s Bluff rule bug: it always transferred after six tricks instead of after half of the dealt hand. Mulan’s trigger logic works independently of trick winner, but its displayed rules still omit two important conditions. Alice’s lingering highlight still has a likely concrete UI-state cause.
 
-The highest priority should be preserving cards and making before-trick actions deterministic. Visual polish should follow immediately because poor state visibility materially contributed to the playtest confusion.
+The highest-risk card-loss bug, both observed information leaks, Blind Man’s Bluff timing, action-owner visibility, legal-card highlighting, and responsive sizing are now fixed on `main`. The follow-on asset work also added a responsive `/assets/` review route and standardized the current card atlases.
+
+The principal remaining architectural risk is the before-trick action window. Opening some Princess controls is still client-local, so it does not reserve the table immediately, and the reducer still permits only one pending Princess power rather than an ordered response sequence. The next work should address that shared-state race, then make submissions idempotent and finish the smaller feedback items around confirmation, receipts, copy, and persistent score access.
+
+## Current state on `main`
+
+| Area | Status | Current behavior and evidence |
+|---|---|---|
+| Sleeping Beauty final-trick completion | **Fixed** | `82bf2b1` prevents round completion while a power is pending and adds the six-contribution regression. `f8376cd` makes contribution order deterministic. |
+| Princess-selection secrecy | **Fixed for normal clients** | `b00540a` commits choices before revealing them together; browser and reducer tests cover the sealed lobby flow. |
+| Crystal Clear secrecy | **Fixed for normal clients** | `b00540a` uses the same commit/reveal mechanism and verifies that early submitters expose only a locked-choice receipt. |
+| Blind Man’s Bluff timing | **Fixed** | `0d6ac77` derives the transfer point from the original deal size and covers the five-player, eight-card case from `E38C0C`. The center now acknowledges the transfer. |
+| Active player and simultaneous action owners | **Fixed** | `8bbea7d` derives public per-seat action ownership, highlights every player who owes input, and marks completed simultaneous choices. |
+| Legal-card visibility and blocked-play explanation | **Fixed** | `8bbea7d` raises legal cards with a strong gold border/glow, dims illegal cards, and explains follow-suit, forced-card, and round-rule restrictions. |
+| Table, card, Princess, and text sizing | **Fixed; re-review recommended** | `0fca5fa` makes the table and assets responsive and uses substantially more of the available viewport. It includes desktop and phone layout coverage. |
+| Asset rendering and review route | **Fixed after follow-up review** | `/assets/` now reviews the logical suit, Princess, and round-card atlases through the shared regular-grid renderer; subsequent merged revisions standardized the art and restored the preferred Princess portraits. |
+| Failed Prince lead during `1B77D2` | **Partially addressed** | Once Sleeping Beauty’s activation reaches shared state, action ownership now makes the lock and its owner visible. The first-click reservation race remains open, so this is not fully resolved. |
+| Before-trick reservation and responses | **Open** | Interactive powers can still open a client-only picker before any event reserves play, and an existing `pendingPower` still blocks every other activation. |
+| Duplicate Firestore commands | **Open** | UI actions still do not share a stable idempotency key, and most controls are not synchronously locked for the entire append. |
+| Wedding Gift receipt and undo | **Open** | The UI says “Gift wrapped” but does not name the submitted card or permit replacement before the final gift arrives. |
+| Princess-power confirmation | **Open** | Multi-step powers expose a chooser, but immediate one-use powers still have no consistent confirm/cancel step. |
+| Mulan rules text and skipped-prompt explanation | **Open** | The reducer correctly excludes the Frog and requires a replacement, but the displayed text still omits both qualifications. |
+| Alice returned-card highlight | **Open** | Pass selection is reset between rounds, not when the opening pass completes, so a returned matching card can still inherit the stale selected treatment. |
+| Persistent scorecard | **Open** | The full scorecard is still available only in the round-results overlay. |
+| Spectator mode | **Open** | There is no read-only spectator role or privacy-filtered public projection. |
 
 ## Replay findings
 
@@ -135,67 +161,66 @@ The reducer rejected the illegal second copies in the observed cases, so both ga
 
 ## Feedback triage
 
-| Feedback | Conclusion | Priority |
-|---|---|---:|
-| Sleeping Beauty ended the last trick without being played | Confirmed reducer integrity bug; empty hands incorrectly override unresolved pending cards | P0 |
-| Leader must be blocked as soon as a before-trick power is clicked | Confirmed client-only intent gap | P0 |
-| Before-trick powers must respond to other before-trick powers | Confirmed; reducer accepts only one pending power and has no response phase | P0 |
-| Princess choices visible before everyone selects | Confirmed lobby/shared-state fairness leak | P0 |
-| Crystal Clear choices visible before others choose | Confirmed UI and shared-state fairness leak | P0 |
-| Blind Man’s Bluff did not work, then worked late | Confirmed; hard-coded six-trick trigger is wrong for this deal | P1 |
-| Unable to lead a Prince after Princes broke | Not a Prince-rules bug; Sleeping Beauty won a 139 ms action race and silently locked play | P1 as part of action clarity |
-| Wedding Gift should show the gift and allow undo | Confirmed missing receipt/retraction flow | P1 |
-| Princess power should get a confirmation | Supported; add confirmation before consuming a one-use power and acknowledgment after acceptance | P1 |
-| Legal cards should be auto-highlighted | Already highlighted by a one-pixel gold treatment, but playtest proves it is not salient enough | P1 |
-| Highlight active player / make action owner obvious, including multiple players | Supported and reinforced by replayed races; current treatment is mainly text and only highlights the local leader | P1 |
-| Mulan text incomplete / Frog behavior | Confirmed copy problem; Frog exclusion is intentional | P1 |
-| Mulan prompt appears inconsistently / perhaps only when Mulan wins | Winner hypothesis disproved; prompt depends on having a legal same-suit non-Frog swap | P1 clarity |
-| Alice card remains highlighted on later tricks | Supported with a likely stale `selectedPassCards` cause | P1 |
-| Cards and Princess-power font are too small; screen has unused purple space | Confirmed by several players and supported by desktop CSS (cards cap at 78 px; opponent power copy is 7–8 px) | P2 |
-| Add a scorecard button | Scorecard exists only in the round-results overlay; persistent access is absent | P2 |
-| Spectator mode | Not implemented; requires an explicit privacy and joining model | P3 |
+| Feedback | Current conclusion | State |
+|---|---|---|
+| Sleeping Beauty ended the last trick without being played | Reducer integrity bug fixed and covered by the replay-derived regression | **Done** |
+| Princess choices visible before everyone selects | Commit/reveal flow now seals individual choices until collective reveal | **Done** |
+| Crystal Clear choices visible before others choose | Commit/reveal flow now seals suits until everyone commits | **Done** |
+| Blind Man’s Bluff did not work, then worked late | Deal-aware threshold replaces the hard-coded six-trick trigger | **Done** |
+| Legal cards should be auto-highlighted | Legal cards now receive a strong raised gold treatment; illegal cards are dimmed | **Done** |
+| Highlight active player / make action owner obvious, including multiple players | Per-seat ownership highlights active and completed responders | **Done** |
+| Cards and Princess-power font are too small; screen has unused purple space | Responsive layout now scales cards, Princesses, copy, and table use | **Done** |
+| Unable to lead a Prince after Princes broke | The Prince was legal; shared lock visibility is fixed, but the pre-event click race remains | **Partial** |
+| Leader must be blocked as soon as a before-trick power is clicked | Still a client-local intent gap for powers that first open a picker | **Open · P0** |
+| Before-trick powers must respond to other before-trick powers | Reducer still has one `pendingPower` slot and no response phase | **Open · P0** |
+| Duplicate rapid submissions | Observed events were usually rejected by projection rules, but commands are not idempotent | **Open · P1** |
+| Wedding Gift should show the gift and allow undo | Generic completion marker exists; exact-card receipt and retraction do not | **Open · P1** |
+| Princess power should get a confirmation | No consistent confirm/cancel contract for immediate one-use powers | **Open · P1** |
+| Mulan text incomplete / Frog behavior | Logic is correct; displayed copy still omits the Frog and no-replacement conditions | **Open · P1** |
+| Mulan prompt appears inconsistently / perhaps only when Mulan wins | Winner hypothesis disproved; a short skipped-action explanation remains desirable | **Open · P1 clarity** |
+| Alice card remains highlighted on later tricks | Likely stale opening-pass selection remains in the client for the rest of the round | **Open · P1** |
+| Add a scorecard button | Scorecard remains limited to the round-results overlay | **Open · P2** |
+| Spectator mode | Requires a read-only role and a privacy-safe projection | **Open · P3** |
 
 ## Prioritized fix plan
 
-### P0 — protect game integrity and fairness
+### P0 — make before-trick actions deterministic
 
-1. **Fix Sleeping Beauty round completion.** A round cannot complete while `pendingPower`, `pendingMulanUid`, an unresolved round action, or cards held in a pending contribution pool exist. Add a focused reducer regression from the six final contributions above, plus a browser test that redistributes and then plays the real last trick. Assert conservation across hands, trick, captured piles, gifts, reserves, and pending zones at every event prefix.
+1. **Introduce a shared before-trick action window.** The first click must append an intent/reservation immediately, before opening any target or card picker. Pause normal play from that accepted event, show the reserving player, and provide explicit cancel/expiry behavior.
 
-2. **Introduce an explicit before-trick action window.** Model intent/reservation in shared state from the first click. Pause the leader immediately, display who opened the window, collect eligible responses in a deterministic priority order, and resolve a stack/queue before normal play resumes. Define cancellation/time-out behavior and ensure a rejected card play receives a visible reason. Cover multiple simultaneous responders and final-trick activation.
+2. **Support ordered responses.** Replace the single `pendingPower` slot with a deterministic queue or priority window so eligible before-trick powers can respond to an earlier power. Define ordering, passing, cancellation, and resolution before implementation. Cover two responders, a leader racing the reservation, and final-trick Sleeping Beauty in reducer and browser tests.
 
-3. **Seal simultaneous/private choices.** Use commit/reveal or server-owned private documents for Princess choice and Crystal Clear. Do not reveal an individual choice until all required players commit. Hide lobby Princess identities until collective reveal. Document whether the project trusts players not to inspect Firestore; if it does not, separate public projection data from player-private hands and options.
+These should be one coherent state-machine change. Implementing only the visual lock would leave the race intact; implementing only the queue would leave the first-click gap intact.
 
-### P1 — correct rules and make actions trustworthy
+### P1 — make commands and power outcomes trustworthy
 
-4. **Make Blind Man’s Bluff deal-aware.** Record the hand size at round start and trigger after half that hand has been played, rather than after six tricks. Define whether Alice-created extra cards affect the threshold; the least surprising interpretation is half of the original dealt hand. Test all player counts and Alice interaction.
+3. **Make submissions idempotent.** Lock the initiating control synchronously, reuse a stable command ID across retries, and ignore repeated command IDs in the projection. Add rapid-double-click coverage for card play, Princess activation, Sleeping Beauty contribution, round actions, and joining.
 
-5. **Make submissions idempotent.** Disable actionable controls immediately while their write is pending, retain one command id across retries, and have the reducer ignore repeated command ids. Add rapid double-click tests for play, power, contribution, gift, reveal, and join actions.
+4. **Add confirmation, receipts, and reversible commitment.** Give immediate one-use Princess powers a consistent confirm/cancel step and accepted/rejected result. For Wedding Gift, show “You gifted X” and allow replacement until the last player commits, while keeping opponents’ cards face-down. Drive any transfer animation from accepted projection transitions.
 
-6. **Add an action-ownership layer.** Visually emphasize the active seat, not only text. When several players owe input, highlight all of them and show per-player completion markers. Strengthen legal-card treatment with contrast/dimming plus lift or glow, and preserve keyboard/focus accessibility. Show why a local action is blocked.
+5. **Close the two targeted Princess UX bugs.** Update Mulan’s text to include the replacement requirement and Frog exclusion, and explain when no swap exists. Clear or phase-gate `selectedPassCards` when passing completes, with an Alice regression proving a returned matching card is not highlighted.
 
-7. **Add confirmation and outcome feedback.** Confirm before committing an irreversible Princess power, then show an accepted/rejected acknowledgment. Add distinct animations for Blind Man’s Bluff hand transfer, Wedding Gift collection/award, Sleeping Beauty collection/redistribution, and other state-changing powers. Keep animation derived from accepted projection transitions, not optimistic clicks.
+6. **Run a focused replay and power-state audit.** Convert the two production streams into sanitized fixtures or smaller equivalent fixtures. Add a card-conservation invariant across hands, trick, captured piles, gifts, reserves, and pending zones, and exercise it at every replay prefix.
 
-8. **Finish the targeted UX fixes.** Correct Mulan copy and show “no replacement” feedback; clear or phase-gate pass selections so Alice-returned cards do not inherit highlights; add Wedding Gift receipt and retraction events; keep other gifts face-down.
+### P2 — improve access to existing information
 
-### P2 — improve readability and access
+7. **Add a persistent scorecard drawer/button.** Reuse the existing five-round table during live play. It must be read-only, keyboard accessible, usable on phone and desktop, and must not obscure required action feedback when opened.
 
-9. **Rework board sizing responsively.** Increase hand cards and trick cards, raise Princess power text to a readable minimum, allocate more of the viewport to active content, and reduce empty table space. Validate at the actual desktop and mobile viewport sizes used in the playtest, with 3–6 players.
+8. **Re-review the responsive table with players.** The implementation and automated screenshots now cover the requested scaling, but the success criterion is human readability at the actual devices and player counts that produced the feedback. Treat any resulting spacing adjustments as bounded polish rather than another layout rewrite.
 
-10. **Add a persistent scorecard drawer/button.** Reuse the existing score table outside the end-of-round overlay and ensure opening it never blocks or changes play.
+### P3 — add spectators after defining the privacy boundary
 
-### P3 — add spectators after privacy boundaries are defined
-
-11. **Design spectator mode.** A spectator must not join as a player, consume a seat, or gain private hands/choices. Define public versus player-private projection first, then add a read-only route with delayed or redacted information as appropriate.
+9. **Design spectator mode.** A spectator must not join as a player, consume a seat, or receive private hands, choice nonces, or unrevealed choices. Decide whether the current trusted-client model is acceptable; otherwise split public and player-private projections before exposing a read-only route.
 
 ## Suggested delivery slices
 
-Keep the work reviewable and reduce regression risk by shipping it in this order:
+Keep the remaining work reviewable and reduce regression risk by shipping it in this order:
 
-1. Sleeping Beauty completion guard, conservation invariant, and replay fixture.
-2. Blind Man’s Bluff threshold plus duplicate-action protection.
-3. Before-trick reservation/response state machine and action-owner UI.
-4. Sealed Princess and Crystal Clear choices.
-5. Mulan, Alice, Wedding Gift, confirmation, and animation polish.
-6. Responsive sizing, scorecard access, then spectator mode.
+1. Before-trick reservation/response state machine, building on the merged ownership UI.
+2. Stable command IDs and synchronous in-flight control locking.
+3. Mulan and Alice fixes as a small targeted PR.
+4. Wedding Gift receipt/retraction plus shared Princess confirmation behavior.
+5. Persistent scorecard access and a short real-device table re-review.
+6. Spectator/privacy design, followed by implementation only after that boundary is agreed.
 
-The two production streams should be converted into sanitized replay fixtures or smaller focused fixtures so these exact failures remain covered without tests depending on live Firestore.
+The completed fixes should remain separate in history. The next PR should start with the before-trick protocol rather than reopening Sleeping Beauty, sealed-choice, Blind Man’s Bluff, responsive-layout, or asset work that is already on `main`.
