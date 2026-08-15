@@ -186,7 +186,7 @@ The reducer rejected the illegal second copies in the observed cases, so both ga
 
 ### P0 — make before-trick actions deterministic
 
-1. **Introduce a shared before-trick action window.** The first click must append an intent/reservation immediately, before opening any target or card picker. Pause normal play from that accepted event, show the reserving player, and provide explicit cancel/expiry behavior.
+1. **Introduce a shared before-trick action window.** The first click must append an intent/reservation immediately, before opening any target or card picker. Pause normal play from that accepted event, show the reserving player, and collect explicit responses as specified in [the proposed reservation/response design](docs/design/BEFORE_TRICK_RESERVATION_RESPONSE.md).
 
 2. **Support ordered responses.** Replace the single `pendingPower` slot with a deterministic queue or priority window so eligible before-trick powers can respond to an earlier power. Define ordering, passing, cancellation, and resolution before implementation. Cover two responders, a leader racing the reservation, and final-trick Sleeping Beauty in reducer and browser tests.
 
