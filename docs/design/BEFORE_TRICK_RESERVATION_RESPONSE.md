@@ -1,6 +1,6 @@
-# Before-trick reservation and response design
+# Before-trick hand-raise and priority design
 
-**Status:** Proposed for review
+**Status:** Revised proposal for review
 
 **Scope:** Princess powers whose printed timing is “before a trick”
 
@@ -8,54 +8,67 @@
 
 ## Decision summary
 
-Replace the single `pendingPower` gate with an explicit, replayable before-trick window:
+Use advance hand-raising to decide whether the next trick needs a before-a-trick (BAT) priority window:
 
-1. Clicking a before-trick Princess appends `power/reserved` immediately, before opening any target or card chooser.
-2. The first accepted reservation blocks card play and opens a response phase for every other eligible before-trick Princess.
-3. Eligible players publicly choose **Reserve** or **Pass**. The initiator closes responses only after everyone has answered.
-4. Reserved powers form a deterministic queue in canonical event order and resolve one at a time in that same order.
-5. A power chooses targets and cards only when it reaches the front of the queue, so later responders act on the state produced by earlier powers.
-6. The leader may play only after the queue is empty and the window closes.
+1. During a trick, a player with an unused BAT power may secretly raise or lower their hand for the next trick at any time. During the opening pass, they may do the same for the first trick.
+2. If no hand is raised when the signaling phase ends, the next trick starts normally with no extra interaction.
+3. If at least one hand is raised, card play is blocked before the next trick and BAT priority starts with the leading player, then proceeds in play order among players with unused BAT powers.
+4. On priority, a player either activates their Princess or declines. An activated power resolves completely before priority advances.
+5. Every activation resets the decline sequence. Players who declined earlier but have not activated get another opportunity after priority goes around again.
+6. The window closes only when every player who still has an unused BAT power has declined consecutively since the most recent activation.
+7. Signals are consumed and all hands are lowered when their target window begins.
 
-This preserves the append-only Firestore stream and deterministic reducer. It adds no mutable lock document, server clock, timeout, or Cloud Function.
+This is a rolling-priority protocol rather than the earlier simultaneous reservation queue. It removes the lead-versus-reservation race, uses table order instead of network arrival to break ties, and permits a player to respond even if they declined before another power was activated.
+
+## Example
+
+Alex leads the next trick. Alex, Jo, and Sam all have unused BAT powers. At least one player raised a hand during the preceding trick.
+
+1. Alex gets priority and declines.
+2. Jo activates the Ice Princess. The inspection and freeze resolve immediately. Jo’s Princess is exhausted.
+3. The decline sequence resets, and Sam gets priority. Sam declines.
+4. Priority returns to Alex because Alex has not acted. After seeing the Ice Princess resolve, Alex may now activate or decline again.
+5. If Alex declines, Sam and Alex have both declined consecutively since Jo’s activation. Jo is already exhausted, so the window closes and the trick begins.
+
+Alex’s first decline did not remove Alex from the window. Only successfully activating a power removes a player from later circuits.
 
 ## Why the current model fails
 
-The current UI opens several power choosers in local component state. No shared event exists until the owner completes the first choice. During that interval, every other client still derives an ordinary empty trick, so the leader can submit a card.
+The current UI opens several power choosers in local component state. No shared event exists until the owner completes an initial target or option choice. During that interval, other clients still derive an ordinary empty trick, so the leader can submit a card.
 
-After an activation does reach Firestore, the reducer projects one `pendingPower`. While it exists, all other `power/activated` events are ignored. The implementation therefore has two distinct problems:
+After an activation reaches Firestore, the reducer projects one `pendingPower`. While it exists, all other `power/activated` events are ignored. The implementation therefore both locks too late and prevents one BAT power from answering another.
 
-- it locks too late for interactive powers; and
-- once locked, it cannot collect or order responses from other Princesses.
-
-The August 9 Prince lead was rejected because Sleeping Beauty’s event happened to enter canonical order first. The rejection was legal under the projection, but the leader had no visible warning during Sleeping Beauty’s client-only confirmation step.
+Advance signaling fixes the first problem before the trick becomes playable. Rolling priority fixes the second by giving every still-unused BAT power another turn after each activation.
 
 ## Goals
 
-- Publish the lock as the first action caused by a Princess click.
-- Give every eligible before-trick Princess one explicit response opportunity.
-- Resolve multiple powers in an order that is deterministic on every client.
-- Keep target and card choices current by collecting them at resolution time.
-- Make action ownership and blocked play obvious to all players.
-- Preserve immutable event replay, reconnect behavior, and old game streams.
-- Exhaust a Princess only when her reserved power resolves successfully.
+- Decide whether BAT interaction is needed before the next trick becomes playable.
+- Add no extra clicks to a trick when nobody has signaled interest.
+- Let players change their signaling intent freely before the signaling boundary.
+- Resolve BAT powers one at a time in visible table order.
+- Let an earlier decliner reconsider after any later player activates.
+- End the window only after an uninterrupted full circuit of declines.
+- Keep target and card choices current by resolving a power immediately when priority is taken.
+- Preserve immutable event replay, reconnect reconstruction, and old game streams.
 
 ## Non-goals
 
-- This does not add command idempotency; stable command IDs remain the next separate infrastructure change.
-- This does not create server-enforced game legality or privacy. The project retains its trusted-client model.
-- This does not add disconnect timeouts or host overrides.
+- Secrecy is UI-level only. The shared Firestore stream may contain each player’s signal.
+- There is no special disconnect recovery. The game waits for the player who has priority.
+- This does not add command idempotency or server-enforced game legality.
 - This does not change after-play powers such as Mulan and Alice, or while-playing powers such as Snow White and Thumbelina.
-- This does not redefine the printed effects of individual Princesses. It does define how multiple otherwise-valid effects are scheduled.
+- This does not redefine the printed effect of an individual Princess.
 
 ## Terminology
 
-- **Window:** one before-trick coordination epoch for an empty trick.
-- **Reservation:** a public, binding declaration that a player intends to use their before-trick Princess in this window.
-- **Responder:** an eligible Princess owner other than the first reserving player.
-- **Response:** the responder’s latest accepted Reserve or Pass decision before responses close.
-- **Queue:** the frozen list of reservations awaiting resolution.
-- **Active resolver:** the owner of the reservation at the front of the queue.
+- **BAT power:** a Princess power with printed timing “before a trick.”
+- **Signal:** the latest raised/lowered hand state for a future BAT window.
+- **Signaling phase:** the preceding trick, or the opening pass for trick one.
+- **Signal boundary:** the canonical event prefix at which the next trick becomes eligible for BAT priority.
+- **Priority window:** the sequential opportunity to activate BAT powers before card play.
+- **Priority holder:** the one player currently asked to Activate or Decline.
+- **Acted player:** a player who successfully activated and exhausted their BAT power in this window.
+- **Decline sequence:** the still-eligible players who have declined since the most recent activation.
 
 The relevant Princesses are Cinderella, Pocahontas, the Pea Princess, the Little Mermaid, Sleeping Beauty, Scheherazade, the Ice Princess, and Rapunzel.
 
@@ -63,266 +76,292 @@ The relevant Princesses are Cinderella, Pocahontas, the Pea Princess, the Little
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle
-    Idle --> Collecting: first power/reserved
-    Idle --> Playing: card/played wins canonical race
-    Collecting --> Collecting: responder reserves or passes
-    Collecting --> Resolving: initiator closes complete responses
-    Resolving --> Resolving: front power resolves; queue remains
-    Resolving --> Playing: final power resolves; window closes
-    Playing --> Idle: trick completes and next pre-trick actions finish
+    [*] --> Signaling
+    Signaling --> Signaling: hand raised or lowered
+    Signaling --> Playing: boundary reached with no raised hands
+    Signaling --> Priority: boundary reached with at least one raised hand
+    Priority --> Resolving: priority holder activates
+    Resolving --> Priority: power resolves; declines reset
+    Priority --> Priority: priority holder declines; circuit incomplete
+    Priority --> Playing: every unacted player declines consecutively
+    Playing --> Signaling: next trick starts
 ```
 
-`Idle` here means that the trick is empty, mandatory Round-card preparation is complete, and no before-trick window exists. Ordinary card play remains unchanged when nobody invokes a Princess.
+For the first trick, `Signaling` overlaps the opening pass. For later tricks, it overlaps card play in the preceding trick. The last trick may be targeted by a signal during the penultimate trick; the hand control is absent during the final trick because there is no following trick in that round.
 
-## Window identity and eligibility
+## Signal lifecycle
 
-The window ID is derived rather than randomly generated:
+### Scope signals to the next trick
+
+A signal targets a derived next-window ID:
 
 ```text
-gameNumber:roundIndex:completedTricks:leaderUid
+gameNumber:roundIndex:targetTrickIndex
 ```
 
-Every new event carries that ID. A stale click from a prior trick or prior leader is therefore retained in history but rejected by the reducer.
+During the opening pass, `targetTrickIndex` is `0`. During trick `n`, signals target trick `n + 1`. Stale raise/lower events for another game, round, or target trick remain in history but do not affect projection.
 
-The first accepted reservation captures a stable responder set. A player is eligible when all of these are true at that event prefix:
+### Raise and lower freely
 
-- their selected Princess has “before a trick” timing;
-- the Princess is not exhausted for the round;
-- the trick is empty;
-- no mandatory Round-card action is pending; and
-- the power’s base precondition can still be met.
+The latest accepted signal event from a player wins. A player may raise, lower, and raise again any number of times while the signaling phase is open. Neither action exhausts the Princess or commits the player to activate it.
 
-Eligibility is frozen for the window. Later power effects may make a reserved power impossible to apply, but they do not add a new responder halfway through coordination.
+The UI exposes this as a local toggle throughout the opening pass or current trick, independent of whose turn it is. Lowering the hand removes that player from the trigger calculation if the lower event enters canonical order before the signal boundary.
+
+### Evaluate once at the boundary
+
+At the signal boundary, the reducer snapshots whether at least one eligible player’s latest signal is Raised.
+
+- No raised hands: consume the target’s signals and allow ordinary play.
+- One or more raised hands: consume the signals, derive a priority window, and block ordinary play.
+
+After a window opens, lowering a hand cannot cancel it. The signal has already served its sole purpose: requesting that everyone receive BAT priority. A signaler who changed their mind simply Declines when asked.
+
+The event stream supplies the boundary order. A lower event ordered before the boundary counts; one ordered afterward is stale. No client clock is consulted.
+
+## First-trick signaling
+
+Players may raise or lower their hands throughout the opening passing phase. The signal remains live while mandatory post-pass Round-card setup is completed. It is evaluated immediately before the first trick’s BAT priority could begin.
+
+This supplies the same advance opportunity as signaling during a preceding trick without inventing a special first-trick confirmation screen.
+
+If the round has no opening pass cards, the existing ready/deal transition must still expose a short logical signaling phase before the first lead becomes legal. It need not use a timer: the deal projection can require each BAT owner to acknowledge Ready or raise a hand as part of the existing setup completion. This zero-pass edge case should be covered before implementation because some Round cards may specify no pass.
+
+## Priority order
+
+When a window opens, capture:
+
+- the leader at that moment;
+- seated play order;
+- every player who owns an unexhausted BAT Princess; and
+- the derived window ID.
+
+Priority begins with the captured leader if eligible, otherwise with the next eligible player in play order. It advances clockwise, skipping players who do not own a BAT power or who have already acted.
+
+The captured priority order does not change during the window. Pocahontas may change who will lead the trick, but that does not reorder a priority circuit already in progress.
+
+## Rolling decline rule
+
+The reducer maintains `actedUids` and an ordered `declinedSinceActivation` list.
+
+When the priority holder declines:
+
+1. append that UID to `declinedSinceActivation`;
+2. move priority to the next eligible player who has not acted; and
+3. close the window if `declinedSinceActivation` now contains every player who remains eligible and unacted.
+
+When the priority holder activates:
+
+1. resolve the power completely;
+2. exhaust its Princess and add the actor to `actedUids`;
+3. clear `declinedSinceActivation`; and
+4. move priority to the next eligible, unacted player after the actor.
+
+Clearing the decline sequence is what lets earlier decliners reconsider. The window ends only after a complete circuit with no intervening activation.
+
+If all eligible players have acted, the window closes immediately because no unused BAT power remains.
+
+## Immediate resolution
+
+A player who takes priority must finish their power before anyone else is asked.
+
+- Cinderella, the Pea Princess, and Rapunzel resolve from a single activation confirmation.
+- Pocahontas and the Little Mermaid select a current target or suit.
+- The Ice Princess and Scheherazade select a target, then complete their deterministic inspection.
+- Sleeping Beauty retains priority through contribution and redistribution.
+
+Interactive selection is a projected `activePower`, not merely an open local chooser. This preserves the lock and reconstructs the correct controls after refresh.
+
+Only after `activePower` resolves does the reducer reset declines and advance priority. Other BAT activation and decline events are ignored while a power is resolving.
+
+A power is offered only when its base preconditions are currently satisfiable. Because resolution is sequential, another Princess cannot invalidate it midway through its chooser. A successful resolution exhausts the Princess; opening or lowering a signaling hand never does.
 
 ## Proposed projection
 
-Replace the scheduling role of `pendingPower` with a public projection similar to:
-
 ```ts
+type BatSignal = 'raised' | 'lowered';
+
 type BeforeTrickWindow = {
   id: string;
-  phase: 'collecting' | 'resolving';
-  initiatorUid: string;
-  eligibleResponderUids: string[];
-  responses: Record<string, {
-    decision: 'reserve' | 'pass';
-    powerId?: string;
-    eventId: string;
-  }>;
-  queue: Array<{
-    reservationEventId: string;
+  startingLeaderUid: string;
+  eligibleUids: string[];
+  priorityUid: string;
+  actedUids: string[];
+  declinedSinceActivation: string[];
+  activePower: null | {
     actorUid: string;
     powerId: string;
-  }>;
-  activeResolution: null | {
-    reservationEventId: string;
     stage: string;
   };
 };
+
+type BatProjection = {
+  signals: Record<string, {
+    targetWindowId: string;
+    state: BatSignal;
+  }>;
+  beforeTrickWindow: BeforeTrickWindow | null;
+};
 ```
 
-The exact resolution stage remains power-specific. For example, Sleeping Beauty moves through contribution and redistribution stages while remaining the sole active resolver.
-
-`actionOwnership` derives directly from this projection:
-
-- unanswered responders are active during `collecting`;
-- answered responders are complete;
-- the initiator is active when every response exists and the window can close;
-- only the front reservation owner is active during `resolving`; and
-- the leader is idle and visibly blocked until the window disappears.
+The exact `activePower.stage` remains power-specific. Sleeping Beauty, for example, moves through collection and redistribution while retaining priority.
 
 ## Event contract
 
 | Event | Actor | Purpose |
 |---|---|---|
-| `power/reserved` | Eligible Princess owner | Opens the window or changes that actor’s unanswered/pass response to a binding reservation |
-| `power/passed` | Eligible responder | Declines to reserve their Princess for this window |
-| `power/responses-closed` | Initiator | Freezes the queue after every captured responder has answered |
-| `power/resolved` | Active resolver | Supplies the target, suit, card, or cards needed to apply the front power |
-| `power/resolution-skipped` | Active resolver | Records that no legal resolution remains; does not exhaust the Princess |
-| `power/contributed` | Required contributor | Continues to supply Sleeping Beauty’s per-player cards while she is the active resolver |
+| `power/hand-raised` | Unexhausted BAT owner | Sets that actor’s signal to Raised for the target trick |
+| `power/hand-lowered` | Unexhausted BAT owner | Sets that actor’s signal to Lowered for the target trick |
+| `power/priority-declined` | Current priority holder | Adds a decline and advances or closes the priority circuit |
+| `power/activation-started` | Current priority holder | Takes priority and opens that Princess’s projected resolution controls |
+| `power/resolved` | Active power owner | Applies the completed power and resumes priority |
+| `power/contributed` | Required contributor | Supplies Sleeping Beauty’s cards while her active power is resolving |
 
-Each scheduling event includes `windowId`; reservation, resolution, and skip events also include `powerId`. `power/resolved` carries the power-specific payload currently carried by `power/activated`.
+Each event contains the target or active `windowId`; resolution events also contain `powerId`. `power/resolved` carries the target, suit, card, or cards currently carried by `power/activated`.
 
-`power/activated` remains valid for older streams under its existing reducer semantics. The implementation increments `REDUCER_VERSION`; a deal authored at the new version uses the reservation protocol, while version 1 deals continue through the legacy branch. Replay therefore never reinterprets an old event.
+`power/activated` remains valid for version 1 streams under its existing reducer semantics. The implementation increments `REDUCER_VERSION`; new deals use the signal/priority events, while old deals retain the legacy path.
 
-## Detailed protocol
+## Determinism and concurrent input
 
-### 1. Reserve immediately
+Signals may arrive concurrently, but only their latest canonical state at the boundary matters. Firestore server timestamp and event ID remain the existing total order.
 
-The Princess card is labelled as a reservation action. Its first click:
+The priority window itself has only one legal decision-maker at a time. If stale clients submit competing events, the reducer accepts only the event authored by the current `priorityUid` or `activePower.actorUid` for the current window.
 
-1. disables that local control synchronously;
-2. appends `power/reserved` without waiting for a target or option;
-3. shows “Reserving…” until the event is accepted; and
-4. opens no private chooser yet.
+Card play is already blocked before priority begins because the trigger was captured during the preceding phase. A lead event for a trick with a derived priority window is rejected regardless of network timing after the boundary.
 
-If this is the first valid reservation for the window, the reducer captures eligible responders and enters `collecting`. Every client then disables card play and highlights all unanswered responders.
+This is the principal improvement over immediate reservations: table order determines who acts first, and no BAT click competes with the lead of the same trick.
 
-A reservation is a commitment to take a resolution turn. It cannot be changed back to Pass. A player can still be skipped without exhaustion if the preceding queue makes the power illegal.
+## Power composition
 
-### 2. Collect responses
+Each power applies to the projection before priority moves. A later player therefore sees updated hands, leader, forced cards, and trick modifiers before choosing whether and how to activate.
 
-Every captured responder sees two explicit controls:
+Non-conflicting effects compose. When two Princess restrictions cannot both be satisfied, the later-resolved restriction should take precedence, with one printed exception: an Ice Princess forced card overrides ordinary following and other play restrictions as already stated in `RULES.md`.
 
-- **Reserve [Princess]**
-- **Pass this trick**
+Leader-relative restrictions should be represented on the trick rather than permanently attached to the UID who led when signaling began. Pocahontas can change the eventual leader; later Mermaid or Rapunzel effects apply to that updated state.
 
-Responses are public because Princess identities and exhaustion are already public. A Pass may be changed to Reserve until responses close; a Reservation is binding. This permits a player who passed early to react after another reservation appears without allowing a declared power to be withdrawn as a bluff.
-
-When every responder has an accepted response, the initiator sees **Resolve reserved powers**. Clicking it appends `power/responses-closed`. The reducer accepts that event only if the actor is the initiator and the response set is complete at that exact event prefix.
-
-There is deliberately no implicit auto-close. The extra click makes the frozen queue visible and prevents a final responder’s event from silently starting resolution before the table can observe it.
-
-### 3. Freeze a deterministic queue
-
-The queue contains the initiating reservation followed by reserved responses in canonical event order: Firestore server timestamp, then event ID as the existing tie-breaker.
-
-The queue resolves first-in, first-out. The initiating power resolves first; responses resolve afterward in the order they were accepted. This gives “response” its ordinary meaning: a later power sees and may modify the state produced by the power it answered.
-
-No new reservation or response is accepted after `power/responses-closed`.
-
-### 4. Resolve one power at a time
-
-Only the owner of the front reservation receives controls. Target, suit, and card choices are computed from the current projection, not from state captured at reservation time.
-
-- Cinderella, the Pea Princess, and Rapunzel can resolve with a single confirmation action.
-- Pocahontas and the Little Mermaid choose from current legal options.
-- The Ice Princess and Scheherazade choose a target first, then resolve their deterministic inspection.
-- Sleeping Beauty remains at the front until every contribution and the redistribution are complete.
-
-On a valid `power/resolved`, the reducer applies the effect, exhausts that Princess, removes the front item, and activates the next reservation. If no legal target or choice remains, the owner appends `power/resolution-skipped`; the queue advances without exhaustion.
-
-The queue closes automatically after its final entry resolves or skips. The latest derived leader may then play.
-
-### 5. Compose effects
-
-Effects are applied in queue order. Later responders therefore operate on updated hands, leader, forced cards, and trick modifiers.
-
-Non-conflicting effects compose. When two Princess restrictions cannot both be satisfied, the later-resolved restriction takes precedence, with one printed exception: an Ice Princess forced card overrides ordinary following and other play restrictions as already stated in `RULES.md`.
-
-Leader-relative effects should be represented on the trick rather than permanently attached to the UID who happened to lead at reservation time. Pocahontas may change the leader; a later Mermaid or Rapunzel response then constrains that current leader. A target-specific Ice Princess or Scheherazade effect remains attached to its chosen player.
-
-The implementation should add an explicit pairwise conflict table to `RULES.md` alongside the reducer work. The state machine must not continue the current pattern of scattered, order-sensitive rejection checks.
-
-## Race semantics
-
-The system cannot prove which human clicked first on different devices. It can provide one canonical order for accepted events.
-
-- If `power/reserved` sorts before a competing lead, the reservation opens the window and the lead is rejected.
-- If `card/played` sorts first, the trick has begun and the reservation is rejected as stale.
-- If two reservations race, the first in canonical order becomes the initiator and the second becomes a reserved response in the same derived window.
-- A rejected event remains in the immutable stream but has no projection effect. The originating client explains the rejection from the new projection instead of silently clearing the click.
-
-This removes the existing multi-click gap: the shared lock is now the first network action, not the final chooser action. A separate mutable lock document would not establish human click order either; it would only move canonical arbitration outside the event stream.
+The implementation should add an explicit pairwise conflict table to `RULES.md`. The scheduler must not preserve the current scattered, order-sensitive rejection checks.
 
 ## Mandatory Round-card phases
 
-The first implementation preserves current sequencing:
+Signals are captured before the next trick, but the first implementation preserves the current execution sequence:
 
 1. finish a mandatory Round-card action such as Wedding Gift or Musical Chairs;
-2. allow the before-trick Princess reservation window; then
+2. evaluate the captured hand signals and, if requested, complete BAT priority; then
 3. allow the leader to play.
 
-This design does not interleave Round-card contributions with Princess responses. If the published rules require the reverse order for a specific Round card, that should be handled as a separate rules decision rather than an implicit side effect of this scheduler.
+A signal remains raised across the mandatory Round-card step. This design does not interleave Round-card contributions with BAT priority.
 
-## Reconnect, stale input, and disconnects
+## Action ownership and UI
 
-All coordination state is reducer output, so a reconnecting client reconstructs the window, responses, queue, and active resolver from the event stream. Local chooser state is disposable.
+### During signaling
 
-Every control submits the current `windowId` and, during resolution, the front `reservationEventId`. Events for a closed window or non-front reservation are ignored and receive a visible stale-action message.
+- An unused BAT Princess displays a small **Raise hand for next trick** toggle.
+- Only the local player sees whether their own hand is raised.
+- The main table does not identify signalers. UI-level secrecy is sufficient.
+- Raising and lowering provide immediate local acknowledgment and append the corresponding event.
+- During the final trick, the toggle is absent because there is no next trick in the round.
 
-The protocol does not use client timers. If an eligible responder or active resolver disconnects, the game waits just as it currently waits for a player’s card play. Host-forced pass, replacement players, and abandonment policy need a general disconnect design; silently timing out a Princess response would make replay depend on wall-clock behavior.
+### During priority
 
-## UI behavior
+- The leader’s hand is visible but disabled.
+- Exactly one eligible seat receives the gold active treatment.
+- The priority holder sees **Use [Princess]** and **Decline**.
+- Other players see **Waiting for Alex’s before-trick decision**.
+- After a decline, the marker moves to the next eligible player.
+- After an activation, the effect resolves and is announced before the marker moves.
+- When the decline sequence resets, a previously declining player’s seat becomes eligible again.
+- When the window closes, focus returns to the current leader and ordinary legal-card highlighting resumes.
 
-- The first click changes the local Princess card to **Reserving…** immediately.
-- Once accepted, the table banner reads **Before-trick powers reserved by Alex — cards are locked**.
-- Every unanswered responder seat receives the existing gold active treatment and a **Choose power** marker.
-- Passed or reserved responders receive distinct completion markers.
-- The collection summary lists reservations in their future queue order without exposing private card choices.
-- During resolution, only the front owner is highlighted and all clients see **Waiting for Jo to resolve the Ice Princess (2 of 3)**.
-- The leader’s hand remains visible but disabled, with an explanation naming the window owner or active resolver.
-- When the queue closes, focus returns to the current leader and the ordinary legal-card highlight resumes.
+Phase changes and reconsideration must be announced through the existing live status region and remain keyboard accessible.
 
-All controls must remain keyboard reachable and announce phase changes through the existing live status region.
+## Reconnect and disconnection
+
+Signals, priority, declines, and active resolution are reducer output, so refresh reconstructs the correct state. Local chooser state is disposable.
+
+Every decision carries the current `windowId`. A stale signal, decline, activation, or resolution remains immutable history but has no projection effect, and the originating client explains that the action is no longer current.
+
+There is no timeout, auto-pass, or host override in this design. A disconnected priority holder stalls the game in the same way a disconnected current player does today.
 
 ## Reducer invariants
 
-The implementation is acceptable only if these invariants hold for every event prefix:
-
-- A window exists only for an empty, incomplete trick.
-- At most one window and one active resolver exist.
-- Card play cannot change projection while a window exists.
-- The captured responder set does not change after the first reservation.
-- Each eligible responder has at most one latest response.
-- Responses cannot close until every captured responder has answered.
-- Only the initiator can close responses.
-- Only the front reservation can resolve or skip.
-- A Princess exhausts at most once per round and only after successful resolution.
+- Signals affect only their exact game, round, and target trick.
+- Raising or lowering never exhausts a Princess.
+- A signal’s latest canonical event wins until the boundary.
+- No priority window opens unless at least one eligible hand is raised at the boundary.
+- A priority window exists only before an empty, incomplete trick.
+- Card play cannot change projection while a priority window exists.
+- Priority order is captured once and does not change when the eventual leader changes.
+- Only the current priority holder can decline or start a power.
+- Only one power resolves at a time, and its owner retains priority until completion.
+- A successful activation exhausts its Princess and removes that actor from later circuits.
+- Every successful activation clears the decline sequence.
+- A decline never permanently removes an unacted player from the window.
+- The window closes only after all remaining unacted players decline consecutively, or after all eligible players act.
 - Sleeping Beauty’s pending cards remain counted by the card-conservation invariant.
-- A window closes only when its queue is empty.
 
 ## Test plan
 
 ### Reducer tests
 
-- Reservation ordered before lead rejects the lead; lead ordered before reservation rejects the reservation.
-- The first of two concurrent reservations becomes initiator and the other becomes a response.
-- Card play remains blocked throughout collection and multi-step resolution.
-- Pass can change to Reserve before close; Reserve cannot change back to Pass.
-- Close is rejected for incomplete responses, the wrong actor, or a stale window.
-- Three reservations freeze and resolve in canonical FIFO order.
-- Only the active resolver can submit choices or Sleeping Beauty contributions.
-- A now-illegal queued power skips without exhaustion.
-- Leader changes and play restrictions compose in resolution order.
-- Duplicate, stale, and out-of-order scheduling events do not change projection.
+- Raise then lower before the boundary does not open a window.
+- Lower then raise before the boundary opens a window.
+- A hand raised during passing opens priority before the first trick.
+- A hand raised during the penultimate trick opens priority before the last trick.
+- No signal control or accepted signal exists during the final trick.
+- No raised hands permit the next lead without extra decisions.
+- Priority begins with the captured leader and skips ineligible seats.
+- One uninterrupted circuit of declines closes the window.
+- An activation resolves immediately, exhausts its actor, and resets prior declines.
+- A player who declined before an activation receives priority again afterward.
+- Acted players are skipped on later circuits.
+- Pocahontas changes the eventual leader without changing the captured priority order.
+- Only the current priority holder or active resolver can submit an accepted event.
+- Stale signals and decisions do not affect the following trick.
 - Card conservation holds at every prefix, including final-trick Sleeping Beauty.
 
 ### Browser tests
 
-- The first click blocks an observer’s leader hand before the initiator makes a target choice.
-- Multiple responders are highlighted simultaneously and can independently Reserve or Pass.
-- The initiator sees the complete response summary and closes it explicitly.
-- Three clients resolve two interactive powers in queue order, with correct observer feedback.
-- A rejected racing lead explains why it did not play.
-- Refresh during collection and refresh during a multi-step resolution restore the correct controls.
-- Phone and desktop layouts keep the responder and resolver controls visible.
+- During passing, a player can raise, lower, and raise their hand for trick one.
+- During a trick, a non-active player can toggle their next-trick hand freely.
+- At the boundary, a requested window blocks the leader before any BAT choice begins.
+- Priority visibly moves in play order.
+- Alex declines, Jo activates, and Alex is offered another decision after Jo resolves.
+- A complete post-activation decline circuit returns control to the leader.
+- An interactive power retains the active marker through all chooser stages.
+- Refresh during signaling, priority, and Sleeping Beauty resolution restores the correct controls.
+- Phone and desktop layouts keep hand and priority controls visible.
 
-Existing individual Princess scenarios should be migrated to start with reservation, response completion, and queue resolution rather than bypassing the protocol.
+Existing individual Princess scenarios should be migrated to signal the next window, take priority, and resolve before the lead.
 
 ## Delivery plan
 
-1. Add event schemas, projection types, pure eligibility helpers, and reducer tests while retaining old-stream replay.
-2. Extend `actionOwnership` and render the collection/queue status without changing individual power resolution.
-3. Route direct before-trick powers through reserve/respond/close/resolve.
-4. Route interactive powers through the same scheduler and replace `pendingPower` with active resolution substates.
-5. Add pairwise conflict tests and document those decisions in `RULES.md`.
-6. Migrate browser scenarios and remove the new-game path that activates before-trick powers directly.
+1. Add scoped signal events, boundary derivation, and raise/lower reducer tests.
+2. Add the rolling-priority projection and pure helpers for next eligible player and decline completion.
+3. Extend `actionOwnership` and render signaling and priority controls.
+4. Route direct BAT powers through priority and immediate resolution.
+5. Route interactive BAT powers through projected `activePower` stages and replace `pendingPower`.
+6. Add pairwise conflict tests and document those decisions in `RULES.md`.
+7. Migrate browser scenarios and remove the new-game path that activates BAT powers directly.
 
 ## Alternatives not chosen
 
-### Require a Pass from every Princess before every trick
+### Public reservation followed by a frozen FIFO queue
 
-This eliminates the initial race but adds several mandatory clicks to every trick, even when nobody wants to use a power. Opening responses only after the first reservation keeps ordinary tricks fast.
+The earlier design still allowed a reservation to race the lead at the start of the trick and ordered simultaneous intent by network arrival. It also prevented a player who had passed from reconsidering after seeing another power resolve.
 
-### Use a short response timer
+### Ask every BAT owner before every trick
 
-Client clocks, background tabs, latency, and reconnects would make the result nondeterministic. A server-enforced timer would require new authoritative infrastructure and an explicit timeout rule.
+This eliminates races but adds mandatory interaction to every trick. Advance hand-raising keeps ordinary tricks unchanged when nobody is interested.
 
-### Store a mutable Firestore lock
+### Ask everyone exactly once
 
-A coordination document would split authority between mutable state and the canonical stream, require atomic lock/event recovery, and still arbitrate by server arrival rather than human click time. The reservation event already supplies the required total order and replay evidence.
+A single circuit prevents an early decliner from responding to a later activation. Resetting declines after every activation preserves response opportunities while still guaranteeing termination after an uninterrupted pass around the table.
 
-### Keep one `pendingPower` and reopen play after each resolution
+### Use a response timer or mutable Firestore lock
 
-That still lets the leader race each gap and gives later powers no guaranteed response opportunity. One window must remain locked until every declared power resolves.
+The advance signal removes the same-trick lead race without client clocks, server timers, or a second mutable source of coordination authority.
 
-## Review questions
+## Remaining rules questions
 
-1. Is FIFO response resolution correct, or should later responses resolve first as a stack?
-2. Is “later-resolved restriction wins when constraints conflict” the desired rule, subject to the Ice Princess exception?
-3. Should the initiator alone close complete responses, or should any seated player be allowed to do so?
-4. Is preserving Round-card preparation before the Princess window correct for Wedding Gift and Musical Chairs?
-5. Is waiting indefinitely for a disconnected responder acceptable until a general disconnect policy is designed?
+1. Is “later-resolved restriction wins when constraints conflict” correct, subject to the Ice Princess exception?
+2. Is preserving mandatory Round-card preparation before BAT priority correct for Wedding Gift and Musical Chairs?
+3. For a zero-card opening pass, should BAT owners acknowledge Ready as part of setup, or should the application treat dealing itself as an explicit signaling phase?

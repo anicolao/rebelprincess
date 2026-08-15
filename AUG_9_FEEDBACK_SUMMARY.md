@@ -186,11 +186,11 @@ The reducer rejected the illegal second copies in the observed cases, so both ga
 
 ### P0 — make before-trick actions deterministic
 
-1. **Introduce a shared before-trick action window.** The first click must append an intent/reservation immediately, before opening any target or card picker. Pause normal play from that accepted event, show the reserving player, and collect explicit responses as specified in [the proposed reservation/response design](docs/design/BEFORE_TRICK_RESERVATION_RESPONSE.md).
+1. **Introduce advance BAT signaling and rolling priority.** Let players raise or lower a hand during the preceding trick—or the opening pass for trick one. If requested, block the next lead and cycle decisions in play order until every still-unused BAT player declines consecutively after the latest activation, as specified in [the proposed hand-raise/priority design](docs/design/BEFORE_TRICK_RESERVATION_RESPONSE.md).
 
-2. **Support ordered responses.** Replace the single `pendingPower` slot with a deterministic queue or priority window so eligible before-trick powers can respond to an earlier power. Define ordering, passing, cancellation, and resolution before implementation. Cover two responders, a leader racing the reservation, and final-trick Sleeping Beauty in reducer and browser tests.
+2. **Resolve powers immediately within priority.** Replace the single `pendingPower` slot with a sequential priority window. Resolve each activated power before moving to the next eligible player, reset prior declines after every activation, and cover reconsideration, play-order tie-breaking, and final-trick Sleeping Beauty in reducer and browser tests.
 
-These should be one coherent state-machine change. Implementing only the visual lock would leave the race intact; implementing only the queue would leave the first-click gap intact.
+These should be one coherent state-machine change. Advance signaling removes the same-trick lead race; rolling priority supplies deterministic tie-breaking and guarantees every unused BAT power can respond.
 
 ### P1 — make commands and power outcomes trustworthy
 
