@@ -1,12 +1,10 @@
-import fairiesAltAtlas from '../../assets/generated/alternate-suits-review/fairies.png';
-import petsAltAtlas from '../../assets/generated/alternate-suits-review/pets.png';
-import princesAltAtlas from '../../assets/generated/alternate-suits-review/princes.png';
-import queensAltAtlas from '../../assets/generated/alternate-suits-review/queens.png';
-import deluxePrincessAtlas from '../../assets/generated/princess-portraits-deluxe.png';
-import princessAtlas from '../../assets/generated/princess-portraits.png';
-import deluxeRoundAtlas from '../../assets/generated/round-rule-vignettes-deluxe.png';
-import roundAtlas from '../../assets/generated/round-rule-vignettes.png';
-import suitFamiliesAtlas from '../../assets/generated/suited-card-families.png';
+import fairiesAtlas from '../../assets/generated/cards/fairies.png';
+import petsAtlas from '../../assets/generated/cards/pets.png';
+import princesAtlas from '../../assets/generated/cards/princes.png';
+import queensAtlas from '../../assets/generated/cards/queens.png';
+import princessAtlas from '../../assets/generated/princesses.png';
+import roundAtlas from '../../assets/generated/round-cards.png';
+import suitFamiliesAtlas from '../../assets/generated/suit-families.png';
 import { PRINCESSES, type Card, type Suit } from './setup';
 import { spriteCell, type SpriteCell } from './sprite-crop';
 
@@ -30,44 +28,35 @@ const ranks = (suit: string): AssetCell[] => Array.from({ length: 12 }, (_, inde
   name: `${suit[0].toUpperCase()}${suit.slice(1)} ${index + 1}`
 }));
 
-const alternateSuitAtlases: Record<Suit, AssetAtlas> = {
-  fairies: { id: 'cards-fairies', name: 'Fairy cards', description: 'Ranks 1–12 · gameplay art', src: fairiesAltAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('fairies') },
-  queens: { id: 'cards-queens', name: 'Queen cards', description: 'Ranks 1–12 · gameplay art', src: queensAltAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('queens') },
-  princes: { id: 'cards-princes', name: 'Prince cards', description: 'Ranks 1–12 · gameplay art', src: princesAltAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('princes') },
-  pets: { id: 'cards-pets', name: 'Pet cards', description: 'Ranks 1–12 · gameplay art', src: petsAltAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('pets') }
+const suitAtlases: Record<Suit, AssetAtlas> = {
+  fairies: { id: 'cards-fairies', name: 'Fairy cards', description: 'Ranks 1–12', src: fairiesAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('fairies') },
+  queens: { id: 'cards-queens', name: 'Queen cards', description: 'Ranks 1–12', src: queensAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('queens') },
+  princes: { id: 'cards-princes', name: 'Prince cards', description: 'Ranks 1–12', src: princesAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('princes') },
+  pets: { id: 'cards-pets', name: 'Pet cards', description: 'Ranks 1–12', src: petsAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('pets') }
 };
 
-const originalRoundIds = ['once-upon-a-time', 'invitation', 'masquerade-ball', 'royal-decree', 'musical-chairs', 'pets-revenge', 'late-to-the-ball', 'poisoned-apple', 'crystal-clear', 'upside-down', 'dancing-queens', 'prince-rings-twice', 'wedding-gift', 'after-party', 'bathroom-break', 'single-fairy', 'midnight-makeover', 'blind-mans-bluff', 'odds-and-evens', 'pass-the-bouquet', 'haggle-with-the-hag'] as const;
-const originalRoundNames = ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs', 'Pets’ Revenge', 'Late to the Ball', 'Poisoned Apple', 'Crystal Clear', 'Upside Down', 'Dancing Queens', 'The Prince Always Rings Twice', 'Wedding Gift', 'After Party', 'Bathroom Break', 'Single Fairy', 'Midnight Makeover', 'Blind Man’s Bluff', 'Odds and Evens', 'Pass the Bouquet', 'Haggle with the Hag'] as const;
-const deluxeRoundIds = ['magic-beans', 'three-times-a-lady', 'arranged-marriage', 'always-the-bridesmaid', 'sisterhood', 'late-for-a-very-important-date'] as const;
-const deluxeRoundNames = ['Magic Beans', 'Three Times a Lady', 'Arranged Marriage', 'Always the Bridesmaid', 'Sisterhood', 'Late for a Very Important Date'] as const;
+const roundIds = ['once-upon-a-time', 'invitation', 'masquerade-ball', 'royal-decree', 'musical-chairs', 'pets-revenge', 'late-to-the-ball', 'poisoned-apple', 'crystal-clear', 'upside-down', 'dancing-queens', 'prince-rings-twice', 'wedding-gift', 'after-party', 'bathroom-break', 'single-fairy', 'midnight-makeover', 'blind-mans-bluff', 'odds-and-evens', 'pass-the-bouquet', 'haggle-with-the-hag', 'magic-beans', 'three-times-a-lady', 'arranged-marriage', 'always-the-bridesmaid', 'sisterhood', 'late-for-a-very-important-date'] as const;
+const roundNames = ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Royal Decree', 'Musical Chairs', 'Pets’ Revenge', 'Late to the Ball', 'Poisoned Apple', 'Crystal Clear', 'Upside Down', 'Dancing Queens', 'The Prince Always Rings Twice', 'Wedding Gift', 'After Party', 'Bathroom Break', 'Single Fairy', 'Midnight Makeover', 'Blind Man’s Bluff', 'Odds and Evens', 'Pass the Bouquet', 'Haggle with the Hag', 'Magic Beans', 'Three Times a Lady', 'Arranged Marriage', 'Always the Bridesmaid', 'Sisterhood', 'Late for a Very Important Date'] as const;
 
 export const assetAtlases: AssetAtlas[] = [
-  ...Object.values(alternateSuitAtlases),
+  ...Object.values(suitAtlases),
   {
-    id: 'suit-families', name: 'Original suit families', description: 'Original four-panel concept atlas', src: suitFamiliesAtlas,
+    id: 'princesses', name: 'Princesses', description: 'All twelve Princesses', src: princessAtlas,
+    sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5,
+    cells: PRINCESSES.map(([id, name]) => ({ id, name }))
+  },
+  {
+    id: 'rounds', name: 'Round cards', description: 'All twenty-seven Round rules', src: roundAtlas,
+    sheetWidth: 2700, sheetHeight: 900, cols: 9, rows: 3, targetAspect: 1,
+    cells: roundIds.map((id, index) => ({
+      id,
+      name: roundNames[index]
+    }))
+  },
+  {
+    id: 'suit-families', name: 'Suit families', description: 'The four suit concepts', src: suitFamiliesAtlas,
     sheetWidth: 1200, sheetHeight: 500, cols: 4, rows: 1, targetAspect: 3 / 5,
     cells: ['fairies', 'queens', 'princes', 'pets'].map((id) => ({ id: `family-${id}`, name: `${id[0].toUpperCase()}${id.slice(1)} family` }))
-  },
-  {
-    id: 'princesses', name: 'Princesses', description: 'Ten original Princess portraits', src: princessAtlas,
-    sheetWidth: 1500, sheetHeight: 1000, cols: 5, rows: 2, targetAspect: 3 / 5,
-    cells: PRINCESSES.slice(0, 10).map(([id, name]) => ({ id, name }))
-  },
-  {
-    id: 'princesses-deluxe', name: 'Deluxe Princesses', description: 'Rapunzel and Thumbelina extension', src: deluxePrincessAtlas,
-    sheetWidth: 1200, sheetHeight: 1000, cols: 2, rows: 1, targetAspect: 3 / 5,
-    cells: PRINCESSES.slice(10).map(([id, name]) => ({ id, name }))
-  },
-  {
-    id: 'rounds', name: 'Round cards', description: 'Twenty-one original Round-rule vignettes', src: roundAtlas,
-    sheetWidth: 1680, sheetHeight: 840, cols: 7, rows: 3, targetAspect: 6 / 7,
-    cells: originalRoundIds.map((id, index) => ({ id, name: originalRoundNames[index] }))
-  },
-  {
-    id: 'rounds-deluxe', name: 'Deluxe Round cards', description: 'Six square Deluxe vignettes', src: deluxeRoundAtlas,
-    sheetWidth: 1500, sheetHeight: 1000, cols: 3, rows: 2, targetAspect: 1,
-    cells: deluxeRoundIds.map((id, index) => ({ id, name: deluxeRoundNames[index] }))
   }
 ];
 
@@ -93,22 +82,21 @@ export function atlasSpriteProps(atlas: AssetAtlas, index: number) {
 }
 
 export function cardSpriteProps(card: Card) {
-  return atlasSpriteProps(alternateSuitAtlases[card.suit], card.rank - 1);
+  return atlasSpriteProps(suitAtlases[card.suit], card.rank - 1);
 }
 
 export function princessSpriteProps(id?: string) {
   const index = PRINCESSES.findIndex(([key]) => key === id);
-  const atlas = assetAtlases.find(({ id: atlasId }) => atlasId === (index >= 10 ? 'princesses-deluxe' : 'princesses'))!;
-  return atlasSpriteProps(atlas, index >= 10 ? index - 10 : Math.max(0, index));
+  const atlas = assetAtlases.find(({ id: atlasId }) => atlasId === 'princesses')!;
+  return atlasSpriteProps(atlas, Math.max(0, index));
 }
 
 export function roundSpriteProps(id: string) {
-  const originalIndex = originalRoundIds.indexOf(id as typeof originalRoundIds[number]);
-  const deluxeIndex = deluxeRoundIds.indexOf(id as typeof deluxeRoundIds[number]);
-  const atlas = assetAtlases.find(({ id: atlasId }) => atlasId === (deluxeIndex >= 0 ? 'rounds-deluxe' : 'rounds'))!;
-  return atlasSpriteProps(atlas, deluxeIndex >= 0 ? deluxeIndex : Math.max(0, originalIndex));
+  const index = roundIds.indexOf(id as typeof roundIds[number]);
+  const atlas = assetAtlases.find(({ id: atlasId }) => atlasId === 'rounds')!;
+  return atlasSpriteProps(atlas, Math.max(0, index));
 }
 
-export function roundTargetAspect(id: string): number {
-  return deluxeRoundIds.includes(id as typeof deluxeRoundIds[number]) ? 1 : 6 / 7;
+export function roundTargetAspect(_id: string): number {
+  return 1;
 }
