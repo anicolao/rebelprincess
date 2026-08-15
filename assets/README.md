@@ -29,14 +29,18 @@ without imitating the original illustrator or any other named artist.
 ## Uniform atlas contract
 
 Every source image is an edge-to-edge regular grid with equal cells. Each cell
-owns its complete ornamental border; there are no outer margins, inter-cell
+owns its complete border; there are no outer margins, inter-cell
 gutters, shared borders, crop marks, or material outside the grid. Every sheet
 is assembled by `scripts/assemble-atlas.ts`. The tool center-crops each source
-illustration into a fixed interior and draws the same Pet-inspired frame
-geometry: a dark jewel-toned ground, layered gold rules, angular corner
-filigree, and centered diamond medallions. Only the dark family accent changes.
-The tool rejects an atlas unless all four 20-pixel frame-strip hashes match
-across every cell. Outputs use dimensions exactly divisible by their grids:
+illustration into a fixed interior and draws the frame appropriate to its game
+role. Only the four playing suits use the Pet-inspired ornamental geometry: a
+dark jewel-toned ground, layered gold rules, angular corner filigree, and
+centered diamond medallions. The Fairy, Queen, Prince, and Pet diamonds contain
+a sparkle, crown, sword, and paw respectively. Princesses use a thin white
+edge, Round cards use a simple beige frame, and the suit-family overview uses a
+thin neutral edge. The tool rejects an atlas unless all four frame-strip hashes
+match across every cell at its declared 20-, 12-, or 4-pixel band. Outputs use
+dimensions exactly divisible by their grids:
 
 - each gameplay suit: 1800 × 1000, 6 × 2, 300 × 500 cells
 - suit families: 1200 × 500, 4 × 1, 300 × 500 cells
@@ -76,8 +80,8 @@ burgundy, wine, and rose-gold, with blue dominance prohibited in every card.
 Prince prompts use midnight blue, cobalt, navy, silver, and restrained antique
 gold. Each rank requests a distinct adult character pose, prop, and setting.
 Pet artwork remains moss green and emerald, with its fixed species order and the
-only Frog at rank 8. Its ornamental frame established the shared frame language
-now used across all seven atlases.
+only Frog at rank 8. Its paw medallion established the ornamental frame language
+now shared by the four playing suits, each with its own emblem.
 
 The suit-family prompt specified four 3:5 concept panels: luminous Fairies with
 a crystal wand, an empty Queen throne, an abandoned Prince sword/boot/bouquet,
@@ -86,8 +90,8 @@ the four gameplay sheets.
 
 The Princess prompts specified twelve diverse adult fairy-tale archetypes,
 including Rapunzel with a practical climbing braid and Thumbelina among
-oversized clover and bellflowers. They now share one atlas and one frame.
+oversized clover and bellflowers. They share one atlas with a thin white edge.
 
 The twenty-seven Round prompts each request one standalone symbolic scene
 matching the row-major IDs in `manifest.json`. The assembler center-crops them
-into one square-cell atlas and applies the same shared frame geometry.
+into one square-cell atlas and applies a simple beige frame.

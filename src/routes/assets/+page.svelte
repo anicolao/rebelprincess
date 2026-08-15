@@ -26,7 +26,7 @@
     <div>
       <p class="eyebrow">Visual QA</p>
       <h1 id="asset-title">Asset review</h1>
-      <p>Inspect each logical game-asset atlas, its uniform pixel grid, and every in-game crop. Every group uses the same regular-grid renderer and Pet-inspired frame geometry.</p>
+      <p>Inspect each logical game-asset atlas, its uniform pixel grid, and every in-game crop. Playing suits use emblematic ornamental frames; Princess and Round art keep their own quieter edges.</p>
     </div>
     <p class="review-status" role="status" data-status="synced"><strong>{assetAtlases.length}</strong> atlases · <strong>{assetAtlases.reduce((sum, atlas) => sum + atlas.cells.length, 0)}</strong> sprites</p>
   </section>

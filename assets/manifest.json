@@ -1,30 +1,35 @@
 {
-  "version": 2,
+  "version": 3,
   "license": "GPL-3.0-only",
   "atlases": {
     "fairies": {
       "file": "generated/cards/fairies.png",
       "grid": { "columns": 6, "rows": 2 },
+      "frame": { "style": "ornate-playing-card", "band": 20, "emblem": "sparkle" },
       "cellOrder": ["fairy-1", "fairy-2", "fairy-3", "fairy-4", "fairy-5", "fairy-6", "fairy-7", "fairy-8", "fairy-9", "fairy-10", "fairy-11", "fairy-12"]
     },
     "queens": {
       "file": "generated/cards/queens.png",
       "grid": { "columns": 6, "rows": 2 },
+      "frame": { "style": "ornate-playing-card", "band": 20, "emblem": "crown" },
       "cellOrder": ["queen-1", "queen-2", "queen-3", "queen-4", "queen-5", "queen-6", "queen-7", "queen-8", "queen-9", "queen-10", "queen-11", "queen-12"]
     },
     "princes": {
       "file": "generated/cards/princes.png",
       "grid": { "columns": 6, "rows": 2 },
+      "frame": { "style": "ornate-playing-card", "band": 20, "emblem": "sword" },
       "cellOrder": ["prince-1", "prince-2", "prince-3", "prince-4", "prince-5", "prince-6", "prince-7", "prince-8", "prince-9", "prince-10", "prince-11", "prince-12"]
     },
     "pets": {
       "file": "generated/cards/pets.png",
       "grid": { "columns": 6, "rows": 2 },
+      "frame": { "style": "ornate-playing-card", "band": 20, "emblem": "paw" },
       "cellOrder": ["pet-1", "pet-2", "pet-3", "pet-4", "pet-5", "pet-6", "pet-7", "pet-8", "pet-9", "pet-10", "pet-11", "pet-12"]
     },
     "princesses": {
       "file": "generated/princesses.png",
       "grid": { "columns": 6, "rows": 2 },
+      "frame": { "style": "thin-white", "band": 4 },
       "cells": [
         { "index": 0, "id": "snow-white", "name": "Snow White" },
         { "index": 1, "id": "little-mermaid", "name": "The Little Mermaid" },
@@ -43,6 +48,7 @@
     "roundRules": {
       "file": "generated/round-cards.png",
       "grid": { "columns": 9, "rows": 3 },
+      "frame": { "style": "beige", "band": 12 },
       "cells": [
         { "index": 0, "id": "once-upon-a-time", "name": "Once Upon a Time…" },
         { "index": 1, "id": "invitation", "name": "Invitation" },
@@ -76,6 +82,7 @@
     "suitFamilies": {
       "file": "generated/suit-families.png",
       "grid": { "columns": 4, "rows": 1 },
+      "frame": { "style": "thin-neutral", "band": 4 },
       "cellOrder": ["fairies", "queens", "princes", "pets"]
     }
   }
