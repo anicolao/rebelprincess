@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { closePrincessGame, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, declineRemainingBeforeTrickPlayers, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
 
 const IDS = { phone: 'CLM0000A', desktop: 'CLM0000B' } as const;
 
@@ -15,6 +15,7 @@ test('The Little Mermaid requests a suit entirely through clicks', async ({ page
   ] });
   const suit = page.getByRole('group', { name: 'Little Mermaid power' }).getByRole('button').filter({ hasNotText: 'princes' }).first();
   const requested = await suit.textContent() ?? ''; await suit.click();
+  await declineRemainingBeforeTrickPlayers(game.players);
   await expect(page.getByText('Princess power: The Little Mermaid')).toBeVisible();
   await expect(page.getByLabel('The Little Mermaid power activated')).toBeVisible();
   const legalSuits = await page.locator('.playing-card.playable:not(:disabled) small').allTextContents();
