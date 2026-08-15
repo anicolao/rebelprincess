@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { closePrincessGame, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, declineRemainingBeforeTrickPlayers, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
 
 const IDS = { phone: 'RP700000', desktop: 'RD100000' } as const;
 
@@ -14,6 +14,7 @@ test('Rapunzel forces the leader to climb with a Prince entirely through clicks'
     { spec: 'The ordinary unopened-Prince lead contains no Princes', check: async () => expect((await page.locator('.playing-card.playable:not(:disabled)').evaluateAll((cards) => cards.map((card) => card.getAttribute('aria-label')))).every((label) => !label?.startsWith('Princes '))).toBe(true) }
   ] });
   await princess.click();
+  await declineRemainingBeforeTrickPlayers(game.players);
   await steps.step('rapunzel-forces-prince', { description: 'Clicking Rapunzel exhausts her and makes only Prince cards clickable', verifications: [
     { spec: 'Prince leads are enabled while non-Prince leads are disabled', check: async () => { await expect(page.getByRole('button', { name: /^Princes / }).first()).toBeEnabled(); await expect(page.getByRole('button', { name: /^Fairies / }).first()).toBeDisabled(); await expect(page.getByRole('button', { name: /^Pets / }).first()).toBeDisabled(); } },
     { spec: 'Every player sees Rapunzel’s active power and exhausted card', check: async () => { for (const player of game.players) await expect(player.getByText('Princess power: Rapunzel')).toBeVisible(); await expect(game.jo.getByLabel("Alex's Princess: Rapunzel")).toHaveClass(/exhausted/); } }

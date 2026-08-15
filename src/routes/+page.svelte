@@ -23,6 +23,7 @@
   import { isMasqueradeHidden, roundLegalCards } from '$lib/round-rules';
   import { choiceCommitment, crystalClearChoiceScope, princessChoiceScope } from '$lib/choice-commitment';
   import { actionOwnership } from '$lib/action-ownership';
+  import { isBeforeTrickPower } from '$lib/bat-priority';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -304,7 +305,8 @@
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'game/dealt', {
       seed,
       roundIds: e2eRoundIds ?? roundPowersForGame(`${activeGameId}:${game.gameNumber}:${seed}`),
-      hands: dealForPlayers(game.players.map((player) => player.uid), seed)
+      hands: dealForPlayers(game.players.map((player) => player.uid), seed),
+      batPriority: true
     });
   }
 
@@ -316,6 +318,7 @@
   function localPlayer() { return game?.players.find((player) => player.uid === currentUid); }
   function playerName(uid?: string | null) { return game?.players.find((player) => player.uid === uid)?.displayName ?? 'the active player'; }
   function localCardBlockExplanation() {
+    if (game?.beforeTrickWindow) return game.beforeTrickWindow.priorityUid === currentUid ? 'Choose whether to use your before-trick power or decline.' : `Waiting for ${playerName(game.beforeTrickWindow.priorityUid)} to decide on a before-trick power.`;
     if (!game?.hands || game.currentTurnUid !== currentUid || game.awaitingRoundAction || game.pendingPower || game.pendingMulanUid) return '';
     const forced = game.forcedCards[currentUid];
     if (forced) return `Ice Princess chose ${cardLabel(forced)}. Only that card can be played.`;
@@ -337,9 +340,21 @@
     return `--seat-x: ${x}%; --seat-y: ${y}%`;
   }
   function powerAvailable(id?: string) { return Boolean(id && game?.passComplete && !game.roundComplete && !game.exhaustedPrincessUids.includes(currentUid)); }
+  function canSignalBeforeTrick(id?: string) {
+    return Boolean(id && isBeforeTrickPower(id) && game?.batPriorityEnabled && !game.roundComplete && !game.exhaustedPrincessUids.includes(currentUid) && game.batSignalTargetTrick !== null);
+  }
+  function hasRaisedHand() {
+    const signal = game?.batSignals[currentUid];
+    return Boolean(signal?.raised && signal.targetTrickIndex === game?.batSignalTargetTrick);
+  }
+  function hasBeforeTrickPriority(id?: string) {
+    return Boolean(id && isBeforeTrickPower(id) && game?.batPriorityEnabled && game.beforeTrickWindow?.priorityUid === currentUid && !game.pendingPower);
+  }
   function princessUsable(id?: string) {
-    if (!id || !powerAvailable(id) || game?.awaitingRoundAction) return false;
+    if (!id) return false;
     if (activeRoundId() === 'late-to-the-ball' && game?.completedTricks === 11 && (id === 'sleeping-beauty' || id === 'scheherazade')) return false;
+    if (game?.batPriorityEnabled && isBeforeTrickPower(id)) return canSignalBeforeTrick(id) || hasBeforeTrickPriority(id);
+    if (!powerAvailable(id) || game?.awaitingRoundAction) return false;
     if (id === 'mulan') return game?.pendingMulanUid === currentUid;
     if (id === 'alice') return game?.lastCompletedTrick?.winnerUid === currentUid && !game.lastCompletedTrick.plays.some((play) => play.card.suit === 'pets' && play.card.rank === 8);
     if (id === 'snow-white') return game?.currentTurnUid === currentUid && game.hands?.[currentUid]?.some((card) => playable(card) && snowWhiteCanZero(card));
@@ -432,7 +447,7 @@
   }
 
   function playable(card: Card): boolean {
-    if (!game?.hands || !game.trick || game.pendingPower || game.awaitingRoundAction || game.currentTurnUid !== currentUid) return false;
+    if (!game?.hands || !game.trick || game.pendingPower || game.beforeTrickWindow || game.awaitingRoundAction || game.currentTurnUid !== currentUid) return false;
     const forced = game.forcedCards[currentUid];
     if (thumbelinaArmed && localPlayer()?.princessId === 'thumbelina') return thumbelinaCanPlay(card);
     return forced ? cardLabel(forced) === cardLabel(card) : roundLegalCards(game.hands[currentUid], game.trick, game.princesBroken, activeRoundId(), game.powerIdsThisTrick.includes('pea-princess')).some((candidate) => cardLabel(candidate) === cardLabel(card));
@@ -497,12 +512,38 @@
     const resolvingMulan = powerId === 'mulan' && game?.pendingMulanUid === currentUid;
     const resolvingPendingPower = game?.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === powerId;
     if ((!resolvingMulan && !resolvingPendingPower && !princessUsable(powerId)) || localPlayer()?.princessId !== powerId) return;
-    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activated', { powerId, ...(targetUid ? { targetUid } : {}), ...(card ? { card } : {}), ...(suit ? { suit } : {}), ...(cards ? { cards } : {}) });
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activated', { powerId, ...(game?.beforeTrickWindow ? { windowId: game.beforeTrickWindow.id } : {}), ...(targetUid ? { targetUid } : {}), ...(card ? { card } : {}), ...(suit ? { suit } : {}), ...(cards ? { cards } : {}) });
+  }
+
+  async function toggleBeforeTrickHand() {
+    if (!game || game.batSignalTargetTrick === null || !canSignalBeforeTrick(localPlayer()?.princessId)) return;
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, hasRaisedHand() ? 'power/hand-lowered' : 'power/hand-raised', { targetTrickIndex: game.batSignalTargetTrick });
+  }
+
+  async function declineBeforeTrickPriority() {
+    if (!game?.beforeTrickWindow || game.beforeTrickWindow.priorityUid !== currentUid || game.pendingPower) return;
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/priority-declined', { windowId: game.beforeTrickWindow.id });
+  }
+
+  async function startBeforeTrickPower(powerId: string) {
+    if (!game?.beforeTrickWindow || !hasBeforeTrickPriority(powerId)) return;
+    openPrincessPower = powerId;
+    selectedPowerCards = [];
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activation-started', { powerId, windowId: game.beforeTrickWindow.id });
   }
 
   async function usePrincessCard() {
     const powerId = localPlayer()?.princessId;
     if (!powerId || !princessUsable(powerId)) return;
+    if (game?.batPriorityEnabled && isBeforeTrickPower(powerId)) {
+      if (canSignalBeforeTrick(powerId)) await toggleBeforeTrickHand();
+      else if (hasBeforeTrickPriority(powerId)) {
+        if (powerId === 'cinderella' || powerId === 'pea-princess' || powerId === 'rapunzel') await activatePower(powerId);
+        else if (powerId === 'sleeping-beauty') { openPrincessPower = openPrincessPower === powerId ? '' : powerId; selectedPowerCards = []; }
+        else await startBeforeTrickPower(powerId);
+      }
+      return;
+    }
     if (powerId === 'snow-white') {
       if (game?.currentTurnUid === currentUid && game.hands?.[currentUid]?.some((card) => playable(card) && snowWhiteCanZero(card))) snowWhiteArmed = !snowWhiteArmed;
       return;
@@ -531,10 +572,11 @@
   }
 
   async function beginSleepingBeauty() {
-    if (game?.pendingPower || !princessUsable('sleeping-beauty')) return;
+    if (!game || game.pendingPower || !princessUsable('sleeping-beauty')) return;
     openPrincessPower = '';
     selectedPowerCards = [];
-    await activatePower('sleeping-beauty');
+    if (game.batPriorityEnabled) await startBeforeTrickPower('sleeping-beauty');
+    else await activatePower('sleeping-beauty');
   }
 
   function sleepingBeautySelectionComplete() {
@@ -569,7 +611,8 @@
     await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'game/dealt', {
       seed: `${game.seed ?? activeGameId}-round-${nextRound + 1}`,
       roundIds: game.roundIds,
-      hands: dealForPlayers(game.players.map((player) => player.uid), `${game.seed ?? activeGameId}-round-${nextRound + 1}`)
+      hands: dealForPlayers(game.players.map((player) => player.uid), `${game.seed ?? activeGameId}-round-${nextRound + 1}`),
+      batPriority: true
     });
   }
 
@@ -752,14 +795,18 @@
             <section class="local-seat" class:action-active={actionOwnership(game, currentUid).state === 'active'} class:action-complete={actionOwnership(game, currentUid).state === 'complete'} data-action-state={actionOwnership(game, currentUid).state} aria-label="Your seat">
               <div class="local-heading" class:local-leader={game.trick?.leaderUid === currentUid}><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You {#if game.trick?.leaderUid === currentUid}<span class="lead-marker">You lead</span>{/if}</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
               {#if actionOwnership(game, currentUid).state !== 'idle'}<span class={`action-marker local-action-marker ${actionOwnership(game, currentUid).state}`} aria-label={`You: ${actionOwnership(game, currentUid).label}`}>{actionOwnership(game, currentUid).state === 'complete' ? '✓' : '●'} {actionOwnership(game, currentUid).label}</span>{/if}
-              {#if game.passComplete && localPlayer()?.princessId}
+              {#if game.passComplete || (game.batPriorityEnabled && isBeforeTrickPower(localPlayer()?.princessId))}
                 <div class="seat-princess local-princess" class:exhausted={game.exhaustedPrincessUids.includes(currentUid)} class:armed={snowWhiteArmed || thumbelinaArmed} class:power-active={celebratedPrincessId === localPlayer()?.princessId}>
-                  <button type="button" class="princess-card" aria-label={`Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={snowWhiteArmed || thumbelinaArmed || openPrincessPower === localPlayer()?.princessId} disabled={!princessUsable(localPlayer()?.princessId)} on:click={usePrincessCard}>
+                  <button type="button" class="princess-card" aria-label={canSignalBeforeTrick(localPlayer()?.princessId) ? `${hasRaisedHand() ? 'Lower' : 'Raise'} hand for ${princessName(localPlayer()?.princessId)} on the next trick` : `Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={hasRaisedHand() || snowWhiteArmed || thumbelinaArmed || openPrincessPower === localPlayer()?.princessId} disabled={!princessUsable(localPlayer()?.princessId)} on:click={usePrincessCard}>
                     <SpriteCard {...princessSpriteProps(localPlayer()?.princessId)} />
                   </button>
                   <strong>{princessName(localPlayer()?.princessId)}</strong>
                   <span>{PRINCESS_POWER_TEXT[localPlayer()?.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
+                  {#if hasRaisedHand()}<small class="hand-raised" role="status">Hand raised for trick {(game.batSignalTargetTrick ?? 0) + 1}</small>{/if}
                 </div>
+              {/if}
+              {#if game.beforeTrickWindow?.priorityUid === currentUid && !game.pendingPower}
+                <div class="power-controls" role="group" aria-label="Before-trick decision"><strong>You have priority</strong><button type="button" class="secondary" on:click={declineBeforeTrickPriority}>Decline this time</button></div>
               {/if}
               {#if game.pendingMulanUid === currentUid && game.trick}
                 {@const mulanPlay = game.trick.plays.find((play) => play.uid === currentUid)}
@@ -770,20 +817,20 @@
                   {/each}
                   <button class="secondary" type="button" on:click={declineMulan}>Keep played card</button>
                 </div>{/if}
-              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && openPrincessPower === 'pocahontas'}
+              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && (openPrincessPower === 'pocahontas' || (game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'pocahontas'))}
                 <div class="power-controls" role="group" aria-label="Pocahontas power"><strong>Choose the leader</strong>{#each game.players as player}<button type="button" on:click={() => activatePower('pocahontas', player.uid)}>{player.displayName} leads</button>{/each}</div>
-              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && openPrincessPower === 'little-mermaid'}
+              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && (openPrincessPower === 'little-mermaid' || (game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'little-mermaid'))}
                 <div class="power-controls" role="group" aria-label="Little Mermaid power"><strong>Choose the leader’s suit</strong>{#each mermaidSuits() as suit}<button type="button" on:click={() => activatePower('little-mermaid', undefined, undefined, suit)}>{suit}</button>{/each}</div>
-              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && openPrincessPower === 'ice-princess'}
+              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && (openPrincessPower === 'ice-princess' || (game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'ice-princess' && !game.pendingPower.targetUid))}
                 <div class="power-controls" role="group" aria-label="Ice Princess power"><strong>Choose a player</strong>{#each game.players as player}<button type="button" on:click={() => activatePower('ice-princess', player.uid)}>{player.displayName}</button>{/each}</div>
-              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && openPrincessPower === 'scheherazade'}
+              {:else if powerAvailable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && (openPrincessPower === 'scheherazade' || (game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'scheherazade' && !game.pendingPower.targetUid))}
                 <div class="power-controls" role="group" aria-label="Scheherazade power"><strong>Choose another hand</strong>{#each game.players.filter((player) => player.uid !== currentUid) as player}<button type="button" on:click={() => activatePower('scheherazade', player.uid)}>{player.displayName}</button>{/each}</div>
               {:else if princessUsable(localPlayer()?.princessId) && game.trick?.plays.length === 0 && openPrincessPower === 'sleeping-beauty'}
                 <div class="power-controls" role="group" aria-label="Sleeping Beauty power"><strong>Collect one card from every player</strong><button type="button" on:click={beginSleepingBeauty}>Begin collection</button></div>
               {/if}
-              {#if game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'ice-princess'}
+              {#if game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'ice-princess' && game.pendingPower.targetUid}
                 <div class="power-controls power-choice" role="group" aria-label="Ice Princess cards"><strong>Choose the frozen card</strong>{#each game.pendingPower.cards as entry}<button type="button" on:click={() => activatePower('ice-princess', undefined, entry.card)}>{cardLabel(entry.card)}</button>{/each}</div>
-              {:else if game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'scheherazade'}
+              {:else if game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'scheherazade' && game.pendingPower.targetUid}
                 <div class="power-controls power-choice" role="group" aria-label="Scheherazade swap"><strong>Took {cardLabel(game.pendingPower.cards[0].card)}</strong>{#each game.hands[currentUid] ?? [] as card}<button type="button" on:click={() => activatePower('scheherazade', undefined, card)}>Swap {cardLabel(card)}</button>{/each}<button type="button" class="secondary" on:click={() => appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/declined', { powerId: 'scheherazade' })}>Return it</button></div>
               {:else if game.pendingPower?.actorUid === currentUid && game.pendingPower.powerId === 'sleeping-beauty' && game.pendingPower.cards.length === game.players.length}
                 <div class="power-controls power-choice" role="group" aria-label="Sleeping Beauty redistribution"><strong>Choose in order: keep, then {game.players.filter((player) => player.uid !== currentUid).map((player) => player.displayName).join(', ')}</strong>{#each game.pendingPower.cards as entry}<button type="button" class:chosen={selectedPowerCards.some((card) => cardLabel(card) === cardLabel(entry.card))} on:click={() => selectRedistribution(entry.card)}>{selectedPowerCards.findIndex((card) => cardLabel(card) === cardLabel(entry.card)) + 1 || ''} {cardLabel(entry.card)}</button>{/each}<button type="button" disabled={!sleepingBeautySelectionComplete()} on:click={redistributeSleepingBeauty}>Redistribute</button></div>
@@ -840,6 +887,7 @@
                     {#if game.haggleWinnerUid === currentUid}<div class="power-controls" role="group" aria-label="Haggle with the Hag"><strong>{selectedHaggleOffer ? `Offer ${selectedHaggleOffer}; choose a captured card` : 'Choose one card from your hand to offer'}</strong>{#if selectedHaggleOffer}{#each game.lastCompletedTrick?.plays.filter((play) => play.uid !== currentUid) ?? [] as play}<button type="button" on:click={() => submitHaggle(play.card)}>Take {cardLabel(play.card)}</button>{/each}{/if}<button type="button" class="secondary" on:click={declineHaggle}>Keep the trick unchanged</button></div>{:else}<p class="pass-waiting" role="alert">Waiting for {playerName(game.haggleWinnerUid)} to haggle</p>{/if}
                   {:else if game.pendingMulanUid}<p class="pass-waiting" role="alert">{game.pendingMulanUid === currentUid ? 'Tap Mulan to swap her played card or keep it' : `Waiting for ${playerName(game.pendingMulanUid)} to resolve Mulan`}</p>
                   {:else if game.pendingPower}<p class="pass-waiting" role="alert">Waiting for {playerName(game.pendingPower.actorUid)} to resolve {princessName(game.pendingPower.powerId)}</p>
+                  {:else if game.beforeTrickWindow}<p class="pass-waiting" role="alert">{game.beforeTrickWindow.priorityUid === currentUid ? `Your before-trick decision — use ${princessName(localPlayer()?.princessId)} or decline` : `Waiting for ${playerName(game.beforeTrickWindow.priorityUid)}'s before-trick decision`}</p>
                   {:else}<p class="pass-complete" role="alert">Passing complete · {game.currentTurnUid === currentUid ? 'Your turn — play a highlighted card' : `Waiting for ${playerName(game.currentTurnUid)}`} · Trick {game.completedTricks + 1}</p>{/if}
                 {:else if game.passSubmissions[currentUid]}
                   <p class="pass-waiting" role="alert">Passing {game.passSubmissions[currentUid].length} {passInstruction(activeRoundId()).direction} to {passRecipient()} · {waitingForPasses(game)} Select a raised card to take it back.</p>

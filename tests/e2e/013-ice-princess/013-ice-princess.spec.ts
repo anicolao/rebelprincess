@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { closePrincessGame, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, declineRemainingBeforeTrickPlayers, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
 
 const IDS = { phone: 'CIP00000', desktop: 'CIP00003' } as const;
 
@@ -20,6 +20,7 @@ test('The Ice Princess freezes a card entirely through clicks', async ({ page, b
   ] });
   const frozen = page.getByRole('group', { name: 'Ice Princess cards' }).getByRole('button').first();
   const label = await frozen.textContent() ?? ''; await frozen.click();
+  await declineRemainingBeforeTrickPlayers(game.players);
   await steps.step('ice-princess-card-selected', { description: 'Clicking an inspected card stores the forced play', verifications: [
     { spec: 'The power chooser closes after the selection', check: async () => expect(page.getByRole('group', { name: 'Ice Princess cards' })).toHaveCount(0) },
     { spec: 'The Princess card is exhausted', check: async () => expect(page.locator('.local-princess')).toHaveClass(/exhausted/) }

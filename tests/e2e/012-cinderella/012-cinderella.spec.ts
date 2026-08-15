@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { closePrincessGame, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, declineRemainingBeforeTrickPlayers, playOneClick, setupPrincessGame } from '../helpers/princess-click-game';
 
 const IDS = { phone: 'CCI00009', desktop: 'CCI0000C' } as const;
 
@@ -13,6 +13,7 @@ test('Cinderella reverses a trick entirely through clicks', async ({ page, brows
     { spec: 'No Princess power is active yet', check: async () => expect(page.getByText('Princess power: Cinderella')).toHaveCount(0) }
   ] });
   await expect(princess).toBeEnabled(); await princess.click();
+  await declineRemainingBeforeTrickPlayers(game.players);
   await expect(page.getByText('Princess power: Cinderella')).toBeVisible();
   await expect(game.jo.getByLabel("Alex's Princess: Cinderella")).toHaveClass(/exhausted/);
   await steps.step('cinderella-clicked', { description: 'Clicking Cinderella activates the reversed trick', verifications: [
