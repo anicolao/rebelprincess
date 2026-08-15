@@ -29,10 +29,10 @@ const ranks = (suit: string): AssetCell[] => Array.from({ length: 12 }, (_, inde
 }));
 
 const suitAtlases: Record<Suit, AssetAtlas> = {
-  fairies: { id: 'cards-fairies', name: 'Fairy cards', description: 'Ranks 1–12', src: fairiesAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('fairies') },
-  queens: { id: 'cards-queens', name: 'Queen cards', description: 'Ranks 1–12', src: queensAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('queens') },
-  princes: { id: 'cards-princes', name: 'Prince cards', description: 'Ranks 1–12', src: princesAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('princes') },
-  pets: { id: 'cards-pets', name: 'Pet cards', description: 'Ranks 1–12', src: petsAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('pets') }
+  fairies: { id: 'cards-fairies', name: 'Fairy cards', description: 'Ranks 1–12 · sparkle medallion', src: fairiesAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('fairies') },
+  queens: { id: 'cards-queens', name: 'Queen cards', description: 'Ranks 1–12 · crown medallion', src: queensAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('queens') },
+  princes: { id: 'cards-princes', name: 'Prince cards', description: 'Ranks 1–12 · sword medallion', src: princesAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('princes') },
+  pets: { id: 'cards-pets', name: 'Pet cards', description: 'Ranks 1–12 · paw medallion', src: petsAtlas, sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5, cells: ranks('pets') }
 };
 
 const roundIds = ['once-upon-a-time', 'invitation', 'masquerade-ball', 'royal-decree', 'musical-chairs', 'pets-revenge', 'late-to-the-ball', 'poisoned-apple', 'crystal-clear', 'upside-down', 'dancing-queens', 'prince-rings-twice', 'wedding-gift', 'after-party', 'bathroom-break', 'single-fairy', 'midnight-makeover', 'blind-mans-bluff', 'odds-and-evens', 'pass-the-bouquet', 'haggle-with-the-hag', 'magic-beans', 'three-times-a-lady', 'arranged-marriage', 'always-the-bridesmaid', 'sisterhood', 'late-for-a-very-important-date'] as const;
@@ -41,12 +41,12 @@ const roundNames = ['Once Upon a Time…', 'Invitation', 'Masquerade Ball', 'Roy
 export const assetAtlases: AssetAtlas[] = [
   ...Object.values(suitAtlases),
   {
-    id: 'princesses', name: 'Princesses', description: 'All twelve Princesses', src: princessAtlas,
+    id: 'princesses', name: 'Princesses', description: 'All twelve Princesses · thin white edge', src: princessAtlas,
     sheetWidth: 1800, sheetHeight: 1000, cols: 6, rows: 2, targetAspect: 3 / 5,
     cells: PRINCESSES.map(([id, name]) => ({ id, name }))
   },
   {
-    id: 'rounds', name: 'Round cards', description: 'All twenty-seven Round rules', src: roundAtlas,
+    id: 'rounds', name: 'Round cards', description: 'All twenty-seven Round rules · beige frame', src: roundAtlas,
     sheetWidth: 2700, sheetHeight: 900, cols: 9, rows: 3, targetAspect: 1,
     cells: roundIds.map((id, index) => ({
       id,
@@ -54,7 +54,7 @@ export const assetAtlases: AssetAtlas[] = [
     }))
   },
   {
-    id: 'suit-families', name: 'Suit families', description: 'The four suit concepts', src: suitFamiliesAtlas,
+    id: 'suit-families', name: 'Suit families', description: 'The four suit concepts · thin neutral edge', src: suitFamiliesAtlas,
     sheetWidth: 1200, sheetHeight: 500, cols: 4, rows: 1, targetAspect: 3 / 5,
     cells: ['fairies', 'queens', 'princes', 'pets'].map((id) => ({ id: `family-${id}`, name: `${id[0].toUpperCase()}${id.slice(1)} family` }))
   }

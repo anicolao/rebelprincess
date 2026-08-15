@@ -6,9 +6,9 @@ const atlases = [
   { button: 'Queen cards 12 cells', name: 'Queen cards', id: 'queen-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 20 },
   { button: 'Prince cards 12 cells', name: 'Prince cards', id: 'prince-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 20 },
   { button: 'Pet cards 12 cells', name: 'Pet cards', id: 'pet-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 20 },
-  { button: 'Princesses 12 cells', name: 'Princesses', id: 'princess-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 20 },
-  { button: 'Round cards 27 cells', name: 'Round cards', id: 'round-crops', grid: '9x3', count: 27, first: '0,0 · 300×300', last: '2400,600 · 300×300', frameBand: 20 },
-  { button: 'Suit families 4 cells', name: 'Suit families', id: 'family-crops', grid: '4x1', count: 4, first: '0,0 · 300×500', last: '900,0 · 300×500', frameBand: 20 }
+  { button: 'Princesses 12 cells', name: 'Princesses', id: 'princess-crops', grid: '6x2', count: 12, first: '0,0 · 300×500', last: '1500,500 · 300×500', frameBand: 4 },
+  { button: 'Round cards 27 cells', name: 'Round cards', id: 'round-crops', grid: '9x3', count: 27, first: '0,0 · 300×300', last: '2400,600 · 300×300', frameBand: 12 },
+  { button: 'Suit families 4 cells', name: 'Suit families', id: 'family-crops', grid: '4x1', count: 4, first: '0,0 · 300×500', last: '900,0 · 300×500', frameBand: 4 }
 ] as const;
 
 async function frameSignatures(page: Page, crops: Locator, band: number): Promise<string[]> {
@@ -42,7 +42,7 @@ async function frameSignatures(page: Page, crops: Locator, band: number): Promis
 
 test('asset review exposes every logical atlas through one uniform grid renderer', async ({ page }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
-  steps.setMetadata('Asset review', 'Review all seven logical atlases and verify that every sprite uses the same Pet-inspired frame and exact regular-grid crop path.');
+  steps.setMetadata('Asset review', 'Review all seven logical atlases and verify the four emblematic playing-card frames plus the quieter Princess, Round, and suit-family edges through one exact regular-grid crop path.');
 
   await page.goto('/assets/');
   await expect(page).toHaveURL(/\/assets\/$/);

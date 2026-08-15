@@ -79,14 +79,11 @@ function parseOptions(args: string[]): Options {
 }
 
 const options = parseOptions(Bun.argv.slice(2));
-const images = await Promise.all(options.sources.map(async (source) => {
-  const file = Bun.file(source.path);
-  if (!(await file.exists())) throw new Error(`Missing source image: ${source.path}`);
-  return {
-    ...source,
-    dataUrl: `data:${file.type || 'image/png'};base64,${Buffer.from(await file.arrayBuffer()).toString('base64')}`
-  };
-}));
+const sourceData = Object.fromEntries(await Promise.all([...new Set(options.sources.map(({ path }) => path))].map(async (path) => {
+  const file = Bun.file(path);
+  if (!(await file.exists())) throw new Error(`Missing source image: ${path}`);
+  return [path, `data:${file.type || 'image/png'};base64,${Buffer.from(await file.arrayBuffer()).toString('base64')}`];
+})));
 
 const width = options.cols * options.cellWidth;
 const height = options.rows * options.cellHeight;
@@ -95,7 +92,7 @@ const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
   await page.setContent('<canvas></canvas>');
-  const validation = await page.evaluate(async ({ images, options }) => {
+  const validation = await page.evaluate(async ({ sourceData, options }) => {
     const canvas = document.querySelector('canvas')!;
     canvas.width = options.cols * options.cellWidth;
     canvas.height = options.rows * options.cellHeight;
@@ -110,7 +107,8 @@ try {
       image.onerror = reject;
       image.src = src;
     });
-    const loaded = await Promise.all(images.map(async (source) => ({ ...source, image: await load(source.dataUrl) })));
+    const sourceImages = Object.fromEntries(await Promise.all(Object.entries(sourceData).map(async ([path, dataUrl]) => [path, await load(dataUrl)])));
+    const loaded = options.sources.map((source) => ({ ...source, image: sourceImages[source.path] }));
 
     const drawCover = (
       target: CanvasRenderingContext2D,
@@ -143,12 +141,13 @@ try {
       queen: { outer: '#35101f', middle: '#b47a08', light: '#f4c62e', shadow: '#17070d' },
       prince: { outer: '#071d35', middle: '#b47a08', light: '#f4c62e', shadow: '#030c16' },
       pet: { outer: '#06291c', middle: '#b47a08', light: '#f4c62e', shadow: '#02130d' },
-      princess: { outer: '#271530', middle: '#b47a08', light: '#f4c62e', shadow: '#100713' },
-      round: { outer: '#31220d', middle: '#b47a08', light: '#f4c62e', shadow: '#140d04' },
-      family: { outer: '#202025', middle: '#b47a08', light: '#f4c62e', shadow: '#0b0b0d' }
+      princess: { outer: '#f7f4ec', middle: '#d9d3c6', light: '#ffffff', shadow: '#9d9688' },
+      round: { outer: '#d8bd82', middle: '#8d692e', light: '#f5e7c2', shadow: '#4d3517' },
+      family: { outer: '#eee8db', middle: '#c9bfae', light: '#ffffff', shadow: '#857b6c' }
     }[options.frame];
+    const isPlayingCard = ['fairy', 'queen', 'prince', 'pet'].includes(options.frame);
     const scale = Math.min(options.cellWidth / 300, options.cellHeight / 500);
-    const band = Math.max(16, Math.round(Math.min(options.cellWidth, options.cellHeight) * 0.067));
+    const band = isPlayingCard ? 20 : options.frame === 'round' ? 12 : 4;
 
     const strokeRect = (target: CanvasRenderingContext2D, cellWidth: number, cellHeight: number, inset: number, color: string, lineWidth: number) => {
       target.beginPath();
@@ -157,7 +156,70 @@ try {
       target.lineWidth = lineWidth;
       target.stroke();
     };
-    const drawDiamond = (target: CanvasRenderingContext2D, centerX: number, centerY: number, size: number) => {
+    const drawSuitEmblem = (target: CanvasRenderingContext2D, centerX: number, centerY: number, size: number) => {
+      target.save();
+      target.fillStyle = palette.light;
+      target.strokeStyle = palette.light;
+      target.lineCap = 'round';
+      target.lineJoin = 'round';
+      if (options.frame === 'fairy') {
+        const outer = size * 0.48;
+        const inner = size * 0.13;
+        target.beginPath();
+        for (let point = 0; point < 8; point++) {
+          const radius = point % 2 === 0 ? outer : inner;
+          const angle = -Math.PI / 2 + point * Math.PI / 4;
+          const x = centerX + Math.cos(angle) * radius;
+          const y = centerY + Math.sin(angle) * radius;
+          if (point === 0) target.moveTo(x, y);
+          else target.lineTo(x, y);
+        }
+        target.closePath();
+        target.fill();
+      } else if (options.frame === 'queen') {
+        const width = size * 0.92;
+        const top = centerY - size * 0.34;
+        const bottom = centerY + size * 0.34;
+        target.beginPath();
+        target.moveTo(centerX - width / 2, top);
+        target.lineTo(centerX - width * 0.27, centerY - size * 0.02);
+        target.lineTo(centerX, top - size * 0.18);
+        target.lineTo(centerX + width * 0.27, centerY - size * 0.02);
+        target.lineTo(centerX + width / 2, top);
+        target.lineTo(centerX + width * 0.38, bottom);
+        target.lineTo(centerX - width * 0.38, bottom);
+        target.closePath();
+        target.fill();
+      } else if (options.frame === 'prince') {
+        target.lineWidth = Math.max(1.5, size * 0.18);
+        target.beginPath();
+        target.moveTo(centerX - size * 0.38, centerY + size * 0.38);
+        target.lineTo(centerX + size * 0.32, centerY - size * 0.32);
+        target.stroke();
+        target.beginPath();
+        target.moveTo(centerX - size * 0.34, centerY + size * 0.05);
+        target.lineTo(centerX - size * 0.03, centerY + size * 0.36);
+        target.stroke();
+        target.beginPath();
+        target.moveTo(centerX + size * 0.32, centerY - size * 0.32);
+        target.lineTo(centerX + size * 0.12, centerY - size * 0.28);
+        target.lineTo(centerX + size * 0.28, centerY - size * 0.12);
+        target.closePath();
+        target.fill();
+      } else if (options.frame === 'pet') {
+        const toeRadius = size * 0.13;
+        for (const [offsetX, offsetY] of [[-0.34, -0.17], [-0.12, -0.36], [0.13, -0.36], [0.35, -0.17]] as const) {
+          target.beginPath();
+          target.arc(centerX + size * offsetX, centerY + size * offsetY, toeRadius, 0, Math.PI * 2);
+          target.fill();
+        }
+        target.beginPath();
+        target.ellipse(centerX, centerY + size * 0.22, size * 0.34, size * 0.28, 0, 0, Math.PI * 2);
+        target.fill();
+      }
+      target.restore();
+    };
+    const drawSuitDiamond = (target: CanvasRenderingContext2D, centerX: number, centerY: number, size: number) => {
       target.beginPath();
       target.moveTo(centerX, centerY - size);
       target.lineTo(centerX + size, centerY);
@@ -169,13 +231,7 @@ try {
       target.strokeStyle = palette.middle;
       target.lineWidth = Math.max(2, Math.round(scale * 1.5));
       target.stroke();
-      const pip = Math.max(1.5, size * 0.14);
-      target.fillStyle = palette.light;
-      for (const [offsetX, offsetY] of [[-pip * 1.8, 0], [0, -pip * 1.6], [pip * 1.8, 0], [0, pip * 1.8]] as const) {
-        target.beginPath();
-        target.arc(centerX + offsetX, centerY + offsetY, pip, 0, Math.PI * 2);
-        target.fill();
-      }
+      drawSuitEmblem(target, centerX, centerY, size);
     };
 
     const drawCorner = (target: CanvasRenderingContext2D, cellWidth: number, cellHeight: number, right: boolean, bottom: boolean) => {
@@ -240,16 +296,25 @@ try {
       cardContext.fillRect(0, options.cellHeight - band, options.cellWidth, band);
       cardContext.fillRect(0, band, band, options.cellHeight - band * 2);
       cardContext.fillRect(options.cellWidth - band, band, band, options.cellHeight - band * 2);
-      strokeRect(cardContext, options.cellWidth, options.cellHeight, 2, palette.middle, Math.max(2, Math.round(2 * scale)));
-      strokeRect(cardContext, options.cellWidth, options.cellHeight, Math.max(6, Math.round(band * 0.42)), palette.light, Math.max(1, Math.round(scale)));
-      strokeRect(cardContext, options.cellWidth, options.cellHeight, band - 1, palette.middle, Math.max(2, Math.round(2 * scale)));
-      drawCorner(cardContext, options.cellWidth, options.cellHeight, false, false);
-      drawCorner(cardContext, options.cellWidth, options.cellHeight, true, false);
-      drawCorner(cardContext, options.cellWidth, options.cellHeight, false, true);
-      drawCorner(cardContext, options.cellWidth, options.cellHeight, true, true);
-      const diamondSize = Math.max(9, Math.round(band * 0.72));
-      drawDiamond(cardContext, options.cellWidth / 2, band, diamondSize);
-      drawDiamond(cardContext, options.cellWidth / 2, options.cellHeight - band, diamondSize);
+      if (isPlayingCard) {
+        strokeRect(cardContext, options.cellWidth, options.cellHeight, 2, palette.middle, Math.max(2, Math.round(2 * scale)));
+        strokeRect(cardContext, options.cellWidth, options.cellHeight, Math.max(6, Math.round(band * 0.42)), palette.light, Math.max(1, Math.round(scale)));
+        strokeRect(cardContext, options.cellWidth, options.cellHeight, band - 1, palette.middle, Math.max(2, Math.round(2 * scale)));
+        drawCorner(cardContext, options.cellWidth, options.cellHeight, false, false);
+        drawCorner(cardContext, options.cellWidth, options.cellHeight, true, false);
+        drawCorner(cardContext, options.cellWidth, options.cellHeight, false, true);
+        drawCorner(cardContext, options.cellWidth, options.cellHeight, true, true);
+        const diamondSize = Math.max(9, Math.round(band * 0.72));
+        drawSuitDiamond(cardContext, options.cellWidth / 2, band, diamondSize);
+        drawSuitDiamond(cardContext, options.cellWidth / 2, options.cellHeight - band, diamondSize);
+      } else if (options.frame === 'round') {
+        strokeRect(cardContext, options.cellWidth, options.cellHeight, 1, palette.shadow, 2);
+        strokeRect(cardContext, options.cellWidth, options.cellHeight, 5, palette.light, 1);
+        strokeRect(cardContext, options.cellWidth, options.cellHeight, band - 1, palette.middle, 2);
+      } else {
+        strokeRect(cardContext, options.cellWidth, options.cellHeight, 1, palette.light, 2);
+        strokeRect(cardContext, options.cellWidth, options.cellHeight, band - 1, palette.middle, 1);
+      }
       context.drawImage(card, x, y);
     }
 
@@ -272,7 +337,7 @@ try {
     });
     if (new Set(signatures).size !== 1) throw new Error(`Frame geometry differs: ${signatures.join(', ')}`);
     return { width: canvas.width, height: canvas.height, cellWidth: options.cellWidth, cellHeight: options.cellHeight, band, signature: signatures[0] };
-  }, { images, options });
+  }, { sourceData, options });
 
   const canvas = page.locator('canvas');
   const box = await canvas.boundingBox();
