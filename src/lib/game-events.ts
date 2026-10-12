@@ -181,14 +181,13 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   const lastRematchIndex = ordered.findLastIndex((event) => event.type === 'game/rematched');
   const gameNumber = ordered.filter((event) => event.type === 'game/rematched').length;
   const usesSealedPrincesses = ordered.some((event, index) => index > lastRematchIndex && event.type === 'player/princess-committed');
-  const firstPrincessCommitmentIndex = usesSealedPrincesses
-    ? ordered.findIndex((event, index) => index > lastRematchIndex && event.type === 'player/princess-committed')
-    : -1;
+  const firstDealIndex = ordered.findIndex((event) => event.type === 'game/dealt');
 
   let artworkOption = 'classic';
   for (const [index, event] of ordered.entries()) {
     gameId ||= event.payload.gameId;
-    if ((event.type === 'game/created' || event.type === 'player/joined') && !players.has(event.actorUid) && (firstPrincessCommitmentIndex < 0 || index < firstPrincessCommitmentIndex)) {
+    const roomOpen = firstDealIndex < 0 || index < firstDealIndex;
+    if ((event.type === 'game/created' || event.type === 'player/joined') && !players.has(event.actorUid) && players.size < 6 && roomOpen) {
       players.set(event.actorUid, {
         uid: event.actorUid,
         displayName: event.payload.displayName ?? 'Player',
@@ -208,7 +207,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   for (const [index, event] of ordered.entries()) {
     if (index <= lastRematchIndex) continue;
     const player = players.get(event.actorUid);
-    if (event.type === 'player/princess-committed' && player && event.payload.commitment && !princessCommitments[player.uid]) {
+    if (event.type === 'player/princess-committed' && player && event.payload.commitment && !princessReveals[player.uid]) {
       princessCommitments[player.uid] = event.payload.commitment;
     }
     if (event.type !== 'player/configured' || !player) continue;

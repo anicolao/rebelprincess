@@ -34,6 +34,7 @@
   let unsubscribe = () => {};
   let currentUid = '';
   let selectedPrincess = '';
+  let princessCommitPending = false;
   let selectedPassCards: Array<string | null> = [];
   let observedRoundIndex = -1;
   let observedGameNumber = -1;
@@ -113,6 +114,7 @@
         selectedPassCards = [];
         openPrincessPower = '';
         selectedPowerCards = [];
+        princessCommitPending = false;
         observedRoundIndex = next.roundIndex;
         observedGameNumber = next.gameNumber;
       }
@@ -275,15 +277,23 @@
   }
 
   async function becomeReady() {
-    if (!selectedPrincess || !game || game.players.length < 3 || game.princessCommitments[currentUid] || !game.princessOptions[currentUid]?.includes(selectedPrincess)) return;
+    if (princessCommitPending || !selectedPrincess || !game || game.players.length < 3 || game.princessCommitments[currentUid] || !game.princessOptions[currentUid]?.includes(selectedPrincess)) return;
+    princessCommitPending = true;
     connection = 'checking';
     connectionLabel = 'Sealing your Princess…';
     const nonce = `${crypto.randomUUID()}${crypto.randomUUID()}`;
     const key = sealedChoiceKey('princess', game, currentUid);
     localStorage.setItem(key, JSON.stringify({ choice: selectedPrincess, nonce } satisfies StoredChoice));
-    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/princess-committed', {
-      commitment: choiceCommitment(princessChoiceScope(game.gameId, game.gameNumber, currentUid), selectedPrincess, nonce)
-    });
+    try {
+      await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'player/princess-committed', {
+        commitment: choiceCommitment(princessChoiceScope(game.gameId, game.gameNumber, currentUid), selectedPrincess, nonce)
+      });
+    } catch {
+      princessCommitPending = false;
+      connection = 'error';
+      connectionLabel = 'Could not seal your Princess';
+      actionError = 'Your Princess choice could not be sealed. Please try again.';
+    }
   }
 
   const previewCards = [
@@ -942,7 +952,7 @@
                 </button>
               {/each}
             </fieldset>
-            <button type="button" disabled={!selectedPrincess || (game?.players.length ?? 0) < 3} on:click={becomeReady}>Ready for the ball</button>
+            <button type="button" disabled={princessCommitPending || !selectedPrincess || (game?.players.length ?? 0) < 3} on:click={becomeReady}>{princessCommitPending ? 'Sealing Princess…' : 'Ready for the ball'}</button>
           {:else if !game?.players.find((player) => player.uid === currentUid)?.ready}
             <p class="waiting" role="status">Your Princess is sealed · waiting for every player to lock a choice</p>
           {/if}

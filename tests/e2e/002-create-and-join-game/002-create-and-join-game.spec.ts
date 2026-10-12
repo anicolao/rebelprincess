@@ -59,3 +59,47 @@ test('two anonymous clients create, join, synchronize, and replay a game', async
   steps.generateDocs();
   await guestContext.close();
 });
+
+test('a player can join after another player seals a Princess choice', async ({ page, browser }, testInfo) => {
+  const suffix = testInfo.project.name;
+  const gameId = suffix === 'phone' ? 'LATE02P' : 'LATE02D';
+  const contextOptions = {
+    viewport: page.viewportSize() ?? undefined,
+    reducedMotion: 'reduce' as const,
+    serviceWorkers: 'block' as const,
+    deviceScaleFactor: 1
+  };
+  const guestContext = await browser.newContext(contextOptions);
+  const thirdContext = await browser.newContext(contextOptions);
+  const lateContext = await browser.newContext(contextOptions);
+  const guest = await guestContext.newPage();
+  const third = await thirdContext.newPage();
+  const late = await lateContext.newPage();
+
+  const join = async (player: typeof page, uid: string, name: string) => {
+    await player.goto(`/?e2eUid=${uid}`);
+    await player.getByLabel('Your name').fill(name);
+    await player.getByLabel('Room code').fill(gameId);
+    await player.getByRole('button', { name: 'Join' }).click();
+    await expect(player.getByTestId('invite-code')).toHaveText(gameId);
+  };
+
+  await page.goto(`/?gameId=${gameId}&e2eUid=late-host-${suffix}`);
+  await page.getByLabel('Your name').fill('Alex');
+  await page.getByRole('button', { name: 'Create a game' }).click();
+  await join(guest, `late-guest-${suffix}`, 'Jo');
+  await join(third, `late-third-${suffix}`, 'Sam');
+
+  await page.getByLabel('Choose one of your two Princesses').getByRole('button').first().click();
+  await page.getByRole('button', { name: 'Ready for the ball' }).click();
+  await expect(page.getByRole('list', { name: 'Players' }).getByRole('listitem').filter({ hasText: 'Alex' })).toContainText('Ready');
+
+  await join(late, `late-fourth-${suffix}`, 'Taylor');
+  await expect(late.getByRole('heading', { name: 'Players · 4' })).toBeVisible();
+  await expect(late.getByLabel('Choose one of your two Princesses').getByRole('button')).toHaveCount(2);
+  await expect(page.getByRole('list', { name: 'Players' })).toContainText('Taylor');
+
+  await guestContext.close();
+  await thirdContext.close();
+  await lateContext.close();
+});
