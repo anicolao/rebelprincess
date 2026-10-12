@@ -72,7 +72,8 @@ export default defineConfig({
     timeout: 2000,
     toHaveScreenshot: {
       // Transient effects are settled by TestStepHelper and UI icons use
-      // bundled vectors, so every committed pixel is expected to match.
+      // bundled vectors, so every channel of every committed pixel must match.
+      threshold: 0,
       maxDiffPixels: 0,
       animations: 'disabled',
       caret: 'hide',

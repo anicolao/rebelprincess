@@ -1640,7 +1640,7 @@
     .princess-power-burst,
     .power-sparkles,
     .seat-princess.power-active .princess-card { animation: none; }
-    .trick-card { animation-duration: 1ms; }
+    .trick-card { animation-duration: 1ms; animation-fill-mode: none; }
     .playing-card { transition: none; }
   }
 </style>
