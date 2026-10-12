@@ -4,8 +4,8 @@ import { clickAndConfirm } from '../helpers/round-card-game';
 
 async function join(page: Page, gameId: string, uid: string, name: string) {
   await page.goto(`/?e2eUid=${uid}`);
-  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Your name').fill(name);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Room code').fill(gameId);
   const joinBtn = page.getByRole('button', { name: 'Join' });
   await clickAndConfirm(joinBtn, async () => {
@@ -56,8 +56,8 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
   const sam = await samContext.newPage();
 
   await page.goto(`/?gameId=${gameId}&seed=fixed-004&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=trick-host-${suffix}`);
-  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Your name').fill('Alex');
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   const createBtn = page.getByRole('button', { name: 'Create a game' });
   await clickAndConfirm(createBtn, async () => {
     await expect(page.getByTestId('invite-code')).toHaveText(gameId);

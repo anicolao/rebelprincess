@@ -21,8 +21,8 @@ export async function setupRoundCardGame(browser: Browser, host: Page, testInfo:
   const selectedIds = selected.map((name) => ROUND_RULES.find(([, candidate]) => candidate === name)?.[0]).filter(Boolean).join(',');
   for (const [index, page] of players.entries()) {
     await page.goto(`/?gameId=${gameId}&seed=round-${dealSeed}&e2eRounds=${selectedIds}&e2eUid=round-${names[index]}-${testInfo.project.name}-${gameId}`);
-    await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
     await page.getByLabel('Your name').fill(names[index]);
+    await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
     if (!index) {
       const createBtn = page.getByRole('button', { name: 'Create a game' });
       await clickAndConfirm(createBtn, async () => {
