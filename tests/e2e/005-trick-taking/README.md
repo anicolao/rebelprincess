@@ -23,7 +23,7 @@ Three trustworthy clients play complete synchronized tricks through follow-suit,
 **Verifications:**
 - [x] The shared trick shows Alex’s Fairy 6
 - [x] The played card uses the Fairies atlas graphic and visible value
-- [x] The played card animates from the hand into the table
+- [x] Reduced-motion rendering leaves the played card settled with no animation transform
 - [x] Jo has no Fairies and may discard a Prince
 - [x] Sam holds Fairies and cannot discard an off-suit Prince
 
