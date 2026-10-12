@@ -10,8 +10,7 @@ export interface Verification {
 export interface StepOptions {
   description: string;
   verifications: Verification[];
-  networkStatus?: 'synced' | 'offline' | 'error' | 'skip';
-  screenshotMaxDiffPixels?: number;
+  networkStatus?: 'synced' | 'offline' | 'error';
 }
 
 interface DocStep {
@@ -42,19 +41,17 @@ export class TestStepHelper {
     }
 
     const expectedStatus = options.networkStatus ?? 'synced';
-    if (expectedStatus !== 'skip') {
-      await expect(this.page.locator('[role="status"][data-status]')).toHaveAttribute(
-        'data-status',
-        expectedStatus
-      );
-    }
+    await expect(this.page.locator('[role="status"][data-status]')).toHaveAttribute(
+      'data-status',
+      expectedStatus
+    );
 
     // Documentation captures describe the settled game state. Power bursts
     // are asserted separately, then allowed to clear before they can obscure
     // the board or make a screenshot depend on timer scheduling.
     await expect(
       this.page.locator('.princess-power-burst, .table-board.power-flash')
-    ).toHaveCount(0, { timeout: 3000 });
+    ).toHaveCount(0);
 
     await this.page.mouse.move(0, 0);
     await this.page.evaluate(async () => {
@@ -101,30 +98,10 @@ export class TestStepHelper {
 
     const paddedIndex = String(this.stepCount++).padStart(3, '0');
     const filename = `${paddedIndex}-${id.replaceAll('_', '-')}-${this.testInfo.project.name}.png`;
-    // Firestore can replace an element after the settling loop and start a new
-    // entrance animation immediately before Playwright captures the page. Keep
-    // trick-card entrance motion at its final keyframe for the entire capture,
-    // then restore it so scenarios can continue to exercise and assert the real
-    // animation. Retaining the keyframe avoids changing its rendered pixels.
-    const settledMotionStyle = await this.page.addStyleTag({
-      content: `
-        @media (min-width: 1000px) {
-          [data-e2e-layout] .trick-card {
-            animation-delay: -1s !important;
-          }
-        }
-      `
-    });
-    try {
-      await this.page.evaluate(() => new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      }));
-      await expect(this.page).toHaveScreenshot(filename, {
-        maxDiffPixels: options.screenshotMaxDiffPixels
-      });
-    } finally {
-      await settledMotionStyle.evaluate((style) => style.parentNode?.removeChild(style)).catch(() => {});
-    }
+    await this.page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+    await expect(this.page).toHaveScreenshot(filename);
 
     this.steps.push({
       title: options.description,

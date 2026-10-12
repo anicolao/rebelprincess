@@ -13,9 +13,7 @@ test('Pass the Bouquet changes the required and winning suit mid-trick', async (
     { spec: 'Alex can lead deterministic Pets 7', check: async () => expect(page.getByRole('button', { name: 'Pets 7', exact: true })).toBeEnabled() }
   ] });
   await page.getByRole('button', { name: 'Pets 7', exact: true }).click(); await expect(page.getByLabel('Alex played Pets 7')).toBeVisible();
-  // The phone layout scales this small atlas crop across fractional pixels;
-  // macOS runners can differ slightly in its interior antialiasing.
-  await steps.step('bouquet-pets-led', { description: 'Alex clicks Pets 7, but Jo is void and therefore may introduce a new suit', screenshotMaxDiffPixels: 400, verifications: [
+  await steps.step('bouquet-pets-led', { description: 'Alex clicks Pets 7, but Jo is void and therefore may introduce a new suit', verifications: [
     { spec: 'The Pet lead is visible', check: async () => expect(page.getByLabel('Alex played Pets 7')).toBeVisible() },
     { spec: 'Jo has no enabled Pet card', check: async () => expect(game.jo.locator('.playing-card.playable:not(:disabled)').filter({ hasText: 'pets' })).toHaveCount(0) }
   ] });
