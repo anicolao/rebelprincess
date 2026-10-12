@@ -12,6 +12,7 @@ const EXPECTED_SCORES = [
 async function join(page: Page, gameId: string, uid: string, name: string) {
   await page.goto(`/?e2eUid=${uid}`);
   await page.getByLabel('Your name').fill(name);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Room code').fill(gameId);
   await page.getByRole('button', { name: 'Join' }).click();
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
@@ -72,6 +73,7 @@ test('three players complete every pass, card, trick, and score across all five 
 
   await page.goto(`/?gameId=${gameId}&seed=complete-007&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=full-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await join(jo, gameId, `full-jo-${suffix}`, 'Jo');
   await join(sam, gameId, `full-sam-${suffix}`, 'Sam');

@@ -969,11 +969,11 @@
           <label for="display-name">Your name</label>
           <input id="display-name" bind:value={displayName} maxlength="30" autocomplete="nickname" placeholder="Princess name" />
           <div class="actions">
-            <button type="submit">Create a game</button>
+            <button type="submit" disabled={connection !== 'synced'}>Create a game</button>
             <span>or</span>
             <label class="sr-only" for="invite-code">Room code</label>
             <input id="invite-code" bind:value={inviteCode} maxlength="8" placeholder="ROOM CODE" />
-            <button class="secondary" type="button" on:click={joinGame}>Join</button>
+            <button class="secondary" type="button" disabled={connection !== 'synced'} on:click={joinGame}>Join</button>
           </div>
           {#if actionError}<p class="form-error" role="alert">{actionError}</p>{/if}
         </form>

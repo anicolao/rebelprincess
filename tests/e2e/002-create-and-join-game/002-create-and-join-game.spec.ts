@@ -11,6 +11,7 @@ test('two anonymous clients create, join, synchronize, and replay a game', async
 
   await page.goto(`/?gameId=${gameId}&e2eUid=host-${testInfo.project.name}`);
   await page.getByLabel('Your name').fill('Alex');
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
   await expect(page.getByRole('list', { name: 'Players' })).toContainText('Alex');
@@ -24,6 +25,7 @@ test('two anonymous clients create, join, synchronize, and replay a game', async
   const guest = await guestContext.newPage();
   await guest.goto(`/?e2eUid=guest-${testInfo.project.name}`);
   await guest.getByLabel('Your name').fill('Jo');
+  await expect(guest.locator('.status')).toHaveAttribute('data-status', 'synced');
   await guest.getByLabel('Room code').fill(gameId);
   await guest.getByRole('button', { name: 'Join' }).click();
   await expect(guest.getByRole('heading', { name: 'Players · 2' })).toBeVisible();
@@ -79,6 +81,7 @@ test('a player can join after another player seals a Princess choice', async ({ 
   const join = async (player: typeof page, uid: string, name: string) => {
     await player.goto(`/?e2eUid=${uid}`);
     await player.getByLabel('Your name').fill(name);
+    await expect(player.locator('.status')).toHaveAttribute('data-status', 'synced');
     await player.getByLabel('Room code').fill(gameId);
     await player.getByRole('button', { name: 'Join' }).click();
     await expect(player.getByTestId('invite-code')).toHaveText(gameId);
@@ -86,6 +89,7 @@ test('a player can join after another player seals a Princess choice', async ({ 
 
   await page.goto(`/?gameId=${gameId}&e2eUid=late-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await join(guest, `late-guest-${suffix}`, 'Jo');
   await join(third, `late-third-${suffix}`, 'Sam');

@@ -4,6 +4,7 @@ import { TestStepHelper } from '../helpers/test-step-helper';
 async function join(page: Page, gameId: string, uid: string, name: string) {
   await page.goto(`/?e2eUid=${uid}`);
   await page.getByLabel('Your name').fill(name);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Room code').fill(gameId);
   await page.getByRole('button', { name: 'Join' }).click();
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
@@ -58,6 +59,7 @@ test('the final trick reveals scoring and advances to a refreshed second round',
 
   await page.goto(`/?gameId=${gameId}&seed=scoring-006&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=score-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await join(jo, gameId, `score-jo-${suffix}`, 'Jo');
   await join(sam, gameId, `score-sam-${suffix}`, 'Sam');

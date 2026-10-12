@@ -8,6 +8,7 @@ const FILLER_ROUNDS = ['Once Upon a Time…', 'Masquerade Ball', 'Royal Decree',
 async function enter(page: Page, gameId: string, uid: string, name: string, create: boolean, roundIds = '') {
   await page.goto(`/?gameId=${gameId}&seed=round-${gameId}${roundIds ? `&e2eRounds=${roundIds}` : ''}&e2eUid=${uid}`);
   await page.getByLabel('Your name').fill(name);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   if (create) await page.getByRole('button', { name: 'Create a game' }).click();
   else { await page.getByLabel('Room code').fill(gameId); await page.getByRole('button', { name: 'Join' }).click(); }
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);

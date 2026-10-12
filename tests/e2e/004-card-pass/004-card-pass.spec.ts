@@ -4,6 +4,7 @@ import { TestStepHelper } from '../helpers/test-step-helper';
 async function join(page: Page, gameId: string, uid: string, name: string) {
   await page.goto(`/?e2eUid=${uid}`);
   await page.getByLabel('Your name').fill(name);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByLabel('Room code').fill(gameId);
   await page.getByRole('button', { name: 'Join' }).click();
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
@@ -41,6 +42,7 @@ test('three clients submit simultaneously and resolve a conserved split pass', a
 
   await page.goto(`/?gameId=${gameId}&seed=fixed-004&e2eRounds=arranged-marriage,once-upon-a-time,magic-beans,royal-decree,musical-chairs&e2eUid=pass-host-${suffix}`);
   await page.getByLabel('Your name').fill('Alex');
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByRole('button', { name: 'Create a game' }).click();
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
   await join(guest, gameId, `pass-guest-${suffix}`, 'Jo');

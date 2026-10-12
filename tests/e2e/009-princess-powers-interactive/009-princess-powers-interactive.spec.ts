@@ -9,6 +9,7 @@ const IDS = {
 async function enter(page: Page, gameId: string, uid: string, name: string, create: boolean) {
   await page.goto(`/?gameId=${gameId}&seed=interactive-${gameId}&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=${uid}`);
   await page.getByLabel('Your name').fill(name);
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   if (create) await page.getByRole('button', { name: 'Create a game' }).click();
   else { await page.getByLabel('Room code').fill(gameId); await page.getByRole('button', { name: 'Join' }).click(); }
   await expect(page.getByTestId('invite-code')).toHaveText(gameId);
