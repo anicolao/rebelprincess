@@ -11,6 +11,7 @@ export interface StepOptions {
   description: string;
   verifications: Verification[];
   networkStatus?: 'synced' | 'offline' | 'error' | 'skip';
+  screenshotMaxDiffPixels?: number;
 }
 
 interface DocStep {
@@ -118,7 +119,9 @@ export class TestStepHelper {
       await this.page.evaluate(() => new Promise<void>((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       }));
-      await expect(this.page).toHaveScreenshot(filename);
+      await expect(this.page).toHaveScreenshot(filename, {
+        maxDiffPixels: options.screenshotMaxDiffPixels
+      });
     } finally {
       await settledMotionStyle.evaluate((style) => style.parentNode?.removeChild(style)).catch(() => {});
     }
