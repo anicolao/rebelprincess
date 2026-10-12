@@ -45,6 +45,7 @@ test('three clients choose setup and receive a deterministic selective deal', as
   const offered = page.getByLabel('Choose one of your two Princesses').getByRole('button');
   const offeredNames = await offered.allTextContents();
   await page.reload();
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByRole('button', { name: 'Open audio mixer' }).click();
   await expect(page.getByRole('region', { name: 'Audio mixer' })).toBeVisible();
   await expect(page.locator('#music-volume')).toHaveValue('70');
@@ -107,6 +108,7 @@ test('three clients choose setup and receive a deterministic selective deal', as
   await expect(guest.getByLabel('Current Round card')).toContainText('Round 1 of 5');
   await expect(guest.getByLabel('Current Round card')).toContainText('Once Upon a Time…');
   await page.reload();
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.evaluate(() => scrollTo(0, 0));
   await page.getByRole('button', { name: 'Open audio mixer' }).click();
   await expect(page.getByRole('region', { name: 'Audio mixer' })).toBeVisible();

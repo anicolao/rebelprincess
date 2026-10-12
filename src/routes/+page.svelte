@@ -345,7 +345,7 @@
       4: [[8, 35], [30, 3], [70, 3], [92, 35]], 5: [[8, 35], [27, 5], [50, 1], [73, 5], [92, 35]]
     };
     const [x, y] = layouts[count]?.[index] ?? [50, 3];
-    return `--seat-x: ${x}%; --seat-y: ${y}%`;
+    return `--seat-x: ${x}%; --seat-y: ${y}%; --seat-snap-x: calc(round(nearest, ${x}cqw, 1px) - ${x}cqw)`;
   }
   function powerAvailable(id?: string) { return Boolean(id && game?.passComplete && !game.roundComplete && !game.exhaustedPrincessUids.includes(currentUid)); }
   function princessUsable(id?: string) {
@@ -1253,6 +1253,7 @@
   .opponent-seat.action-active::before { border-color: #ffc75f; background: rgba(255, 199, 95, .08); box-shadow: 0 0 0 3px rgba(255, 199, 95, .12), 0 0 20px rgba(255, 199, 95, .4); }
   .opponent-seat > strong { display: block; margin-bottom: 5px; font-size: clamp(12px, 1.7cqh, 15px); }
   .action-marker { display: block; width: max-content; max-width: 138px; margin: 0 auto 5px; padding: 3px 8px; border: 1px solid currentColor; border-radius: 999px; color: #ffc75f; background: rgba(33, 19, 41, .88); font-size: clamp(9px, 1.25cqh, 11px); font-weight: 700; line-height: 1.2; white-space: nowrap; }
+  .opponent-seat.action-active > .action-marker { position: relative; left: var(--seat-snap-x); width: calc-size(max-content, round(nearest, size, 1px)); }
   .action-marker.complete { color: #7de2a7; }
   .seat-princess { position: absolute; top: clamp(25px, 4.3cqh, 40px); left: 2px; display: grid; justify-items: center; width: clamp(54px, 5.5cqw, 76px); color: #e9deeb; font-size: clamp(8px, 1.15cqh, 10px); line-height: 1.12; }
   .seat-princess .princess-card { width: clamp(44px, min(4.6cqw, 7cqh), 62px); aspect-ratio: 3 / 5; min-height: 0; padding: 0; border: 1px solid rgba(255, 226, 163, .65); border-radius: 5px; background-color: #150d1d; box-shadow: 0 7px 16px rgba(0, 0, 0, .45); transform-origin: bottom center; transition: filter .2s ease, transform .2s ease; }
@@ -1331,7 +1332,7 @@
   @keyframes princess-power-arrives { from { opacity: 0; transform: translate(-50%, -50%) scale(.55) rotate(-5deg); } to { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); } }
   @keyframes power-sparkles { from { opacity: .55; transform: translateY(2px) scale(.92); } to { opacity: 1; transform: translateY(-3px) scale(1.08); } }
   @keyframes active-princess-card { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
-  .round-results { position: absolute; z-index: 20; inset: 8% 12%; display: flex; flex-direction: column; align-items: center; overflow: auto; padding: 14px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 12px; color: #fff4d0; background: rgba(20, 13, 30, .97); box-shadow: 0 18px 60px rgba(0, 0, 0, .7); }
+  .round-results { position: absolute; z-index: 20; inset: 8% 12%; display: flex; flex-direction: column; align-items: center; overflow: auto; padding: 14px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 12px; color: #fff4d0; background: #140d1e; box-shadow: 0 18px 60px rgba(0, 0, 0, .7); }
   .round-results > * { flex-shrink: 0; }
   .round-results h2 { margin: 0 0 8px; }
   .score-card-wrap { width: min(100%, 720px); margin-bottom: 9px; overflow: hidden; border: 1px solid rgba(255, 226, 163, .28); border-radius: 8px; }
@@ -1640,7 +1641,7 @@
     .princess-power-burst,
     .power-sparkles,
     .seat-princess.power-active .princess-card { animation: none; }
-    .trick-card { animation-duration: 1ms; animation-fill-mode: none; }
+    .trick-card { animation: none; }
     .playing-card { transition: none; }
   }
 </style>

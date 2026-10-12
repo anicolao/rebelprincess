@@ -93,9 +93,7 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
     ]
   });
 
-  const animationStarted = page.evaluate(() => new Promise<string>((resolve) => document.addEventListener('animationstart', (event) => resolve((event as AnimationEvent).animationName), { once: true })));
   await play(page, 'Fairies 6');
-  expect(await animationStarted).toMatch(/play-to-table$/);
   await steps.step('observer-sees-lead', {
     description: 'Every client sees the lead; Jo is visibly void while Sam must follow suit',
     verifications: [
@@ -107,7 +105,11 @@ test('three clients follow suit, break Princes, resolve winners, and rotate lead
         await expect(art).toHaveAttribute('data-cell', '1500,0,300,500');
         await expect(played.locator('strong')).toHaveText('6');
       } },
-      { spec: 'The played card animates from the hand into the table', check: async () => expect(page.getByLabel('Alex played Fairies 6').locator('.trick-card')).toHaveCSS('animation-name', /play-to-table$/) },
+      { spec: 'Reduced-motion rendering leaves the played card settled with no animation transform', check: async () => {
+        const playedCard = page.getByLabel('Alex played Fairies 6').locator('.trick-card');
+        await expect(playedCard).toHaveCSS('animation-name', 'none');
+        await expect(playedCard).toHaveCSS('transform', 'none');
+      } },
       { spec: 'Jo has no Fairies and may discard a Prince', check: async () => expect(jo.getByRole('button', { name: 'Princes 10', exact: true })).toBeEnabled() },
       { spec: 'Sam holds Fairies and cannot discard an off-suit Prince', check: async () => expect(sam.getByRole('button', { name: 'Princes 9', exact: true })).toBeDisabled() }
     ]
