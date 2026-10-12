@@ -5,7 +5,7 @@ export default defineConfig({
   globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false,
   workers: 1,
-  forbidOnly: Boolean(process.env.CI),
+  forbidOnly: true,
   retries: 0,
   reporter: [['html', { open: 'never' }]],
   use: {
@@ -16,7 +16,7 @@ export default defineConfig({
     deviceScaleFactor: 1,
     timezoneId: 'America/Toronto',
     locale: 'en-CA',
-    actionTimeout: 10000,
+    actionTimeout: 2000,
     launchOptions: {
       args: [
         '--font-render-hinting=none',
@@ -69,7 +69,7 @@ export default defineConfig({
   // and assertions retain the strict two-second synchronization ceiling below.
   timeout: 240000,
   expect: {
-    timeout: 10000,
+    timeout: 2000,
     toHaveScreenshot: {
       // Transient effects are settled by TestStepHelper and UI icons use
       // bundled vectors, so every committed pixel is expected to match.

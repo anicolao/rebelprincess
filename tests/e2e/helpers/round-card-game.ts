@@ -1,20 +1,13 @@
-import { expect, type Browser, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
+import { expect, type Browser, type BrowserContext, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { ROUND_RULES } from '../../../src/lib/setup';
 import type { PassDirection } from '../../../src/lib/passing';
 import type { TestStepHelper } from './test-step-helper';
 
 export type RoundCardGame = { host: Page; jo: Page; sam: Page; players: Page[]; contexts: BrowserContext[] };
 
-export async function clickAndConfirm(buttonLocator: any, verifyFn: () => Promise<void>) {
-  await expect.poll(async () => {
-    await buttonLocator.click();
-    try {
-      await verifyFn();
-      return true;
-    } catch {
-      return false;
-    }
-  }, { timeout: 10000, intervals: [100, 200, 500] }).toBe(true);
+export async function clickAndConfirm(buttonLocator: Locator, verifyFn: () => Promise<void>) {
+  await buttonLocator.click();
+  await verifyFn();
 }
 
 export async function setupRoundCardGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, roundName: string, dealSeed = gameId, followingRounds: string[] = [], passNarrative?: { steps: TestStepHelper; direction: PassDirection; count: number }, names = ['Alex', 'Jo', 'Sam']): Promise<RoundCardGame> {

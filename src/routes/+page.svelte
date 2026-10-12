@@ -131,10 +131,11 @@
         celebratedPrincessId = nextPrincessPower;
         celebrationKey += 1;
         if (celebrationTimer) clearTimeout(celebrationTimer);
+        const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
         showPrincessBurst = Boolean(nextPrincessPower);
         if (nextPrincessPower) {
           void gameAudio.playPrincessChime();
-          celebrationTimer = setTimeout(() => showPrincessBurst = false, 2400);
+          celebrationTimer = setTimeout(() => showPrincessBurst = false, reducedMotion ? 500 : 2400);
         }
       }
       game = next;
@@ -1639,6 +1640,7 @@
     .princess-power-burst,
     .power-sparkles,
     .seat-princess.power-active .princess-card { animation: none; }
+    .trick-card { animation-duration: 1ms; }
     .playing-card { transition: none; }
   }
 </style>
