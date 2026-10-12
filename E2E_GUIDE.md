@@ -12,7 +12,9 @@ package scripts must enforce it rather than merely relying on convention.
 ## Absolute rules
 
 - **Zero-pixel tolerance.** Every documented visual step uses
-  `toHaveScreenshot` with `maxDiffPixels: 0`. A single changed pixel fails.
+  `toHaveScreenshot` with `threshold: 0` and `maxDiffPixels: 0`. A change to
+  any channel of a single pixel fails; Playwright's nonzero default color
+  threshold must not be inherited.
 - **No arbitrary timeouts.** Never call `page.waitForTimeout()`, `setTimeout()`,
   or implement a sleep or manual polling loop.
 - **No explicit timeout overrides.** Actions and assertions rely on Playwright
@@ -151,7 +153,8 @@ scenario.
 
 Chromium must use software rendering, device scale factor 1, reduced motion, and
 the deterministic font/rendering flags established by the sibling projects.
-Commit the configuration with `maxDiffPixels: 0`—not merely a zero ratio.
+Commit the configuration with both `threshold: 0` and `maxDiffPixels: 0`—not
+merely a zero ratio.
 
 ## Scenario layout
 
