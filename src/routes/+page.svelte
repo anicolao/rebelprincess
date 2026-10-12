@@ -35,6 +35,7 @@
   let currentUid = '';
   let selectedPrincess = '';
   let princessCommitPending = false;
+  let dealPending = false;
   let selectedPassCards: Array<string | null> = [];
   let observedRoundIndex = -1;
   let observedGameNumber = -1;
@@ -100,6 +101,7 @@
   function watchGame(gameId: string) {
     unsubscribe();
     activeGameId = gameId;
+    dealPending = false;
     observedRoundIndex = -1;
     observedGameNumber = -1;
     observedSleepingBeautyPendingKey = '';
@@ -139,6 +141,7 @@
         }
       }
       game = next;
+      if (next.hands) dealPending = false;
       connection = 'synced';
       connectionLabel = 'Game synchronized';
       void revealCommittedPrincess(next);
@@ -305,18 +308,29 @@
   ] as Card[];
 
   async function dealCards() {
-    if (!game || game.players.length < 3 || game.players.length > 6 || !game.players.every((player) => player.ready)) return;
+    if (dealPending || !game || game.players.length < 3 || game.players.length > 6 || !game.players.every((player) => player.ready)) return;
+    actionError = '';
+    dealPending = true;
+    connection = 'checking';
+    connectionLabel = 'Shuffling and dealing…';
     const seed = new URL(location.href).searchParams.get('seed') ?? crypto.randomUUID();
     const requestedRounds = new URL(location.href).searchParams.get('e2eRounds')?.split(',') ?? [];
     const knownRoundIds = new Set<string>(ROUND_RULES.map(([id]) => id));
     const e2eRoundIds = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' && requestedRounds.length === 5 && new Set(requestedRounds).size === 5 && requestedRounds.every((id) => knownRoundIds.has(id))
       ? requestedRounds
       : null;
-    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'game/dealt', {
-      seed,
-      roundIds: e2eRoundIds ?? roundPowersForGame(`${activeGameId}:${game.gameNumber}:${seed}`),
-      hands: dealForPlayers(game.players.map((player) => player.uid), seed)
-    });
+    try {
+      await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'game/dealt', {
+        seed,
+        roundIds: e2eRoundIds ?? roundPowersForGame(`${activeGameId}:${game.gameNumber}:${seed}`),
+        hands: dealForPlayers(game.players.map((player) => player.uid), seed)
+      });
+    } catch {
+      dealPending = false;
+      connection = 'error';
+      connectionLabel = 'Could not deal the cards';
+      actionError = 'The cards could not be dealt. Please try again.';
+    }
   }
 
   function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
@@ -960,8 +974,13 @@
 
           {#if game?.players[0]?.uid === currentUid}
             <p class="automatic-rounds">Five Round powers will be drawn automatically when the game is dealt.</p>
-            <button type="button" disabled={game.players.length < 3 || !game.players.every((player) => player.ready)} on:click={dealCards}>Shuffle and deal</button>
+            {#if dealPending}
+              <p class="waiting" role="status">Shuffling and dealing…</p>
+            {:else}
+              <button type="button" disabled={game.players.length < 3 || !game.players.every((player) => player.ready)} on:click={dealCards}>Shuffle and deal</button>
+            {/if}
           {/if}
+          {#if actionError}<p class="form-error" role="alert">{actionError}</p>{/if}
           <p class="waiting">Three to six players. The guest list updates live.</p>
         </section>
       {:else}
