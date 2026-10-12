@@ -12,8 +12,8 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
   for (const [index, page] of players.entries()) {
     const name = ['Alex', 'Jo', 'Sam'][index];
     await page.goto(`/?gameId=${gameId}&seed=${seedPrefix}-${gameId}&e2eRounds=${roundIds}&e2eUid=click-${name}-${suffix}-${gameId}`);
-    await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
     await page.getByLabel('Your name').fill(name);
+    await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
     if (!index) {
       const createBtn = page.getByRole('button', { name: 'Create a game' });
       await clickAndConfirm(createBtn, async () => {
