@@ -3,6 +3,8 @@ import { clickAndConfirm } from './round-card-game';
 
 export type PrincessGame = { host: Page; jo: Page; sam: Page; players: Page[]; contexts: BrowserContext[] };
 
+const BEFORE_TRICK_PRINCESSES = new Set(['Cinderella', 'Pocahontas', 'The Pea Princess', 'The Little Mermaid', 'Sleeping Beauty', 'Scheherazade', 'The Ice Princess', 'Rapunzel']);
+
 export async function setupPrincessGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, princess: string, seedPrefix = 'power', roundIds = 'once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs'): Promise<PrincessGame> {
   const options = { viewport: host.viewportSize() ?? undefined, reducedMotion: 'reduce' as const, serviceWorkers: 'block' as const, deviceScaleFactor: 1 };
   const contexts = [await browser.newContext(options), await browser.newContext(options)];
@@ -49,6 +51,12 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
   await clickAndConfirm(shuffleBtn, async () => {
     await expect(shuffleBtn).toHaveCount(0);
   });
+  if (BEFORE_TRICK_PRINCESSES.has(princess)) {
+    const signal = host.getByRole('button', { name: `Raise hand for ${princess} on the next trick` });
+    await clickAndConfirm(signal, async () => {
+      await expect(host.getByText('Hand raised for trick 1')).toBeVisible();
+    });
+  }
   for (const page of players) {
     const hand = page.getByRole('region', { name: 'Your hand' });
     await expect(hand.getByRole('button')).toHaveCount(12);
@@ -66,8 +74,27 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
       await expect(submit).toHaveCount(0);
     });
   }
-  for (const page of players) await expect(page.getByRole('alert')).toContainText('Passing complete');
+  if (BEFORE_TRICK_PRINCESSES.has(princess)) {
+    await expect(host.getByRole('alert')).toContainText('Your before-trick decision');
+    for (const page of [jo, sam]) await expect(page.getByRole('alert')).toContainText("Alex's before-trick decision");
+  } else {
+    for (const page of players) await expect(page.getByRole('alert')).toContainText('Passing complete');
+  }
   return { host, jo, sam, players, contexts };
+}
+
+export async function declineRemainingBeforeTrickPlayers(players: Page[]) {
+  await expect(players[0].locator('.local-princess')).toHaveClass(/exhausted/);
+  for (let decision = 0; decision < players.length; decision += 1) {
+    const counts = await Promise.all(players.map((page) => page.getByRole('button', { name: 'Decline this time' }).count()));
+    const activeIndex = counts.findIndex(Boolean);
+    if (activeIndex < 0) return;
+    const decline = players[activeIndex].getByRole('button', { name: 'Decline this time' });
+    await clickAndConfirm(decline, async () => {
+      await expect(decline).toHaveCount(0);
+    });
+  }
+  throw new Error('Before-trick priority did not close after every remaining player declined');
 }
 
 export async function playOneClick(players: Page[], observer = players[0], chooseLast: boolean | Page = false): Promise<string> {

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { closePrincessGame, setupPrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, declineRemainingBeforeTrickPlayers, setupPrincessGame } from '../helpers/princess-click-game';
 
 const IDS = { phone: 'CSC0000B', desktop: 'CSC0000F' } as const;
 
@@ -20,6 +20,7 @@ test('Scheherazade swaps cards entirely through clicks', async ({ page, browser 
     { spec: 'At least one Swap button is enabled', check: async () => expect(group.getByRole('button', { name: /^Swap / }).first()).toBeEnabled() }
   ] });
   const swap = group.getByRole('button', { name: /^Swap / }).first(); const given = (await swap.textContent())?.replace('Swap ', '') ?? ''; await swap.click();
+  await declineRemainingBeforeTrickPlayers(game.players);
   await steps.step('scheherazade-clicks-exchange', { description: 'The three UI clicks exchange the displayed cards', verifications: [
     { spec: 'The inspected card appears in Scheherazade’s hand', check: async () => expect(page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: taken, exact: true })).toBeVisible() },
     { spec: 'The clicked exchange card leaves her hand', check: async () => expect(page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: given, exact: true })).toHaveCount(0) }

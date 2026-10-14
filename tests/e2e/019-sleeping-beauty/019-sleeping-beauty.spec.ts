@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
-import { closePrincessGame, setupPrincessGame } from '../helpers/princess-click-game';
+import { closePrincessGame, declineRemainingBeforeTrickPlayers, setupPrincessGame } from '../helpers/princess-click-game';
 
 const IDS = { phone: 'CSB0000D', desktop: 'CSB0000H' } as const;
 
@@ -30,6 +30,7 @@ test('Sleeping Beauty redistributes cards entirely through clicks', async ({ pag
     { spec: 'Redistribute becomes enabled only after the order is complete', check: async () => expect(group.getByRole('button', { name: 'Redistribute' })).toBeEnabled() }
   ] });
   await group.getByRole('button', { name: 'Redistribute' }).click();
+  await declineRemainingBeforeTrickPlayers(game.players);
   await steps.step('sleeping-beauty-clicks-redistribution', { description: `The final hands show Alex kept ${contributed[0]}, Jo received ${contributed[1]}, and Sam received ${contributed[2]}`, verifications: [
     { spec: 'Sleeping Beauty keeps the first clicked contribution', check: async () => expect(page.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: contributed[0], exact: true })).toBeVisible() },
     { spec: 'Jo and Sam receive the next clicked cards', check: async () => { await expect(game.jo.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: contributed[1], exact: true })).toBeVisible(); await expect(game.sam.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: contributed[2], exact: true })).toBeVisible(); } }

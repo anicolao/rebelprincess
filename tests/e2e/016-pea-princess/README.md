@@ -2,13 +2,13 @@
 
 Click the Pea Princess, then click through the constrained trick.
 
-## The Pea Princess is ready before any card is played
+## The Pea Princess has priority and the lead is locked before any card is played
 
-![The Pea Princess is ready before any card is played](./screenshots/000-pea-princess-ready-desktop.png)
+![The Pea Princess has priority and the lead is locked before any card is played](./screenshots/000-pea-princess-ready-desktop.png)
 
 **Verifications:**
 - [x] Her Princess card is enabled
-- [x] The full legal lead set is initially visible
+- [x] No lead card is playable until the before-trick decision resolves
 
 ---
 
