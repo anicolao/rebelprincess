@@ -5,6 +5,24 @@
 **Goal:** Add useful bot players soon, while building the infrastructure needed
 to train strong policies for every Princess and Round-card context.
 
+## Implementation status
+
+The first foundation increment is implemented:
+
+- versioned `BotAction`, `BotObservation`, `BotPolicy`, and `BotDecision`
+  contracts;
+- a seat-scoped observation builder that redacts opponent hands, passes,
+  private power inspections, and face-down Masquerade plays;
+- reducer-backed legal action enumeration for opening passes and ordinary card
+  play;
+- logical-action to game-event adaptation for the existing event types;
+- seeded random-legal policy and a headless ordinary-Round runner with card
+  conservation, uniqueness, legality, termination, and replay tests.
+
+Phase 1 remains in progress. Princess decisions, stateful Round actions,
+complete-game simulation, and the fast incremental engine must be added before
+the random runner can cover all supported content.
+
 ## Decision summary
 
 Build the bot system in layers:
