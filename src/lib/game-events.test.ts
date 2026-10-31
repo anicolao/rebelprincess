@@ -224,6 +224,25 @@ describe('append-only game events', () => {
     expect(projection.passComplete).toBe(true);
   });
 
+  it('lets the host remove only bots before any setup choice begins', () => {
+    let sequence = 0;
+    const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
+      id: String(++sequence).padStart(2, '0'), type, payload: { gameId: 'REMOVE', ...payload }, actorUid,
+      clientSeq: sequence, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    });
+    const base = [
+      make('game/created', 'host', { displayName: 'Alex' }),
+      make('player/joined', 'bot', { displayName: 'Standard Bot 1', bot: true }),
+      make('player/joined', 'guest', { displayName: 'Jo' })
+    ];
+    expect(deriveGame([...base, make('bot/removed', 'guest', { targetUid: 'bot' })]).players.map((player) => player.uid)).toEqual(['host', 'bot', 'guest']);
+    expect(deriveGame([...base, make('bot/removed', 'host', { targetUid: 'guest' })]).players.map((player) => player.uid)).toEqual(['host', 'bot', 'guest']);
+    expect(deriveGame([...base, make('bot/removed', 'host', { targetUid: 'bot' })]).players.map((player) => player.uid)).toEqual(['host', 'guest']);
+
+    const committed = make('player/princess-committed', 'host', { commitment: 'a'.repeat(64) });
+    expect(deriveGame([...base, committed, make('bot/removed', 'host', { targetUid: 'bot' })]).players.map((player) => player.uid)).toEqual(['host', 'bot', 'guest']);
+  });
+
   it('keeps Crystal Clear suits private until every commitment is validly revealed', () => {
     let sequence = 0;
     const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({

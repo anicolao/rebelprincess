@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
 const IDS = { phone: 'RLB053P', desktop: 'RLB053D' } as const;
@@ -12,7 +12,33 @@ async function submitRequiredPass(page: Page) {
   for (let index = 0; index < count; index += 1) await hand.locator('.playing-card:not(.selected)').first().click();
   await expect(submit).toBeEnabled();
   await submit.click();
-  await expect(page.getByRole('alert')).toContainText('Passing complete');
+}
+
+async function declineBeforeTrick(page: Page) {
+  const decline = page.getByRole('button', { name: 'Decline this time' });
+  await expect(decline).toBeVisible();
+  await decline.focus();
+  await page.keyboard.press('Enter');
+}
+
+async function activateCard(page: Page, card: Locator) {
+  await expect(card).toBeVisible();
+  await card.focus();
+  await page.keyboard.press('Enter');
+}
+
+async function reachHumanCardDecision(page: Page) {
+  const hand = page.getByRole('region', { name: 'Your hand' });
+  for (let action = 0; action < 20; action += 1) {
+    const playable = hand.locator('.playing-card.playable').first();
+    const contribution = hand.locator('.playing-card.contributable').first();
+    const decline = page.getByRole('button', { name: 'Decline this time' });
+    await expect.poll(async () => await playable.count() + await contribution.count() + await decline.count()).toBeGreaterThan(0);
+    if (await playable.count()) return;
+    if (await decline.count()) await declineBeforeTrick(page);
+    else await activateCard(page, contribution);
+  }
+  throw new Error('No human card decision after resolving Princess responses');
 }
 
 async function finishHumanRound(page: Page, round: number) {
@@ -28,14 +54,16 @@ async function finishHumanRound(page: Page, round: number) {
     }
     const contribution = hand.locator('.playing-card.contributable').first();
     const playable = hand.locator('.playing-card.playable').first();
-    await expect.poll(async () => Number(await scoring.isVisible()) + await contribution.count() + await playable.count()).toBeGreaterThan(0);
+    const decline = page.getByRole('button', { name: 'Decline this time' });
+    await expect.poll(async () => Number(await scoring.isVisible()) + await contribution.count() + await playable.count() + await decline.count()).toBeGreaterThan(0);
     if (await scoring.isVisible()) break;
-    if (await contribution.count()) {
-      await contribution.press('Enter');
+    if (await decline.count()) {
+      await declineBeforeTrick(page);
+    } else if (await contribution.count()) {
+      await activateCard(page, contribution);
       await expect.poll(async () => await contribution.count() === 0 || await scoring.isVisible()).toBe(true);
     } else {
-      await expect(playable).toBeEnabled();
-      await playable.press('Enter');
+      await activateCard(page, playable);
       await expect.poll(async () => await cards.count() < handSize || await scoring.isVisible()).toBe(true);
     }
     actions += 1;
@@ -47,8 +75,8 @@ async function finishHumanRound(page: Page, round: number) {
 test('a host and two trained RL bots recover and finish a complete game', async ({ page }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata(
-    'Playable reinforcement-learning bots',
-    'A human host fills an otherwise empty room with two independently authenticated RL bots, reloads their controllers, and finishes all five rounds with them.'
+    'Bot difficulty, removal, and complete learned-bot play',
+    'A human host selects and removes an Easy bot, then fills the room with two independently authenticated Learned bots, reloads their controllers, and finishes all five rounds with them.'
   );
   const gameId = IDS[testInfo.project.name as keyof typeof IDS];
   await page.goto(`/?gameId=${gameId}&seed=rl-bot-053&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=rl-host-${testInfo.project.name}`);
@@ -56,14 +84,29 @@ test('a host and two trained RL bots recover and finish a complete game', async 
   await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
   await page.getByRole('button', { name: 'Create a game' }).click();
 
-  await page.getByRole('button', { name: 'Add RL bot' }).click();
+  await page.getByLabel('Bot difficulty').selectOption('easy');
+  await page.getByRole('button', { name: 'Add Easy bot' }).click();
+  await expect(page.getByRole('list', { name: 'Players' })).toContainText('Easy Bot 1');
+  await steps.step('bot-controls', {
+    description: 'The host chooses a difficulty and can remove a bot before setup locks',
+    verifications: [
+      { spec: 'Easy is the selected difficulty for the next bot', check: async () => expect(page.getByLabel('Bot difficulty')).toHaveValue('easy') },
+      { spec: 'The Easy bot joined through its own authenticated controller', check: async () => expect(page.getByRole('list', { name: 'Bot status' })).toContainText('Easy Bot 1') },
+      { spec: 'The host can remove the bot while Princess choices are still open', check: async () => expect(page.getByRole('button', { name: 'Remove Easy Bot 1' })).toBeEnabled() }
+    ]
+  });
+  await page.getByRole('button', { name: 'Remove Easy Bot 1' }).click();
+  await expect(page.getByRole('list', { name: 'Players' })).not.toContainText('Easy Bot 1');
+
+  await page.getByLabel('Bot difficulty').selectOption('learned');
+  await page.getByRole('button', { name: 'Add Learned bot' }).click();
   await expect(page.getByRole('list', { name: 'Players' })).toContainText('RL Bot 1');
-  await page.getByRole('button', { name: 'Add RL bot' }).click();
+  await page.getByRole('button', { name: 'Add Learned bot' }).click();
   await expect(page.getByRole('list', { name: 'Players' })).toContainText('RL Bot 2');
   await expect(page.getByRole('list', { name: 'Players' }).getByRole('listitem')).toHaveCount(3);
 
-  const princessOptions = page.getByLabel('Choose one of your two Princesses').getByRole('button');
-  await princessOptions.first().click();
+  const princessOptions = page.getByLabel('Choose one of your two Princesses');
+  await princessOptions.locator('[data-princess-name="Snow White"], [data-princess-name="Alice"]').click();
   await page.getByRole('button', { name: 'Ready for the ball' }).click();
   await expect(page.getByRole('button', { name: 'Shuffle and deal' })).toBeEnabled();
 
@@ -77,7 +120,7 @@ test('a host and two trained RL bots recover and finish a complete game', async 
         await expect(players).toContainText('RL Bot 2');
       } },
       { spec: 'Every seat is ready after the bots complete sealed Princess commit and reveal', check: async () => expect(page.getByRole('list', { name: 'Players' })).toContainText(/RL Bot 2 · .+Ready/) },
-      { spec: 'Both live controllers report that they are waiting for gameplay', check: async () => expect(page.getByRole('list', { name: 'RL bot status' }).getByText('waiting')).toHaveCount(2) }
+      { spec: 'Both live controllers report that they are waiting for gameplay', check: async () => expect(page.getByRole('list', { name: 'Bot status' }).getByText(/Learned · waiting/)).toHaveCount(2) }
     ]
   });
 
@@ -87,12 +130,12 @@ test('a host and two trained RL bots recover and finish a complete game', async 
   await expect(initialCards).toHaveCount(12);
   for (let index = 0; index < 3; index += 1) await initialCards.nth(index).click();
   await page.getByRole('button', { name: /Pass 3 (left|right) to RL Bot/ }).click();
-  await expect(page.getByRole('alert')).toContainText('Your turn');
+  await reachHumanCardDecision(page);
 
   await steps.step('bots-play', {
     description: 'The learned policy passes cards and plays whenever its seat owns the action',
     verifications: [
-      { spec: 'The simultaneous pass resolves without either bot retracting its submission', check: async () => expect(page.getByRole('alert')).toContainText('Passing complete') },
+      { spec: 'The simultaneous pass resolves without either bot retracting its submission', check: async () => expect(page.locator('.pass-submit')).toHaveCount(0) },
       { spec: 'The human receives a playable turn after autonomous bot decisions', check: async () => expect(hand.locator('.playing-card.playable').first()).toBeEnabled() },
       { spec: 'Every seat still owns exactly twelve cards after the conserved pass', check: async () => {
         await expect(hand.locator('.playing-card')).toHaveCount(12);
@@ -104,11 +147,11 @@ test('a host and two trained RL bots recover and finish a complete game', async 
 
   await page.reload();
   await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
-  await expect(page.getByTestId('bot-controller-count')).toHaveText('2 RL bot controllers loaded');
+  await expect(page.getByTestId('bot-controller-count')).toHaveText('2 bot controllers loaded');
   await steps.step('bots-recovered', {
     description: 'Reloading the host reconstructs both bot controllers without changing the game',
     verifications: [
-      { spec: 'Both independently authenticated bot controllers are restored', check: async () => expect(page.getByTestId('bot-controller-count')).toHaveText('2 RL bot controllers loaded') },
+      { spec: 'Both independently authenticated bot controllers are restored', check: async () => expect(page.getByTestId('bot-controller-count')).toHaveText('2 bot controllers loaded') },
       { spec: 'The host returns to the same playable turn with the same twelve-card hand', check: async () => {
         await expect(page.getByRole('alert')).toContainText('Your turn');
         await expect(page.getByRole('region', { name: 'Your hand' }).locator('.playing-card')).toHaveCount(12);
@@ -149,8 +192,8 @@ test('a host and two trained RL bots recover and finish a complete game', async 
       { spec: 'All 180 dealt cards were legally played through the shared stream', check: async () => expect(page.getByTestId('stream-card-count')).toHaveText('Shared stream contains 0 cards') },
       { spec: 'The game reports a final winner or shared victory', check: async () => expect(page.locator('.victory')).toContainText(/Winner:|Shared victory:/) },
       { spec: 'Both recovered bot controllers remain healthy at game end', check: async () => {
-        await expect(page.getByRole('list', { name: 'RL bot status' }).getByText('error')).toHaveCount(0);
-        await expect(page.getByTestId('bot-controller-count')).toHaveText('2 RL bot controllers loaded');
+        await expect(page.getByRole('list', { name: 'Bot status' }).getByText(/error/)).toHaveCount(0);
+        await expect(page.getByTestId('bot-controller-count')).toHaveText('2 bot controllers loaded');
       } }
     ]
   });

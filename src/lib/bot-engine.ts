@@ -1,5 +1,7 @@
 import { isMasqueradeHidden, roundLegalCards } from './round-rules';
 import { passInstruction } from './passing';
+import { isBeforeTrickPower } from './bat-priority';
+import { mulanReplacements, snowWhiteCanZero } from './princess-powers';
 import {
   BOT_OBSERVATION_VERSION,
   type BotAction,
@@ -17,6 +19,7 @@ import {
   type GameProjection
 } from './game-events';
 import { cardLabel, dealForPlayers, type Card } from './setup';
+import { choiceCommitment, crystalClearChoiceScope } from './choice-commitment';
 
 function copyCard(card: Card): Card {
   return { suit: card.suit, rank: card.rank };
@@ -175,6 +178,21 @@ export function legalBotActions(game: GameProjection, seatUid: string): BotActio
   const player = game.players.find((candidate) => candidate.uid === seatUid);
   if (game.gameComplete || game.roundComplete || !player) return [];
   const hand = game.hands?.[seatUid];
+  const powerAvailable = Boolean(player?.princessId && !game.exhaustedPrincessUids.includes(seatUid));
+  const signalAction = () => {
+    if (!player?.princessId || !powerAvailable || !game.batPriorityEnabled || !isBeforeTrickPower(player.princessId) || game.batSignalTargetTrick === null) return null;
+    const signal = game.batSignals[seatUid];
+    return signal?.targetTrickIndex === game.batSignalTargetTrick && signal.raised
+      ? null
+      : { type: 'raise-before-trick-hand', targetTrickIndex: game.batSignalTargetTrick } satisfies BotAction;
+  };
+  const beforeTrickPowerAction = (windowId?: string): BotAction | null => {
+    const powerId = player?.princessId;
+    if (!powerId || !powerAvailable || !isBeforeTrickPower(powerId)) return null;
+    return ['cinderella', 'pea-princess', 'rapunzel'].includes(powerId)
+      ? { type: 'activate-power', powerId, ...(windowId ? { windowId } : {}) }
+      : { type: 'begin-before-trick-power', powerId, ...(windowId ? { windowId } : {}) };
+  };
   if (!hand) {
     if (game.players.length < 3 || player.ready || game.princessCommitments[seatUid]) return [];
     return (game.princessOptions[seatUid] ?? []).map((princessId) => ({ type: 'choose-princess', princessId }));
@@ -183,14 +201,24 @@ export function legalBotActions(game: GameProjection, seatUid: string): BotActio
     // Retraction remains a valid human correction, but it is not an action the
     // bot owes the game. Returning it as the sole choice makes a live bot undo
     // every pass while it waits for the other seats.
-    if (game.passSubmissions[seatUid]) return [];
+    if (game.passSubmissions[seatUid]) {
+      const signal = signalAction();
+      return signal ? [signal] : [];
+    }
     const instruction = passInstruction(game.roundIds[game.roundIndex] ?? '');
     const selections = instruction.direction === 'split'
       ? orderedSelections(hand, instruction.count)
       : combinations(hand, instruction.count);
     return selections.map((cards) => ({ type: 'submit-pass', cards: copyCards(cards) }));
   }
-  if (game.pendingMulanUid === seatUid) return [{ type: 'decline-power', powerId: 'mulan' }];
+  if (game.pendingMulanUid === seatUid) {
+    const play = game.trick?.plays.find((candidate) => candidate.uid === seatUid);
+    const replacements = play ? mulanReplacements(hand, play) : [];
+    return [
+      ...replacements.map((card) => ({ type: 'activate-power', powerId: 'mulan', card: copyCard(card) } as BotAction)),
+      { type: 'decline-power', powerId: 'mulan' }
+    ];
+  }
   if (game.pendingPower) {
     const pending = game.pendingPower;
     if (pending.powerId === 'sleeping-beauty' && !pending.cards.some((entry) => entry.uid === seatUid)) {
@@ -230,7 +258,16 @@ export function legalBotActions(game: GameProjection, seatUid: string): BotActio
     return [];
   }
   if (game.awaitingRoundAction) {
-    if (game.awaitingRoundAction === 'haggle') return game.haggleWinnerUid === seatUid ? [{ type: 'decline-haggle' }] : [];
+    if (game.awaitingRoundAction === 'haggle') {
+      if (game.haggleWinnerUid !== seatUid) return [];
+      const won = game.capturedTricks[seatUid]?.at(-1) ?? [];
+      const ownPlay = game.lastCompletedTrick?.plays.find((play) => play.uid === seatUid)?.card;
+      const available = won.filter((play) => !ownPlay || cardLabel(play.card) !== cardLabel(ownPlay)).map((play) => play.card);
+      return [
+        ...hand.flatMap((offered) => available.map((taken) => ({ type: 'swap-haggle-card', offered: copyCard(offered), taken: copyCard(taken) } as BotAction))),
+        { type: 'decline-haggle' }
+      ];
+    }
     if (game.awaitingRoundAction === 'reveal-suit') {
       if (game.suitCommitments[seatUid] || game.revealedSuits[seatUid]) return [];
       return [...new Set(hand.map((card) => card.suit))].map((suit) => ({ type: 'choose-crystal-clear-suit', suit }));
@@ -245,9 +282,16 @@ export function legalBotActions(game: GameProjection, seatUid: string): BotActio
     return [];
   }
   if (game.beforeTrickWindow?.priorityUid === seatUid) {
-    return [{ type: 'decline-before-trick-priority', windowId: game.beforeTrickWindow.id }];
+    const usePower = beforeTrickPowerAction(game.beforeTrickWindow.id);
+    return [
+      ...(usePower ? [usePower] : []),
+      { type: 'decline-before-trick-priority', windowId: game.beforeTrickWindow.id }
+    ];
   }
-  if (game.beforeTrickWindow || game.currentTurnUid !== seatUid || !game.trick) return [];
+  if (game.beforeTrickWindow) return [];
+  const signal = signalAction();
+  if (game.currentTurnUid !== seatUid || !game.trick) return signal ? [signal] : [];
+  const leaderPower = game.trick.plays.length === 0 && game.trick.leaderUid === seatUid ? beforeTrickPowerAction() : null;
   const forced = game.forcedCards[seatUid];
   const cards = forced
     ? hand.filter((card) => cardLabel(card) === cardLabel(forced))
@@ -258,7 +302,20 @@ export function legalBotActions(game: GameProjection, seatUid: string): BotActio
         game.roundIds[game.roundIndex] ?? '',
         game.powerIdsThisTrick.includes('pea-princess')
       );
-  return cards.map((card) => ({ type: 'play-card', card: copyCard(card) }));
+  const cardActions: BotAction[] = cards.map((card) => ({ type: 'play-card', card: copyCard(card) }));
+  if (powerAvailable && player?.princessId === 'snow-white') {
+    cardActions.unshift(...cards.filter(snowWhiteCanZero).map((card) => ({ type: 'activate-power', powerId: 'snow-white', card: copyCard(card) } as BotAction)));
+  }
+  return [...(signal ? [signal] : []), ...(leaderPower ? [leaderPower] : []), ...cardActions];
+}
+
+export function policyBotActions(policy: BotPolicy, observation: BotObservation, actions: readonly BotAction[]): BotAction[] {
+  if (policy.usesOptionalBeforeTrickPowers) return [...actions];
+  return actions.filter((action) => {
+    if (action.type === 'raise-before-trick-hand' || action.type === 'begin-before-trick-power') return false;
+    if (action.type !== 'activate-power' || !isBeforeTrickPower(action.powerId)) return true;
+    return observation.pendingPower?.powerId === action.powerId;
+  });
 }
 
 export interface BotEventIntent {
@@ -273,7 +330,7 @@ export function botActionToEvent(action: BotAction): BotEventIntent {
     case 'raise-before-trick-hand': return { type: 'power/hand-raised', payload: { targetTrickIndex: action.targetTrickIndex } };
     case 'lower-before-trick-hand': return { type: 'power/hand-lowered', payload: { targetTrickIndex: action.targetTrickIndex } };
     case 'decline-before-trick-priority': return { type: 'power/priority-declined', payload: { windowId: action.windowId } };
-    case 'begin-before-trick-power': return { type: 'power/activation-started', payload: { powerId: action.powerId, windowId: action.windowId } };
+    case 'begin-before-trick-power': return { type: 'power/activation-started', payload: { powerId: action.powerId, ...(action.windowId ? { windowId: action.windowId } : {}) } };
     case 'activate-power': return { type: 'power/activated', payload: {
       powerId: action.powerId,
       ...(action.windowId ? { windowId: action.windowId } : {}),
@@ -377,7 +434,9 @@ function ordinaryCardLocations(game: GameProjection): Card[] {
   return [
     ...Object.values(game.hands ?? {}).flat(),
     ...(game.trick?.plays.map((play) => play.card) ?? []),
-    ...Object.values(game.capturedTricks).flat(2).map((play) => play.card)
+    ...Object.values(game.capturedTricks).flat(2).map((play) => play.card),
+    ...(game.pendingPower?.powerId === 'sleeping-beauty' ? game.pendingPower.cards.map((entry) => entry.card) : []),
+    ...Object.values(game.retainedCards).flat()
   ];
 }
 
@@ -385,8 +444,19 @@ function assertOrdinaryCardConservation(game: GameProjection, expectedCards: num
   if (!game.hands) return;
   const cards = ordinaryCardLocations(game);
   const labels = cards.map(cardLabel);
-  if (cards.length !== expectedCards) throw new Error(`Card conservation failed: expected ${expectedCards}, found ${cards.length}`);
-  if (new Set(labels).size !== labels.length) throw new Error('Card uniqueness failed');
+  if (new Set(labels).size !== labels.length) {
+    const duplicates = [...new Set(labels.filter((label, index) => labels.indexOf(label) !== index))];
+    throw new Error(`Card uniqueness failed in ${game.roundIds[game.roundIndex] ?? ''}: ${duplicates.join(', ')}`);
+  }
+  const hidden = expectedCards - cards.length;
+  const playerCount = game.players.length;
+  const startingHandSize = expectedCards / playerCount;
+  const roundId = game.roundIds[game.roundIndex] ?? '';
+  const permittedHidden = hidden === 0 ||
+    (roundId === 'late-to-the-ball' && hidden >= 0 && hidden <= playerCount) ||
+    (roundId === 'wedding-gift' && hidden === playerCount) ||
+    (roundId === 'after-party' && hidden >= 0 && hidden <= expectedCards / 2 && hidden % (startingHandSize / 2) === 0);
+  if (!permittedHidden) throw new Error(`Card conservation failed in ${roundId}: expected ${expectedCards}, found ${cards.length} visible and ${hidden} temporarily reserved`);
 }
 
 export async function runHeadlessOrdinaryRound(options: {
@@ -415,9 +485,10 @@ export async function runHeadlessOrdinaryRound(options: {
       ? before.currentTurnUid
       : uids.find((uid) => !before.passSubmissions[uid]) ?? null;
     if (!seatUid) throw new Error(`No acting seat in ${botPhase(before)} phase`);
-    const actions = legalBotActions(before, seatUid);
+    const observation = buildBotObservation(before, seatUid);
+    const actions = policyBotActions(policy, observation, legalBotActions(before, seatUid));
     if (!actions.length) throw new Error(`No legal action for ${seatUid} in ${botPhase(before)} phase`);
-    const decision = await policy.choose(buildBotObservation(before, seatUid), actions, random);
+    const decision = await policy.choose(observation, actions, random);
     if (!Number.isInteger(decision.actionIndex) || !actions[decision.actionIndex]) throw new Error(`Policy ${policy.id} returned an invalid action index`);
     const intent = botActionToEvent(actions[decision.actionIndex]);
     append(intent.type, seatUid, intent.payload);
@@ -432,30 +503,39 @@ export async function runHeadlessFiveRoundGame(options: {
   playerCount: number;
   seed: string;
   policy?: BotPolicy;
+  seatPolicies?: readonly BotPolicy[];
   roundIds?: readonly string[];
+  princessIds?: readonly string[];
   maxDecisions?: number;
 }): Promise<HeadlessRoundResult> {
   const {
     playerCount,
     seed,
     policy = randomLegalBotPolicy,
+    seatPolicies,
     roundIds = HEADLESS_FIVE_ROUND_IDS,
+    princessIds,
     maxDecisions = 5_000
   } = options;
   if (roundIds.length !== 5) throw new Error('Headless full games require exactly five Round cards');
+  if (seatPolicies && seatPolicies.length !== playerCount) throw new Error('Headless seat policies must match the player count');
+  if (princessIds && princessIds.length !== playerCount) throw new Error('Headless Princess assignments must match the player count');
   const { uids, events, append } = createHeadlessEventStream(playerCount, seed);
+  princessIds?.forEach((princessId, index) => append('player/configured', uids[index], { princessId, ready: true }));
   const expectedCards = Object.values(dealForPlayers(uids, `${seed}:round-1`)).flat().length;
   const dealRound = (roundIndex: number) => {
     const roundSeed = `${seed}:round-${roundIndex + 1}`;
     append('game/dealt', uids[0], {
       seed: roundSeed,
       roundIds: [...roundIds],
-      hands: dealForPlayers(uids, roundSeed)
+      hands: dealForPlayers(uids, roundSeed),
+      batPriority: Boolean(princessIds)
     });
   };
   dealRound(0);
 
   const random = createSeededRandom(`${seed}:policy`);
+  const crystalChoices: Record<string, { suit: Card['suit']; nonce: string }> = {};
   let decisionCount = 0;
   while (decisionCount < maxDecisions) {
     const before = deriveGame(events);
@@ -467,16 +547,32 @@ export async function runHeadlessFiveRoundGame(options: {
       dealRound(nextRound);
       continue;
     }
+    if (before.awaitingRoundAction === 'reveal-suit' && uids.every((uid) => before.suitCommitments[uid]) && uids.every((uid) => crystalChoices[uid])) {
+      for (const uid of uids) append('round/suit-revealed', uid, crystalChoices[uid]);
+      continue;
+    }
 
     const candidate = uids
-      .map((uid) => ({ uid, actions: legalBotActions(before, uid) }))
+      .map((uid, index) => {
+        const actingPolicy = seatPolicies?.[index] ?? policy;
+        const observation = buildBotObservation(before, uid);
+        return { uid, actingPolicy, observation, actions: policyBotActions(actingPolicy, observation, legalBotActions(before, uid)) };
+      })
       .find(({ actions }) => actions.length > 0);
     if (!candidate) throw new Error(`No acting seat in ${botPhase(before)} phase`);
-    const decision = await policy.choose(buildBotObservation(before, candidate.uid), candidate.actions, random);
-    if (!Number.isInteger(decision.actionIndex) || !candidate.actions[decision.actionIndex]) throw new Error(`Policy ${policy.id} returned an invalid action index`);
+    const decision = await candidate.actingPolicy.choose(candidate.observation, candidate.actions, random);
+    if (!Number.isInteger(decision.actionIndex) || !candidate.actions[decision.actionIndex]) throw new Error(`Policy ${candidate.actingPolicy.id} returned an invalid action index`);
     const action = candidate.actions[decision.actionIndex];
-    const intent = botActionToEvent(action);
-    append(intent.type, candidate.uid, intent.payload);
+    if (action.type === 'choose-crystal-clear-suit') {
+      const nonce = `${seed}:${before.roundIndex}:${candidate.uid}:crystal-clear`;
+      crystalChoices[candidate.uid] = { suit: action.suit, nonce };
+      append('round/suit-committed', candidate.uid, {
+        commitment: choiceCommitment(crystalClearChoiceScope(before.gameId, before.gameNumber, before.roundIndex, candidate.uid), action.suit, nonce)
+      });
+    } else {
+      const intent = botActionToEvent(action);
+      append(intent.type, candidate.uid, intent.payload);
+    }
     const after = deriveGame(events);
     if (JSON.stringify(before) === JSON.stringify(after)) throw new Error(`Reducer rejected ${action.type} from ${candidate.uid}`);
     decisionCount += 1;

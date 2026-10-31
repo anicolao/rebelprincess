@@ -12,7 +12,7 @@ import {
 import { BOT_ACTION_VERSION, BOT_ENGINE_VERSION, BOT_OBSERVATION_VERSION } from './bot-types';
 import { deriveGame, type GameEvent, type GameEventPayload, type GameEventType } from './game-events';
 import { roundLegalCards } from './round-rules';
-import { cardLabel, dealForPlayers, type Card } from './setup';
+import { cardLabel, dealForPlayers, ROUND_RULES, type Card } from './setup';
 
 function fixture(roundId = 'once-upon-a-time') {
   const uids = ['a', 'b', 'c'];
@@ -191,5 +191,15 @@ describe('headless five-round simulation', () => {
 
   it('requires exactly five Round cards', async () => {
     await expect(runHeadlessFiveRoundGame({ playerCount: 3, seed: 'bad-rounds', roundIds: ['once-upon-a-time'] })).rejects.toThrow('exactly five');
+  });
+
+  it('finishes games covering every Round card action', async () => {
+    const roundIds = ROUND_RULES.map(([id]) => id);
+    for (let offset = 0; offset < roundIds.length; offset += 5) {
+      const group = roundIds.slice(offset, offset + 5);
+      while (group.length < 5) group.push('once-upon-a-time');
+      const result = await runHeadlessFiveRoundGame({ playerCount: 3, seed: `round-matrix:${offset}`, roundIds: group });
+      expect(result.projection.gameComplete).toBe(true);
+    }
   });
 });

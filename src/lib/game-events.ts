@@ -21,7 +21,7 @@ import { completeBeforeTrickPower, createBeforeTrickWindow, declineBeforeTrickPr
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
 
-export type GameEventType = 'game/created' | 'game/rematched' | 'player/joined' | 'player/princess-committed' | 'player/configured' | 'bot/controller-claimed' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played' | 'power/hand-raised' | 'power/hand-lowered' | 'power/priority-declined' | 'power/activation-started' | 'power/activated' | 'power/contributed' | 'power/declined' | 'round/card-set-aside' | 'round/pass-submitted' | 'round/suit-committed' | 'round/suit-revealed' | 'round/half-selected' | 'round/gift-submitted' | 'round/haggle-swapped' | 'round/haggle-declined';
+export type GameEventType = 'game/created' | 'game/rematched' | 'player/joined' | 'player/princess-committed' | 'player/configured' | 'bot/controller-claimed' | 'bot/removed' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played' | 'power/hand-raised' | 'power/hand-lowered' | 'power/priority-declined' | 'power/activation-started' | 'power/activated' | 'power/contributed' | 'power/declined' | 'round/card-set-aside' | 'round/pass-submitted' | 'round/suit-committed' | 'round/suit-revealed' | 'round/half-selected' | 'round/gift-submitted' | 'round/haggle-swapped' | 'round/haggle-declined';
 export type GameEventPayload = {
   gameId: string;
   displayName?: string;
@@ -144,7 +144,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   const event = value as Record<string, unknown>;
   const payload = event.payload as Record<string, unknown> | undefined;
   const common = (
-    ['game/created', 'game/rematched', 'player/joined', 'player/princess-committed', 'player/configured', 'bot/controller-claimed', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/hand-raised', 'power/hand-lowered', 'power/priority-declined', 'power/activation-started', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-committed', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted', 'round/haggle-swapped', 'round/haggle-declined'].includes(String(event.type)) &&
+    ['game/created', 'game/rematched', 'player/joined', 'player/princess-committed', 'player/configured', 'bot/controller-claimed', 'bot/removed', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/hand-raised', 'power/hand-lowered', 'power/priority-declined', 'power/activation-started', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-committed', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted', 'round/haggle-swapped', 'round/haggle-declined'].includes(String(event.type)) &&
     typeof event.actorUid === 'string' &&
     Number.isInteger(event.clientSeq) &&
     event.schemaVersion === SCHEMA_VERSION &&
@@ -157,6 +157,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   if (event.type === 'player/princess-committed' || event.type === 'round/suit-committed') return typeof payload.commitment === 'string' && /^[a-f0-9]{64}$/.test(payload.commitment);
   if (event.type === 'player/configured') return (payload.princessId === undefined || typeof payload.princessId === 'string') && (payload.nonce === undefined || typeof payload.nonce === 'string') && typeof payload.ready === 'boolean';
   if (event.type === 'bot/controller-claimed') return typeof payload.seatUid === 'string' && typeof payload.controllerUid === 'string';
+  if (event.type === 'bot/removed') return typeof payload.targetUid === 'string';
   if (event.type === 'game/dealt') return typeof payload.seed === 'string' && Array.isArray(payload.roundIds) && payload.roundIds.length === 5 && !!payload.hands && typeof payload.hands === 'object';
   if (event.type === 'pass/submitted') return Array.isArray(payload.cards) && payload.cards.length > 0;
   if (event.type === 'card/played') return !!payload.card && typeof payload.card === 'object';
@@ -217,6 +218,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   const firstDealIndex = ordered.findIndex((event) => event.type === 'game/dealt');
 
   let artworkOption = 'classic';
+  let setupChoiceStarted = false;
   for (const [index, event] of ordered.entries()) {
     gameId ||= event.payload.gameId;
     const roomOpen = firstDealIndex < 0 || index < firstDealIndex;
@@ -229,6 +231,11 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         ready: false,
         ...((event.payload.bot === true || /^RL Bot \d+$/.test(displayName)) ? { bot: true } : {})
       });
+    }
+    if (event.type === 'player/princess-committed' && players.has(event.actorUid)) setupChoiceStarted = true;
+    if (event.type === 'bot/removed' && roomOpen && !setupChoiceStarted && event.actorUid === hostUid) {
+      const target = event.payload.targetUid ? players.get(event.payload.targetUid) : undefined;
+      if (target?.bot && !target.host) players.delete(target.uid);
     }
     if (event.payload.artworkOption) {
       artworkOption = event.payload.artworkOption;

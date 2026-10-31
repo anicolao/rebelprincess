@@ -1,10 +1,21 @@
-# Playable reinforcement-learning bots
+# Bot difficulty, removal, and complete learned-bot play
 
-A human host fills an otherwise empty room with two independently authenticated RL bots, reloads their controllers, and finishes all five rounds with them.
+A human host selects and removes an Easy bot, then fills the room with two independently authenticated Learned bots, reloads their controllers, and finishes all five rounds with them.
+
+## The host chooses a difficulty and can remove a bot before setup locks
+
+![The host chooses a difficulty and can remove a bot before setup locks](./screenshots/000-bot-controls-desktop.png)
+
+**Verifications:**
+- [x] Easy is the selected difficulty for the next bot
+- [x] The Easy bot joined through its own authenticated controller
+- [x] The host can remove the bot while Princess choices are still open
+
+---
 
 ## Two trained bots join and seal their own Princess choices
 
-![Two trained bots join and seal their own Princess choices](./screenshots/000-bots-ready-desktop.png)
+![Two trained bots join and seal their own Princess choices](./screenshots/001-bots-ready-desktop.png)
 
 **Verifications:**
 - [x] The guest list contains one human and two separately named RL bots
@@ -15,7 +26,7 @@ A human host fills an otherwise empty room with two independently authenticated 
 
 ## The learned policy passes cards and plays whenever its seat owns the action
 
-![The learned policy passes cards and plays whenever its seat owns the action](./screenshots/001-bots-play-desktop.png)
+![The learned policy passes cards and plays whenever its seat owns the action](./screenshots/002-bots-play-desktop.png)
 
 **Verifications:**
 - [x] The simultaneous pass resolves without either bot retracting its submission
@@ -26,7 +37,7 @@ A human host fills an otherwise empty room with two independently authenticated 
 
 ## Reloading the host reconstructs both bot controllers without changing the game
 
-![Reloading the host reconstructs both bot controllers without changing the game](./screenshots/002-bots-recovered-desktop.png)
+![Reloading the host reconstructs both bot controllers without changing the game](./screenshots/003-bots-recovered-desktop.png)
 
 **Verifications:**
 - [x] Both independently authenticated bot controllers are restored
@@ -37,7 +48,7 @@ A human host fills an otherwise empty room with two independently authenticated 
 
 ## The recovered bots finish the first trick and advance to the next human decision
 
-![The recovered bots finish the first trick and advance to the next human decision](./screenshots/003-first-trick-complete-desktop.png)
+![The recovered bots finish the first trick and advance to the next human decision](./screenshots/004-first-trick-complete-desktop.png)
 
 **Verifications:**
 - [x] The table advances to trick two without another human driving the bot seats
@@ -48,7 +59,7 @@ A human host fills an otherwise empty room with two independently authenticated 
 
 ## The recovered learned bots finish all five rounds with the human host
 
-![The recovered learned bots finish all five rounds with the human host](./screenshots/004-full-game-complete-desktop.png)
+![The recovered learned bots finish all five rounds with the human host](./screenshots/005-full-game-complete-desktop.png)
 
 **Verifications:**
 - [x] Every one of the five rounds has an immutable score column

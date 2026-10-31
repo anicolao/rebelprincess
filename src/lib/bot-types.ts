@@ -13,7 +13,7 @@ export type BotAction =
   | { type: 'raise-before-trick-hand'; targetTrickIndex: number }
   | { type: 'lower-before-trick-hand'; targetTrickIndex: number }
   | { type: 'decline-before-trick-priority'; windowId: string }
-  | { type: 'begin-before-trick-power'; powerId: string; windowId: string }
+  | { type: 'begin-before-trick-power'; powerId: string; windowId?: string }
   | { type: 'activate-power'; powerId: string; windowId?: string; targetUid?: string; suit?: Card['suit']; card?: Card; cards?: Card[] }
   | { type: 'contribute-power-card'; powerId: 'sleeping-beauty'; card: Card }
   | { type: 'decline-power'; powerId: 'mulan' | 'scheherazade' }
@@ -129,6 +129,7 @@ export interface BotDecision {
 
 export interface BotPolicy {
   readonly id: string;
+  readonly usesOptionalBeforeTrickPowers?: boolean;
   choose(
     observation: BotObservation,
     legalActions: readonly BotAction[],
