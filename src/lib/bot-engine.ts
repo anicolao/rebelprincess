@@ -340,6 +340,39 @@ export interface HeadlessRoundResult {
   decisionCount: number;
 }
 
+export const HEADLESS_FIVE_ROUND_IDS = [
+  'once-upon-a-time',
+  'magic-beans',
+  'masquerade-ball',
+  'royal-decree',
+  'musical-chairs'
+] as const;
+
+function createHeadlessEventStream(playerCount: number, seed: string) {
+  if (playerCount < 3 || playerCount > 6) throw new Error('Headless games require 3–6 players');
+  const uids = Array.from({ length: playerCount }, (_, index) => `bot-${index + 1}`);
+  const events: GameEvent[] = [];
+  const actorSequences: Record<string, number> = {};
+  let globalSequence = 0;
+  const append = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>) => {
+    actorSequences[actorUid] = (actorSequences[actorUid] ?? 0) + 1;
+    globalSequence += 1;
+    events.push({
+      id: String(globalSequence).padStart(8, '0'),
+      type,
+      payload: { gameId: `BOT-${seed}`, ...payload },
+      actorUid,
+      clientSeq: actorSequences[actorUid],
+      createdAt: null,
+      schemaVersion: 1,
+      reducerVersion: 1
+    });
+  };
+  append('game/created', uids[0], { displayName: 'Bot 1' });
+  uids.slice(1).forEach((uid, index) => append('player/joined', uid, { displayName: `Bot ${index + 2}` }));
+  return { uids, events, append };
+}
+
 function ordinaryCardLocations(game: GameProjection): Card[] {
   return [
     ...Object.values(game.hands ?? {}).flat(),
@@ -363,29 +396,9 @@ export async function runHeadlessOrdinaryRound(options: {
   maxDecisions?: number;
 }): Promise<HeadlessRoundResult> {
   const { playerCount, seed, policy = randomLegalBotPolicy, maxDecisions = 1_000 } = options;
-  if (playerCount < 3 || playerCount > 6) throw new Error('Headless games require 3–6 players');
-  const uids = Array.from({ length: playerCount }, (_, index) => `bot-${index + 1}`);
+  const { uids, events, append } = createHeadlessEventStream(playerCount, seed);
   const hands = dealForPlayers(uids, `${seed}:deal`);
   const expectedCards = Object.values(hands).flat().length;
-  const events: GameEvent[] = [];
-  const actorSequences: Record<string, number> = {};
-  let globalSequence = 0;
-  const append = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>) => {
-    actorSequences[actorUid] = (actorSequences[actorUid] ?? 0) + 1;
-    globalSequence += 1;
-    events.push({
-      id: String(globalSequence).padStart(8, '0'),
-      type,
-      payload: { gameId: `BOT-${seed}`, ...payload },
-      actorUid,
-      clientSeq: actorSequences[actorUid],
-      createdAt: null,
-      schemaVersion: 1,
-      reducerVersion: 1
-    });
-  };
-  append('game/created', uids[0], { displayName: 'Bot 1' });
-  uids.slice(1).forEach((uid, index) => append('player/joined', uid, { displayName: `Bot ${index + 2}` }));
   append('game/dealt', uids[0], {
     seed: `${seed}:deal`,
     roundIds: Array.from({ length: 5 }, () => 'once-upon-a-time'),
@@ -413,4 +426,60 @@ export async function runHeadlessOrdinaryRound(options: {
     decisionCount += 1;
   }
   throw new Error(`Headless round exceeded ${maxDecisions} decisions`);
+}
+
+export async function runHeadlessFiveRoundGame(options: {
+  playerCount: number;
+  seed: string;
+  policy?: BotPolicy;
+  roundIds?: readonly string[];
+  maxDecisions?: number;
+}): Promise<HeadlessRoundResult> {
+  const {
+    playerCount,
+    seed,
+    policy = randomLegalBotPolicy,
+    roundIds = HEADLESS_FIVE_ROUND_IDS,
+    maxDecisions = 5_000
+  } = options;
+  if (roundIds.length !== 5) throw new Error('Headless full games require exactly five Round cards');
+  const { uids, events, append } = createHeadlessEventStream(playerCount, seed);
+  const expectedCards = Object.values(dealForPlayers(uids, `${seed}:round-1`)).flat().length;
+  const dealRound = (roundIndex: number) => {
+    const roundSeed = `${seed}:round-${roundIndex + 1}`;
+    append('game/dealt', uids[0], {
+      seed: roundSeed,
+      roundIds: [...roundIds],
+      hands: dealForPlayers(uids, roundSeed)
+    });
+  };
+  dealRound(0);
+
+  const random = createSeededRandom(`${seed}:policy`);
+  let decisionCount = 0;
+  while (decisionCount < maxDecisions) {
+    const before = deriveGame(events);
+    assertOrdinaryCardConservation(before, expectedCards);
+    if (before.gameComplete) return { events, projection: before, decisionCount };
+    if (before.roundComplete) {
+      const nextRound = before.roundIndex + 1;
+      if (nextRound >= roundIds.length) throw new Error('Five completed rounds did not finish the game');
+      dealRound(nextRound);
+      continue;
+    }
+
+    const candidate = uids
+      .map((uid) => ({ uid, actions: legalBotActions(before, uid) }))
+      .find(({ actions }) => actions.length > 0);
+    if (!candidate) throw new Error(`No acting seat in ${botPhase(before)} phase`);
+    const decision = await policy.choose(buildBotObservation(before, candidate.uid), candidate.actions, random);
+    if (!Number.isInteger(decision.actionIndex) || !candidate.actions[decision.actionIndex]) throw new Error(`Policy ${policy.id} returned an invalid action index`);
+    const action = candidate.actions[decision.actionIndex];
+    const intent = botActionToEvent(action);
+    append(intent.type, candidate.uid, intent.payload);
+    const after = deriveGame(events);
+    if (JSON.stringify(before) === JSON.stringify(after)) throw new Error(`Reducer rejected ${action.type} from ${candidate.uid}`);
+    decisionCount += 1;
+  }
+  throw new Error(`Headless game exceeded ${maxDecisions} decisions`);
 }

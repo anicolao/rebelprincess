@@ -1,6 +1,6 @@
 # Playable reinforcement-learning bots
 
-A human host fills an otherwise empty room with two independently authenticated RL bots, then deals, passes, and completes a trick with them.
+A human host fills an otherwise empty room with two independently authenticated RL bots, reloads their controllers, and finishes all five rounds with them.
 
 ## Two trained bots join and seal their own Princess choices
 
@@ -43,5 +43,17 @@ A human host fills an otherwise empty room with two independently authenticated 
 - [x] The table advances to trick two without another human driving the bot seats
 - [x] The human played exactly one card in the completed trick
 - [x] Both independently controlled bot seats remain at the table
+
+---
+
+## The recovered learned bots finish all five rounds with the human host
+
+![The recovered learned bots finish all five rounds with the human host](./screenshots/004-full-game-complete-desktop.png)
+
+**Verifications:**
+- [x] Every one of the five rounds has an immutable score column
+- [x] All 180 dealt cards were legally played through the shared stream
+- [x] The game reports a final winner or shared victory
+- [x] Both recovered bot controllers remain healthy at game end
 
 ---

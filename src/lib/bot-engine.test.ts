@@ -3,8 +3,10 @@ import {
   botActionToEvent,
   buildBotObservation,
   createSeededRandom,
+  HEADLESS_FIVE_ROUND_IDS,
   legalBotActions,
   randomLegalBotPolicy,
+  runHeadlessFiveRoundGame,
   runHeadlessOrdinaryRound
 } from './bot-engine';
 import { BOT_ACTION_VERSION, BOT_ENGINE_VERSION, BOT_OBSERVATION_VERSION } from './bot-types';
@@ -163,5 +165,31 @@ describe('headless ordinary-round simulation', () => {
     const second = await runHeadlessOrdinaryRound({ playerCount: 4, seed: 'replay' });
     expect(second.events).toEqual(first.events);
     expect(second.projection).toEqual(first.projection);
+  });
+});
+
+describe('headless five-round simulation', () => {
+  it.each([3, 4, 5, 6])('finishes a deterministic five-round game for %i players', async (playerCount) => {
+    const result = await runHeadlessFiveRoundGame({ playerCount, seed: `full:${playerCount}` });
+    const dealtCards = Object.values(dealForPlayers(result.projection.players.map((player) => player.uid), `full:${playerCount}:round-1`)).flat().length;
+    expect(result.projection.gameComplete).toBe(true);
+    expect(result.projection.roundIndex).toBe(4);
+    expect(result.projection.roundIds).toEqual(HEADLESS_FIVE_ROUND_IDS);
+    expect(result.projection.roundScoreHistory).toHaveLength(5);
+    expect(Object.values(result.projection.hands!).every((hand) => hand.length === 0)).toBe(true);
+    expect(result.events.filter((event) => event.type === 'game/dealt')).toHaveLength(5);
+    expect(result.events.filter((event) => event.type === 'card/played')).toHaveLength(dealtCards * 5);
+    expect(result.events.some((event) => event.type === 'round/pass-submitted')).toBe(true);
+  });
+
+  it('replays the same complete game for the same seed', async () => {
+    const first = await runHeadlessFiveRoundGame({ playerCount: 3, seed: 'full-replay' });
+    const second = await runHeadlessFiveRoundGame({ playerCount: 3, seed: 'full-replay' });
+    expect(second.events).toEqual(first.events);
+    expect(second.projection).toEqual(first.projection);
+  });
+
+  it('requires exactly five Round cards', async () => {
+    await expect(runHeadlessFiveRoundGame({ playerCount: 3, seed: 'bad-rounds', roundIds: ['once-upon-a-time'] })).rejects.toThrow('exactly five');
   });
 });

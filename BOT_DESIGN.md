@@ -17,8 +17,9 @@ The first playable learned-bot increment is implemented:
   mandatory Princess responses, before-trick priority, and stateful Round
   actions;
 - logical-action to game-event adaptation for the existing event types;
-- seeded random-legal policy and a headless ordinary-Round runner with card
-  conservation, uniqueness, legality, termination, and replay tests.
+- seeded random-legal policy and headless ordinary-Round and representative
+  five-round runners with card conservation, uniqueness, legality, termination,
+  and replay tests;
 - a reproducible policy-gradient trainer and checked-in linear policy trained
   for 2,000 seeded self-play rounds across three to six players;
 - a live controller that gives every bot a separate anonymous Firebase identity,
@@ -28,15 +29,15 @@ The first playable learned-bot increment is implemented:
   replayed controller claims that restore both current and legacy bot seats
   after the host reloads;
 - an **Add RL bot** host control and zero-tolerance browser coverage in which one
-  human and two bots join, ready, pass, survive a host reload, and complete a
-  trick.
+  human and two bots join, ready, pass, survive a host reload, and complete all
+  five rounds.
 
 This is deliberately a basic RL policy, not a claim of strong play. Its learned
 features cover passing and trick play, while setup and unusual mandatory actions
 are legal-mask-driven and often conservative (for example, declining optional
 before-trick powers and Haggle). The creating host's browser owns the bot
 registry and automatically reconstructs its controllers after reload. Closing
-every host tab pauses them until that host returns. Complete-game headless
+every host tab pauses them until that host returns. Exhaustive Round/Princess
 simulation, optional Princess strategy, removal/difficulty controls, an
 incremental engine, and benchmark-based strength promotion remain future work.
 
@@ -653,9 +654,9 @@ rollback-safe, and model upgrades cannot silently change old replay semantics.
 
 Turn the basic playable policy into a measurable full-game baseline:
 
-1. extend the headless runner through all five rounds, every Round action, and
-   optional Princess activation rather than relying on live integration for
-   those paths;
+1. extend the five-round headless runner across every Round action and optional
+   Princess activation rather than relying on representative live integration
+   for those paths;
 2. add deterministic benchmark deals and paired trained-policy versus
    random/heuristic reports before making any strength claim;
 3. add explicit heuristic modules for optional Princess timing and the actions
