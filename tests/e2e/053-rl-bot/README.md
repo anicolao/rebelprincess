@@ -24,9 +24,20 @@ A human host fills an otherwise empty room with two independently authenticated 
 
 ---
 
-## The bots finish the first trick and advance to the next human decision
+## Reloading the host reconstructs both bot controllers without changing the game
 
-![The bots finish the first trick and advance to the next human decision](./screenshots/002-first-trick-complete-desktop.png)
+![Reloading the host reconstructs both bot controllers without changing the game](./screenshots/002-bots-recovered-desktop.png)
+
+**Verifications:**
+- [x] Both independently authenticated bot controllers are restored
+- [x] The host returns to the same playable turn with the same twelve-card hand
+- [x] Both bot seats remain present after replay
+
+---
+
+## The recovered bots finish the first trick and advance to the next human decision
+
+![The recovered bots finish the first trick and advance to the next human decision](./screenshots/003-first-trick-complete-desktop.png)
 
 **Verifications:**
 - [x] The table advances to trick two without another human driving the bot seats

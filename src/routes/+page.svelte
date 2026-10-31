@@ -25,6 +25,7 @@
   import { actionOwnership } from '$lib/action-ownership';
   import { isBeforeTrickPower } from '$lib/bat-priority';
   import { LiveBotController, type LiveBotState } from '$lib/live-bot';
+  import { isBotSeat, readBotControllerRecords, writeBotControllerRecords, type BotControllerRecord } from '$lib/bot-controller-registry';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -60,6 +61,8 @@
   let botControllers: LiveBotController[] = [];
   let liveBots: LiveBotState[] = [];
   let addingBot = false;
+  let recoveringBots = false;
+  let recoveredBotGameId = '';
   const submittedPrincessReveals = new Set<string>();
   const submittedSuitReveals = new Set<string>();
 
@@ -106,7 +109,13 @@
 
   function watchGame(gameId: string) {
     unsubscribe();
+    if (activeGameId && activeGameId !== gameId) {
+      for (const controller of botControllers) void controller.stop();
+      botControllers = [];
+      liveBots = [];
+    }
     activeGameId = gameId;
+    recoveredBotGameId = '';
     dealPending = false;
     observedRoundIndex = -1;
     observedGameNumber = -1;
@@ -152,6 +161,7 @@
       connectionLabel = 'Game synchronized';
       void revealCommittedPrincess(next);
       void revealCommittedCrystalSuit(next);
+      void recoverRlBots(next);
     }, () => {
       connection = 'error';
       connectionLabel = 'Synchronization failed';
@@ -310,13 +320,15 @@
     if (addingBot || !game || game.hands || game.players[0]?.uid !== currentUid || game.players.length >= 6 || Object.keys(game.princessCommitments).length > 0) return;
     addingBot = true;
     actionError = '';
-    const number = botControllers.length + 1;
+    const number = game.players.filter(isBotSeat).length + 1;
     const botName = `RL Bot ${number}`;
+    const instanceId = `${game.gameId}-${number}-${crypto.randomUUID()}`;
+    const emulatorUid = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ? `rl-bot-${game.gameId}-${number}` : undefined;
     const controller = new LiveBotController({
       gameId: game.gameId,
       displayName: botName,
-      instanceId: `${game.gameId}-${number}-${crypto.randomUUID()}`,
-      ...(import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ? { emulatorUid: `rl-bot-${game.gameId}-${number}` } : {}),
+      instanceId,
+      ...(emulatorUid ? { emulatorUid } : {}),
       receiveState: (state) => {
         const index = liveBots.findIndex((bot) => bot.displayName === botName);
         liveBots = index >= 0
@@ -328,10 +340,65 @@
     liveBots = [...liveBots, { uid: '', displayName: botName, status: 'starting', detail: 'Starting RL policy' }];
     try {
       await controller.start();
+      const state = controller.getState();
+      const records = readBotControllerRecords(localStorage, game.gameId, currentUid)
+        .filter((record) => record.seatUid !== state.uid);
+      writeBotControllerRecords(localStorage, game.gameId, currentUid, [...records, {
+        seatUid: state.uid, displayName: botName, instanceId, ...(emulatorUid ? { emulatorUid } : {})
+      }]);
     } catch {
       actionError = `${botName} could not join the room.`;
     } finally {
       addingBot = false;
+    }
+  }
+
+  async function recoverRlBots(projection: GameProjection) {
+    if (recoveringBots || recoveredBotGameId === projection.gameId || projection.players[0]?.uid !== currentUid) return;
+    recoveringBots = true;
+    try {
+      const stored = readBotControllerRecords(localStorage, projection.gameId, currentUid);
+      const records: BotControllerRecord[] = projection.players.filter(isBotSeat).map((seat) => {
+        const existing = stored.find((record) => record.seatUid === seat.uid && record.displayName === seat.displayName);
+        if (existing) return existing;
+        return {
+          seatUid: seat.uid,
+          displayName: seat.displayName,
+          instanceId: `${projection.gameId}-recovered-${crypto.randomUUID()}`,
+          ...(import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ? { emulatorUid: seat.uid } : {})
+        };
+      });
+      writeBotControllerRecords(localStorage, projection.gameId, currentUid, records);
+      for (const record of records) {
+        if (botControllers.some((controller) => controller.getState().uid === record.seatUid)) continue;
+        const controller = new LiveBotController({
+          gameId: projection.gameId,
+          displayName: record.displayName,
+          instanceId: record.instanceId,
+          seatUid: record.seatUid,
+          ...(record.emulatorUid ? { emulatorUid: record.emulatorUid } : {}),
+          claimSeat: async (controllerUid) => {
+            await appendGameEvent(firebaseDatabase(), projection.gameId, currentUid, 'bot/controller-claimed', {
+              seatUid: record.seatUid,
+              controllerUid
+            });
+          },
+          receiveState: (state) => {
+            const index = liveBots.findIndex((bot) => bot.uid === record.seatUid || bot.displayName === record.displayName);
+            liveBots = index >= 0
+              ? liveBots.map((bot, candidate) => candidate === index ? state : bot)
+              : [...liveBots, state];
+          }
+        });
+        botControllers = [...botControllers, controller];
+        liveBots = [...liveBots, { uid: record.seatUid, displayName: record.displayName, status: 'starting', detail: 'Recovering RL policy' }];
+        await controller.start();
+      }
+      recoveredBotGameId = projection.gameId;
+    } catch {
+      actionError = 'One or more RL bots could not recover after reload.';
+    } finally {
+      recoveringBots = false;
     }
   }
 
@@ -1016,6 +1083,7 @@
             {/if}
           </div>
           <span class="sr-only" data-testid="stream-card-count">Shared stream contains {Object.values(game.hands).flat().length} cards</span>
+          <span class="sr-only" data-testid="bot-controller-count">{liveBots.length} RL bot controllers loaded</span>
         </section>
       {:else if activeGameId}
         <section class="room" aria-label="Game room">

@@ -128,6 +128,10 @@ describe('append-only game events', () => {
       { ...event('d', 'game/created', 'host', 'Alex'), type: 'player/configured' as const, payload: { gameId: 'MOON42', princessId: 'snow-white', ready: true } },
       { ...event('e', 'game/created', 'host', 'Alex'), type: 'game/dealt' as const, payload: { gameId: 'MOON42', seed: 'fixed', roundIds: ['a', 'b', 'c', 'd', 'e'], hands: { host: [{ suit: 'fairies' as const, rank: 2 }], guest: [{ suit: 'pets' as const, rank: 8 }] } } }
     ];
+    const beforeHostClaim = deriveGame(events.slice(0, 6));
+    expect(beforeHostClaim.passSubmissions['bot-seat']).toBeUndefined();
+    expect(beforeHostClaim.passComplete).toBe(false);
+
     const projection = deriveGame(events);
     expect(projection.players.map(({ princessId, ready }) => ({ princessId, ready }))).toEqual([
       { princessId: 'snow-white', ready: true },
@@ -190,6 +194,34 @@ describe('append-only game events', () => {
     ];
 
     expect(deriveGame(events).players.map((player) => player.uid)).toEqual(['host', 'guest']);
+  });
+
+  it('lets only the host transfer a bot seat to a replacement authenticated controller', () => {
+    let sequence = 0;
+    const make = (type: GameEventType, actorUid: string, payload: Omit<GameEventPayload, 'gameId'>): GameEvent => ({
+      id: String(++sequence).padStart(2, '0'), type, payload: { gameId: 'RECOVER', ...payload }, actorUid,
+      clientSeq: sequence, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    });
+    const fairy = (rank: number) => ({ suit: 'fairies' as const, rank });
+    const events = [
+      make('game/created', 'host', { displayName: 'Alex' }),
+      make('player/joined', 'bot-seat', { displayName: 'RL Bot 1', bot: true }),
+      make('player/joined', 'guest', { displayName: 'Jo' }),
+      make('game/dealt', 'host', { seed: 'recover', roundIds: ['single-fairy', 'magic-beans', 'masquerade-ball', 'royal-decree', 'musical-chairs'], hands: {
+        host: [fairy(2)], 'bot-seat': [fairy(3)], guest: [fairy(4)]
+      } }),
+      make('bot/controller-claimed', 'guest', { seatUid: 'bot-seat', controllerUid: 'impostor' }),
+      make('pass/submitted', 'impostor', { cards: [fairy(3)] }),
+      make('bot/controller-claimed', 'host', { seatUid: 'bot-seat', controllerUid: 'replacement' }),
+      make('pass/submitted', 'host', { cards: [fairy(2)] }),
+      make('pass/submitted', 'replacement', { cards: [fairy(3)] }),
+      make('pass/submitted', 'guest', { cards: [fairy(4)] })
+    ];
+
+    const projection = deriveGame(events);
+    expect(projection.players.find((player) => player.uid === 'bot-seat')).toMatchObject({ displayName: 'RL Bot 1', bot: true });
+    expect(projection.passSubmissions['bot-seat']).toEqual([fairy(3)]);
+    expect(projection.passComplete).toBe(true);
   });
 
   it('keeps Crystal Clear suits private until every commitment is validly revealed', () => {
@@ -305,6 +337,13 @@ describe('append-only game events', () => {
     expect(isGameEvent({
       type: 'power/activation-started', payload: { gameId: 'MOON42', powerId: 'sleeping-beauty' }, actorUid: 'host',
       clientSeq: 9, createdAt: null, schemaVersion: 1, reducerVersion: 1
+    })).toBe(true);
+  });
+
+  it('accepts a host-authored bot controller claim envelope', () => {
+    expect(isGameEvent({
+      type: 'bot/controller-claimed', payload: { gameId: 'MOON42', seatUid: 'bot-seat', controllerUid: 'replacement' }, actorUid: 'host',
+      clientSeq: 10, createdAt: null, schemaVersion: 1, reducerVersion: 1
     })).toBe(true);
   });
 
