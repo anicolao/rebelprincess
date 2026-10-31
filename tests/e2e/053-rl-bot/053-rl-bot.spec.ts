@@ -1,13 +1,54 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
 const IDS = { phone: 'RLB053P', desktop: 'RLB053D' } as const;
 
-test('a host adds two trained RL bots and plays a complete trick with them', async ({ page }, testInfo) => {
+async function submitRequiredPass(page: Page) {
+  const submit = page.locator('.pass-submit');
+  await expect(submit).toBeVisible();
+  const count = Number((await submit.textContent())?.match(/Pass (\d+)/)?.[1]);
+  if (!Number.isInteger(count) || count < 1) throw new Error('The pass control did not report a card count');
+  const hand = page.getByRole('region', { name: 'Your hand' });
+  for (let index = 0; index < count; index += 1) await hand.locator('.playing-card:not(.selected)').first().click();
+  await expect(submit).toBeEnabled();
+  await submit.click();
+  await expect(page.getByRole('alert')).toContainText('Passing complete');
+}
+
+async function finishHumanRound(page: Page, round: number) {
+  const hand = page.getByRole('region', { name: 'Your hand' });
+  const cards = hand.locator('.playing-card');
+  const scoring = page.getByLabel(`Round ${round} scoring`);
+  let actions = 0;
+  while (!await scoring.isVisible()) {
+    const handSize = await cards.count();
+    if (!handSize) {
+      await expect(scoring).toBeVisible();
+      break;
+    }
+    const contribution = hand.locator('.playing-card.contributable').first();
+    const playable = hand.locator('.playing-card.playable').first();
+    await expect.poll(async () => Number(await scoring.isVisible()) + await contribution.count() + await playable.count()).toBeGreaterThan(0);
+    if (await scoring.isVisible()) break;
+    if (await contribution.count()) {
+      await contribution.press('Enter');
+      await expect.poll(async () => await contribution.count() === 0 || await scoring.isVisible()).toBe(true);
+    } else {
+      await expect(playable).toBeEnabled();
+      await playable.press('Enter');
+      await expect.poll(async () => await cards.count() < handSize || await scoring.isVisible()).toBe(true);
+    }
+    actions += 1;
+    if (actions > 30) throw new Error(`Human action limit exceeded in round ${round}`);
+  }
+  await expect(scoring).toBeVisible();
+}
+
+test('a host and two trained RL bots recover and finish a complete game', async ({ page }, testInfo) => {
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata(
     'Playable reinforcement-learning bots',
-    'A human host fills an otherwise empty room with two independently authenticated RL bots, then deals, passes, and completes a trick with them.'
+    'A human host fills an otherwise empty room with two independently authenticated RL bots, reloads their controllers, and finishes all five rounds with them.'
   );
   const gameId = IDS[testInfo.project.name as keyof typeof IDS];
   await page.goto(`/?gameId=${gameId}&seed=rl-bot-053&e2eRounds=once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs&e2eUid=rl-host-${testInfo.project.name}`);
@@ -89,6 +130,27 @@ test('a host adds two trained RL bots and plays a complete trick with them', asy
       { spec: 'Both independently controlled bot seats remain at the table', check: async () => {
         await expect(page.getByLabel("RL Bot 1's hand")).toBeVisible();
         await expect(page.getByLabel("RL Bot 2's hand")).toBeVisible();
+      } }
+    ]
+  });
+
+  await finishHumanRound(page, 1);
+  for (let round = 2; round <= 5; round += 1) {
+    await page.getByRole('button', { name: `Deal round ${round}` }).click();
+    await expect(hand.locator('.playing-card')).toHaveCount(12);
+    await submitRequiredPass(page);
+    await finishHumanRound(page, round);
+  }
+
+  await steps.step('full-game-complete', {
+    description: 'The recovered learned bots finish all five rounds with the human host',
+    verifications: [
+      { spec: 'Every one of the five rounds has an immutable score column', check: async () => expect(page.getByRole('table', { name: 'Five-round score card' }).locator('td.filled')).toHaveCount(15) },
+      { spec: 'All 180 dealt cards were legally played through the shared stream', check: async () => expect(page.getByTestId('stream-card-count')).toHaveText('Shared stream contains 0 cards') },
+      { spec: 'The game reports a final winner or shared victory', check: async () => expect(page.locator('.victory')).toContainText(/Winner:|Shared victory:/) },
+      { spec: 'Both recovered bot controllers remain healthy at game end', check: async () => {
+        await expect(page.getByRole('list', { name: 'RL bot status' }).getByText('error')).toHaveCount(0);
+        await expect(page.getByTestId('bot-controller-count')).toHaveText('2 RL bot controllers loaded');
       } }
     ]
   });
