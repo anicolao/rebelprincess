@@ -114,6 +114,12 @@ decline sequence, allowing earlier decliners to reconsider; the window closes
 only after every player who has not activated declines consecutively. Card play
 is blocked for the entire window.
 
+If nobody raised a hand, the leader may still invoke their own unused
+before-trick power before playing a card. Doing so opens the same priority
+window for every eligible before-trick power, starting with that leader. Other
+players must raise a hand in advance to guarantee an opportunity before the
+leader plays.
+
 Powers apply in their resolved order. Cinderella and the Pea Princess compose
 with the other effects. Pocahontas changes the eventual leader but not the
 already-captured priority order. For conflicting lead requirements, a later

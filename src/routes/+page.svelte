@@ -409,10 +409,13 @@
   function hasBeforeTrickPriority(id?: string) {
     return Boolean(id && isBeforeTrickPower(id) && game?.batPriorityEnabled && game.beforeTrickWindow?.priorityUid === currentUid && !game.pendingPower);
   }
+  function canOpenLeaderBeforeTrickWindow(id?: string) {
+    return Boolean(id && isBeforeTrickPower(id) && game?.batPriorityEnabled && powerAvailable(id) && !game.beforeTrickWindow && !game.pendingPower && !game.awaitingRoundAction && game.trick?.plays.length === 0 && game.trick.leaderUid === currentUid && game.currentTurnUid === currentUid);
+  }
   function princessUsable(id?: string) {
     if (!id) return false;
     if (activeRoundId() === 'late-to-the-ball' && game?.completedTricks === 11 && (id === 'sleeping-beauty' || id === 'scheherazade')) return false;
-    if (game?.batPriorityEnabled && isBeforeTrickPower(id)) return canSignalBeforeTrick(id) || hasBeforeTrickPriority(id);
+    if (game?.batPriorityEnabled && isBeforeTrickPower(id)) return canSignalBeforeTrick(id) || hasBeforeTrickPriority(id) || canOpenLeaderBeforeTrickWindow(id);
     if (!powerAvailable(id) || game?.awaitingRoundAction) return false;
     if (id === 'mulan') return game?.pendingMulanUid === currentUid;
     if (id === 'alice') return game?.lastCompletedTrick?.winnerUid === currentUid && !game.lastCompletedTrick.plays.some((play) => play.card.suit === 'pets' && play.card.rank === 8);
@@ -585,10 +588,10 @@
   }
 
   async function startBeforeTrickPower(powerId: string) {
-    if (!game?.beforeTrickWindow || !hasBeforeTrickPriority(powerId)) return;
+    if (!game || (!hasBeforeTrickPriority(powerId) && !canOpenLeaderBeforeTrickWindow(powerId))) return;
     openPrincessPower = powerId;
     selectedPowerCards = [];
-    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activation-started', { powerId, windowId: game.beforeTrickWindow.id });
+    await appendGameEvent(firebaseDatabase(), activeGameId, currentUid, 'power/activation-started', { powerId, ...(game.beforeTrickWindow ? { windowId: game.beforeTrickWindow.id } : {}) });
   }
 
   async function usePrincessCard() {
@@ -596,7 +599,7 @@
     if (!powerId || !princessUsable(powerId)) return;
     if (game?.batPriorityEnabled && isBeforeTrickPower(powerId)) {
       if (canSignalBeforeTrick(powerId)) await toggleBeforeTrickHand();
-      else if (hasBeforeTrickPriority(powerId)) {
+      else if (hasBeforeTrickPriority(powerId) || canOpenLeaderBeforeTrickWindow(powerId)) {
         if (powerId === 'cinderella' || powerId === 'pea-princess' || powerId === 'rapunzel') await activatePower(powerId);
         else if (powerId === 'sleeping-beauty') { openPrincessPower = openPrincessPower === powerId ? '' : powerId; selectedPowerCards = []; }
         else await startBeforeTrickPower(powerId);
