@@ -24,6 +24,7 @@
   import { choiceCommitment, crystalClearChoiceScope, princessChoiceScope } from '$lib/choice-commitment';
   import { actionOwnership } from '$lib/action-ownership';
   import { isBeforeTrickPower } from '$lib/bat-priority';
+  import { LiveBotController, type LiveBotState } from '$lib/live-bot';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -56,6 +57,9 @@
   let celebrationKey = 0;
   let showPrincessBurst = false;
   let celebrationTimer: ReturnType<typeof setTimeout> | null = null;
+  let botControllers: LiveBotController[] = [];
+  let liveBots: LiveBotState[] = [];
+  let addingBot = false;
   const submittedPrincessReveals = new Set<string>();
   const submittedSuitReveals = new Set<string>();
 
@@ -95,6 +99,7 @@
       window.removeEventListener('pointerdown', beginAudio);
       window.removeEventListener('keydown', beginAudio);
       if (celebrationTimer) clearTimeout(celebrationTimer);
+      for (const controller of botControllers) void controller.stop();
       gameAudio.stopMusic();
     };
   });
@@ -298,6 +303,35 @@
       connection = 'error';
       connectionLabel = 'Could not seal your Princess';
       actionError = 'Your Princess choice could not be sealed. Please try again.';
+    }
+  }
+
+  async function addRlBot() {
+    if (addingBot || !game || game.hands || game.players[0]?.uid !== currentUid || game.players.length >= 6 || Object.keys(game.princessCommitments).length > 0) return;
+    addingBot = true;
+    actionError = '';
+    const number = botControllers.length + 1;
+    const botName = `RL Bot ${number}`;
+    const controller = new LiveBotController({
+      gameId: game.gameId,
+      displayName: botName,
+      instanceId: `${game.gameId}-${number}-${crypto.randomUUID()}`,
+      ...(import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ? { emulatorUid: `rl-bot-${game.gameId}-${number}` } : {}),
+      receiveState: (state) => {
+        const index = liveBots.findIndex((bot) => bot.displayName === botName);
+        liveBots = index >= 0
+          ? liveBots.map((bot, candidate) => candidate === index ? state : bot)
+          : [...liveBots, state];
+      }
+    });
+    botControllers = [...botControllers, controller];
+    liveBots = [...liveBots, { uid: '', displayName: botName, status: 'starting', detail: 'Starting RL policy' }];
+    try {
+      await controller.start();
+    } catch {
+      actionError = `${botName} could not join the room.`;
+    } finally {
+      addingBot = false;
     }
   }
 
@@ -1022,6 +1056,16 @@
 
           {#if game?.players[0]?.uid === currentUid}
             <p class="automatic-rounds">Five Round powers will be drawn automatically when the game is dealt.</p>
+            {#if !Object.keys(game.princessCommitments).length && game.players.length < 6}
+              <button class="secondary add-bot" type="button" disabled={addingBot} on:click={addRlBot}>{addingBot ? 'Adding RL bot…' : 'Add RL bot'}</button>
+            {/if}
+            {#if liveBots.length}
+              <ul class="bot-status" aria-label="RL bot status">
+                {#each liveBots as bot}
+                  <li><strong>{bot.displayName}</strong><span>{bot.status === 'error' ? bot.detail : bot.status}</span></li>
+                {/each}
+              </ul>
+            {/if}
             {#if dealPending}
               <p class="waiting" role="status">Shuffling and dealing…</p>
             {:else}
@@ -1293,6 +1337,10 @@
   .choice-grid .princess-choice.chosen .princess-choice-copy small { color: #f4e8f5; }
   .choice-grid .princess-choice.chosen .princess-choice-mark { display: block; color: #ffc75f; }
   .automatic-rounds { margin: 18px 0 10px; padding: 10px 12px; border-left: 3px solid #b88cdf; color: #d9cedd; background: rgba(50, 31, 62, .45); font-size: 12px; line-height: 1.35; }
+  .add-bot { margin: 0 0 8px; }
+  .bot-status { display: grid; gap: 4px; margin: 0 0 10px; padding: 0; list-style: none; }
+  .bot-status li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border: 1px solid rgba(184, 140, 223, .3); border-radius: 5px; color: #d9cedd; background: rgba(20, 13, 30, .45); font-size: 11px; }
+  .bot-status span { color: #b88cdf; text-transform: capitalize; }
   .review-card, .card-art, .trick-card, .princess-card, .princess-choice-art, .round-art {
     position: relative;
     overflow: hidden;

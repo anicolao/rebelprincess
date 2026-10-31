@@ -1,7 +1,9 @@
-import { getApp, getApps, initializeApp } from 'firebase/app';
+import { deleteApp, getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import {
   connectAuthEmulator,
   getAuth,
+  inMemoryPersistence,
+  initializeAuth,
   onAuthStateChanged,
   signInWithCustomToken,
   signInAnonymously,
@@ -25,7 +27,7 @@ export function firebaseDatabase(): Firestore {
   if (database) return database;
 
   const config = readFirebaseConfig(import.meta.env);
-  const app = getApps().length === 0 ? initializeApp(config) : getApp();
+  const app = getApps().some((candidate) => candidate.name === '[DEFAULT]') ? getApp() : initializeApp(config);
   database = getFirestore(app);
 
   if (import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true') {
@@ -95,4 +97,40 @@ export async function probeFirebase(emulatorUid?: string): Promise<'emulator' | 
   }
 
   return import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ? 'emulator' : 'production';
+}
+
+export interface IsolatedFirebaseClient {
+  app: FirebaseApp;
+  auth: Auth;
+  database: Firestore;
+  uid: string;
+  dispose(): Promise<void>;
+}
+
+export async function createIsolatedFirebaseClient(appName: string, emulatorUid?: string): Promise<IsolatedFirebaseClient> {
+  const app = initializeApp(readFirebaseConfig(import.meta.env), appName);
+  const auth = initializeAuth(app, { persistence: inMemoryPersistence });
+  const database = getFirestore(app);
+  if (import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true') {
+    connectAuthEmulator(
+      auth,
+      `http://${import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1'}:${import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_PORT ?? '9199'}`,
+      { disableWarnings: true }
+    );
+    connectFirestoreEmulator(
+      database,
+      import.meta.env.VITE_FIRESTORE_EMULATOR_HOST ?? '127.0.0.1',
+      Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT ?? '8185')
+    );
+  }
+  const user = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' && emulatorUid
+    ? (await signInWithCustomToken(auth, emulatorCustomToken(emulatorUid))).user
+    : (await signInAnonymously(auth)).user;
+  return {
+    app,
+    auth,
+    database,
+    uid: user.uid,
+    dispose: async () => deleteApp(app)
+  };
 }

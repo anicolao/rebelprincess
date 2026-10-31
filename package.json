@@ -17,6 +17,7 @@
     "emulators": "firebase emulators:start",
     "rules:test": "firebase emulators:exec --only firestore 'true'",
     "test:rules": "firebase emulators:exec --project rebel-princess-e2e --only firestore \"vitest run --config vitest.rules.config.ts\"",
+    "train:bot": "bun run scripts/train-basic-bot.ts",
     "verify:change": "bash scripts/verify-change.sh"
   },
   "devDependencies": {

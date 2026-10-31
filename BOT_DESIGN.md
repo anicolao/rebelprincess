@@ -1,27 +1,39 @@
 # Bot-player and learning-system design
 
-**Status:** Proposed implementation plan
+**Status:** Basic playable RL bot implemented; stronger-bot phases remain proposed
 
 **Goal:** Add useful bot players soon, while building the infrastructure needed
 to train strong policies for every Princess and Round-card context.
 
 ## Implementation status
 
-The first foundation increment is implemented:
+The first playable learned-bot increment is implemented:
 
 - versioned `BotAction`, `BotObservation`, `BotPolicy`, and `BotDecision`
   contracts;
 - a seat-scoped observation builder that redacts opponent hands, passes,
   private power inspections, and face-down Masquerade plays;
-- reducer-backed legal action enumeration for opening passes and ordinary card
-  play;
+- reducer-backed legal action enumeration for setup, passing, ordinary play,
+  mandatory Princess responses, before-trick priority, and stateful Round
+  actions;
 - logical-action to game-event adaptation for the existing event types;
 - seeded random-legal policy and a headless ordinary-Round runner with card
   conservation, uniqueness, legality, termination, and replay tests.
+- a reproducible policy-gradient trainer and checked-in linear policy trained
+  for 2,000 seeded self-play rounds across three to six players;
+- a live controller that gives every bot a separate anonymous Firebase identity,
+  performs sealed Princess and Crystal Clear choices, and appends normal game
+  events through the same reducer used by people;
+- an **Add RL bot** host control and zero-tolerance browser coverage in which one
+  human and two bots join, ready, pass, and complete a trick.
 
-Phase 1 remains in progress. Princess decisions, stateful Round actions,
-complete-game simulation, and the fast incremental engine must be added before
-the random runner can cover all supported content.
+This is deliberately a basic RL policy, not a claim of strong play. Its learned
+features cover passing and trick play, while setup and unusual mandatory actions
+are legal-mask-driven and often conservative (for example, declining optional
+before-trick powers and Haggle). The host tab owns the in-memory bot sessions;
+closing or reloading that tab stops them. Complete-game headless simulation,
+optional Princess strategy, removal/difficulty controls, an incremental engine,
+and benchmark-based strength promotion remain future work.
 
 ## Decision summary
 
@@ -630,15 +642,20 @@ rollback-safe, and model upgrades cannot silently change old replay semantics.
 
 ## Recommended next change
 
-Implement Phase 0 and the narrowest part of Phase 1 first:
+Turn the basic playable policy into a measurable full-game baseline:
 
-1. define the typed action and observation contracts;
-2. enumerate legal ordinary card plays and opening-pass choices from fixtures;
-3. build a random-legal headless runner for the no-additional-rule Round;
-4. prove observation filtering and event/reducer equivalence;
-5. extend action coverage one Princess or Round module at a time until a random
-   game can complete all currently supported content.
+1. extend the headless runner through all five rounds, every Round action, and
+   optional Princess activation rather than relying on live integration for
+   those paths;
+2. add deterministic benchmark deals and paired trained-policy versus
+   random/heuristic reports before making any strength claim;
+3. add explicit heuristic modules for optional Princess timing and the actions
+   the MVP intentionally declines;
+4. add bot removal, difficulty selection, and controller recovery or migration
+   when the host reloads;
+5. refactor replay-on-every-step into the incremental engine before scaling
+   beyond the small linear trainer.
 
-Do not start with a neural-network dependency or live Firebase bot seats. The
-simulator and fairness boundary are the durable foundation; every later bot
-benefits from getting them right once.
+The checked-in linear model is small enough to audit and proves the complete
+training-to-browser path. A neural model or search policy should replace it only
+after the full-game benchmark and fairness boundaries are equally reproducible.
