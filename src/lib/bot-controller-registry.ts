@@ -1,10 +1,12 @@
 import type { GameProjection } from './game-events';
+import { normalizeBotDifficulty, type BotDifficulty } from './bot-policies';
 
 export interface BotControllerRecord {
   seatUid: string;
   displayName: string;
   instanceId: string;
   emulatorUid?: string;
+  difficulty: BotDifficulty;
 }
 
 export function botControllerRegistryKey(gameId: string, ownerUid: string): string {
@@ -28,7 +30,7 @@ export function readBotControllerRecords(storage: Storage, gameId: string, owner
       if (seen.has(candidate.seatUid)) return false;
       seen.add(candidate.seatUid);
       return true;
-    });
+    }).map((record) => ({ ...record, difficulty: normalizeBotDifficulty(record.difficulty) }));
   } catch {
     return [];
   }

@@ -12,7 +12,7 @@ import {
 import { BOT_ACTION_VERSION, BOT_ENGINE_VERSION, BOT_OBSERVATION_VERSION } from './bot-types';
 import { deriveGame, type GameEvent, type GameEventPayload, type GameEventType } from './game-events';
 import { roundLegalCards } from './round-rules';
-import { cardLabel, dealForPlayers, type Card } from './setup';
+import { cardLabel, dealForPlayers, ROUND_RULES, SUITS, type Card } from './setup';
 
 function fixture(roundId = 'once-upon-a-time') {
   const uids = ['a', 'b', 'c'];
@@ -122,6 +122,23 @@ describe('bot engine contracts', () => {
     expect(buildBotObservation(masqueradeOne, 'b')).not.toEqual(buildBotObservation(masqueradeTwo, 'b'));
   });
 
+  it('does not inspect the leader hand when Little Mermaid chooses a suit', () => {
+    const setup = fixture();
+    const projection = deriveGame(setup.events);
+    projection.players[0].princessId = 'little-mermaid';
+    projection.passComplete = true;
+    projection.pendingPower = { powerId: 'little-mermaid', actorUid: 'a', cards: [] };
+    projection.trick = { leaderUid: 'b', plays: [] };
+    const changedHiddenHand = structuredClone(projection);
+    changedHiddenHand.hands!.b = [card('pets', 8)];
+
+    const choices = (game: typeof projection) => legalBotActions(game, 'a').map((action) =>
+      action.type === 'activate-power' ? action.suit : undefined
+    );
+    expect(choices(projection)).toEqual([...SUITS]);
+    expect(choices(changedHiddenHand)).toEqual([...SUITS]);
+  });
+
   it('copies observation data so a policy cannot mutate the authoritative projection', () => {
     const setup = fixture();
     const projection = deriveGame(setup.events);
@@ -191,5 +208,15 @@ describe('headless five-round simulation', () => {
 
   it('requires exactly five Round cards', async () => {
     await expect(runHeadlessFiveRoundGame({ playerCount: 3, seed: 'bad-rounds', roundIds: ['once-upon-a-time'] })).rejects.toThrow('exactly five');
+  });
+
+  it('finishes games covering every Round card action', async () => {
+    const roundIds = ROUND_RULES.map(([id]) => id);
+    for (let offset = 0; offset < roundIds.length; offset += 5) {
+      const group = roundIds.slice(offset, offset + 5);
+      while (group.length < 5) group.push('once-upon-a-time');
+      const result = await runHeadlessFiveRoundGame({ playerCount: 3, seed: `round-matrix:${offset}`, roundIds: group });
+      expect(result.projection.gameComplete).toBe(true);
+    }
   });
 });

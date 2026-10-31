@@ -1,6 +1,6 @@
 # Bot-player and learning-system design
 
-**Status:** Basic playable RL bot implemented; stronger-bot phases remain proposed
+**Status:** Learned v2 is statistically stronger than Standard; search and neural-learning phases remain proposed
 
 **Goal:** Add useful bot players soon, while building the infrastructure needed
 to train strong policies for every Princess and Round-card context.
@@ -20,26 +20,37 @@ The first playable learned-bot increment is implemented:
 - seeded random-legal policy and headless ordinary-Round and representative
   five-round runners with card conservation, uniqueness, legality, termination,
   and replay tests;
-- a reproducible policy-gradient trainer and checked-in linear policy trained
-  for 2,000 seeded self-play rounds across three to six players;
+- exhaustive headless coverage across every Round card and Princess assignment,
+  including optional before-trick powers, Mulan, Haggle, and sealed Crystal Clear
+  choices;
+- modular Easy and Standard heuristic policies with named action scores for
+  setup, passing, trick play, powers, and Round actions;
+- a sparse residual policy tuned from 2,420 deterministic full-game outcomes,
+  with a checked-in, versioned model artifact;
 - a live controller that gives every bot a separate anonymous Firebase identity,
   performs sealed Princess and Crystal Clear choices, and appends normal game
   events through the same reducer used by people;
 - a host-scoped controller registry, persistent isolated Auth sessions, and
   replayed controller claims that restore both current and legacy bot seats
   after the host reloads;
-- an **Add RL bot** host control and zero-tolerance browser coverage in which one
-  human and two bots join, ready, pass, survive a host reload, and complete all
+- host controls to choose Easy, Standard, or Learned difficulty, add and remove
+  bots before setup is sealed, and preserve policy choice across reloads;
+- a deterministic promotion matrix across three to six players, all Round and
+  Princess IDs, 95% confidence intervals, and a checked-in 1,800-game report;
+- zero-tolerance browser coverage in which a host adds and removes a bot, then
+  two Learned bots join, ready, pass, survive a host reload, and complete all
   five rounds.
 
-This is deliberately a basic RL policy, not a claim of strong play. Its learned
-features cover passing and trick play, while setup and unusual mandatory actions
-are legal-mask-driven and often conservative (for example, declining optional
-before-trick powers and Haggle). The creating host's browser owns the bot
-registry and automatically reconstructs its controllers after reload. Closing
-every host tab pauses them until that host returns. Exhaustive Round/Princess
-simulation, optional Princess strategy, removal/difficulty controls, an
-incremental engine, and benchmark-based strength promotion remain future work.
+Learned v2 is still deliberately small and auditable, but it is now a measured
+strength claim rather than only a training-to-browser proof. It preserves
+Standard as a prior and learns six residuals for passing, Haggle, Mulan, and
+Pocahontas. On a separate 1,800-game promotion matrix it beat Standard
+1,006–764 with a +0.9217 mean proposal differential and a fully positive 95%
+confidence interval of +0.4015 to +1.4419. The creating host's browser owns the
+bot registry and automatically reconstructs its controllers after reload.
+Closing every host tab pauses them until that host returns. An incremental
+engine, fair search, neural training, and richer slice-level promotion gates
+remain future work.
 
 ## Decision summary
 
@@ -652,20 +663,19 @@ rollback-safe, and model upgrades cannot silently change old replay semantics.
 
 ## Recommended next change
 
-Turn the basic playable policy into a measurable full-game baseline:
+Use the promoted policy as the rollout baseline for fair search and future
+learning:
 
-1. extend the five-round headless runner across every Round action and optional
-   Princess activation rather than relying on representative live integration
-   for those paths;
-2. add deterministic benchmark deals and paired trained-policy versus
-   random/heuristic reports before making any strength claim;
-3. add explicit heuristic modules for optional Princess timing and the actions
-   the MVP intentionally declines;
-4. add bot removal, difficulty selection, and controller migration to another
-   human or device;
-5. refactor replay-on-every-step into the incremental engine before scaling
-   beyond the small linear trainer.
+1. refactor replay-on-every-step into the incremental engine so large training
+   and search runs are practical;
+2. add information-set sampling that is provably limited to each seat's public
+   observation;
+3. benchmark a modest ISMCTS policy against Learned v2 on the same promotion
+   matrix and record Princess, Round, and player-count slices;
+4. generate search targets for a conditional policy/value model, then add
+   population self-play only after imitation clears the Learned v2 gate;
+5. treat controller migration as a room-ownership feature shared by human and
+   bot seats, rather than a bot-only recovery mechanism.
 
-The checked-in linear model is small enough to audit and proves the complete
-training-to-browser path. A neural model or search policy should replace it only
-after the full-game benchmark and fairness boundaries are equally reproducible.
+Learned v2 remains the default until a replacement clears the same legality,
+fairness, reproducibility, latency, and statistical-strength gates.

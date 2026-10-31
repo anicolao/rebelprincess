@@ -26,6 +26,7 @@
   import { isBeforeTrickPower } from '$lib/bat-priority';
   import { LiveBotController, type LiveBotState } from '$lib/live-bot';
   import { isBotSeat, readBotControllerRecords, writeBotControllerRecords, type BotControllerRecord } from '$lib/bot-controller-registry';
+  import { BOT_DIFFICULTIES, BOT_DIFFICULTY_LABELS, type BotDifficulty } from '$lib/bot-policies';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -61,6 +62,8 @@
   let botControllers: LiveBotController[] = [];
   let liveBots: LiveBotState[] = [];
   let addingBot = false;
+  let botDifficulty: BotDifficulty = 'standard';
+  let removingBotUid = '';
   let recoveringBots = false;
   let recoveredBotGameId = '';
   const submittedPrincessReveals = new Set<string>();
@@ -316,17 +319,30 @@
     }
   }
 
-  async function addRlBot() {
+  function nextBotNumber() {
+    const used = new Set((game?.players ?? []).filter(isBotSeat).map((player) => Number(player.displayName.match(/(\d+)$/)?.[1])).filter(Number.isFinite));
+    let number = 1;
+    while (used.has(number)) number += 1;
+    return number;
+  }
+
+  function botDisplayName(difficulty: BotDifficulty, number: number) {
+    return `${difficulty === 'learned' ? 'RL' : BOT_DIFFICULTY_LABELS[difficulty]} Bot ${number}`;
+  }
+
+  async function addBot() {
     if (addingBot || !game || game.hands || game.players[0]?.uid !== currentUid || game.players.length >= 6 || Object.keys(game.princessCommitments).length > 0) return;
     addingBot = true;
     actionError = '';
-    const number = game.players.filter(isBotSeat).length + 1;
-    const botName = `RL Bot ${number}`;
+    const difficulty = botDifficulty;
+    const number = nextBotNumber();
+    const botName = botDisplayName(difficulty, number);
     const instanceId = `${game.gameId}-${number}-${crypto.randomUUID()}`;
     const emulatorUid = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ? `rl-bot-${game.gameId}-${number}` : undefined;
     const controller = new LiveBotController({
       gameId: game.gameId,
       displayName: botName,
+      difficulty,
       instanceId,
       ...(emulatorUid ? { emulatorUid } : {}),
       receiveState: (state) => {
@@ -337,19 +353,40 @@
       }
     });
     botControllers = [...botControllers, controller];
-    liveBots = [...liveBots, { uid: '', displayName: botName, status: 'starting', detail: 'Starting RL policy' }];
+    liveBots = [...liveBots, { uid: '', displayName: botName, difficulty, status: 'starting', detail: `Starting ${difficulty} policy` }];
     try {
       await controller.start();
       const state = controller.getState();
       const records = readBotControllerRecords(localStorage, game.gameId, currentUid)
         .filter((record) => record.seatUid !== state.uid);
       writeBotControllerRecords(localStorage, game.gameId, currentUid, [...records, {
-        seatUid: state.uid, displayName: botName, instanceId, ...(emulatorUid ? { emulatorUid } : {})
+        seatUid: state.uid, displayName: botName, instanceId, difficulty, ...(emulatorUid ? { emulatorUid } : {})
       }]);
     } catch {
       actionError = `${botName} could not join the room.`;
     } finally {
       addingBot = false;
+    }
+  }
+
+  async function removeBot(seatUid: string) {
+    if (removingBotUid || !game || game.hands || game.players[0]?.uid !== currentUid || Object.keys(game.princessCommitments).length > 0) return;
+    const seat = game.players.find((player) => player.uid === seatUid);
+    if (!seat || !isBotSeat(seat)) return;
+    removingBotUid = seatUid;
+    actionError = '';
+    try {
+      await appendGameEvent(firebaseDatabase(), game.gameId, currentUid, 'bot/removed', { targetUid: seatUid });
+      const controller = botControllers.find((candidate) => candidate.getState().uid === seatUid);
+      if (controller) await controller.stop();
+      botControllers = botControllers.filter((candidate) => candidate !== controller);
+      liveBots = liveBots.filter((bot) => bot.uid !== seatUid && bot.displayName !== seat.displayName);
+      writeBotControllerRecords(localStorage, game.gameId, currentUid,
+        readBotControllerRecords(localStorage, game.gameId, currentUid).filter((record) => record.seatUid !== seatUid));
+    } catch {
+      actionError = `${seat.displayName} could not be removed.`;
+    } finally {
+      removingBotUid = '';
     }
   }
 
@@ -365,6 +402,7 @@
           seatUid: seat.uid,
           displayName: seat.displayName,
           instanceId: `${projection.gameId}-recovered-${crypto.randomUUID()}`,
+          difficulty: 'learned',
           ...(import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' ? { emulatorUid: seat.uid } : {})
         };
       });
@@ -374,6 +412,7 @@
         const controller = new LiveBotController({
           gameId: projection.gameId,
           displayName: record.displayName,
+          difficulty: record.difficulty,
           instanceId: record.instanceId,
           seatUid: record.seatUid,
           ...(record.emulatorUid ? { emulatorUid: record.emulatorUid } : {}),
@@ -391,7 +430,7 @@
           }
         });
         botControllers = [...botControllers, controller];
-        liveBots = [...liveBots, { uid: record.seatUid, displayName: record.displayName, status: 'starting', detail: 'Recovering RL policy' }];
+        liveBots = [...liveBots, { uid: record.seatUid, displayName: record.displayName, difficulty: record.difficulty, status: 'starting', detail: `Recovering ${record.difficulty} policy` }];
         await controller.start();
       }
       recoveredBotGameId = projection.gameId;
@@ -829,7 +868,7 @@
                 {@const ownership = actionOwnership(game, player.uid)}
                 <section class="opponent-seat" class:action-active={ownership.state === 'active'} class:action-complete={ownership.state === 'complete'} style={seatStyle(index, game.players.length - 1)} data-clockwise-seat={index + 1} data-action-state={ownership.state} aria-label={`${player.displayName}'s hand`}>
                   <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0} {#if game.trick?.leaderUid === player.uid}<span class="lead-marker">Leads</span>{/if}</strong>
-                  {#if ownership.state !== 'idle'}<span class={`action-marker ${ownership.state}`} aria-label={`${player.displayName}: ${ownership.label}`}>{ownership.state === 'complete' ? '✓' : '●'} {ownership.label}</span>{/if}
+                  {#if ownership.state !== 'idle'}<span class={`action-marker ${ownership.state}`} aria-label={`${player.displayName}: ${ownership.label}`}>{ownership.state === 'complete' ? '✓ ' : ''}{ownership.label}</span>{/if}
                   <div class="seat-princess" class:exhausted={game.exhaustedPrincessUids.includes(player.uid)} class:power-active={celebratedPrincessId === player.princessId} aria-label={`${player.displayName}'s Princess: ${princessName(player.princessId)}`}>
                      <div class="princess-card">
                        <SpriteCard {...princessSpriteProps(player.princessId)} />
@@ -923,7 +962,7 @@
 
             <section class="local-seat" class:action-active={actionOwnership(game, currentUid).state === 'active'} class:action-complete={actionOwnership(game, currentUid).state === 'complete'} data-action-state={actionOwnership(game, currentUid).state} aria-label="Your seat">
               <div class="local-heading" class:local-leader={game.trick?.leaderUid === currentUid}><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You {#if game.trick?.leaderUid === currentUid}<span class="lead-marker">You lead</span>{/if}</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
-              {#if actionOwnership(game, currentUid).state !== 'idle'}<span class={`action-marker local-action-marker ${actionOwnership(game, currentUid).state}`} aria-label={`You: ${actionOwnership(game, currentUid).label}`}>{actionOwnership(game, currentUid).state === 'complete' ? '✓' : '●'} {actionOwnership(game, currentUid).label}</span>{/if}
+              {#if actionOwnership(game, currentUid).state !== 'idle'}<span class={`action-marker local-action-marker ${actionOwnership(game, currentUid).state}`} aria-label={`You: ${actionOwnership(game, currentUid).label}`}>{actionOwnership(game, currentUid).state === 'complete' ? '✓ ' : ''}{actionOwnership(game, currentUid).label}</span>{/if}
               {#if game.passComplete || (game.batPriorityEnabled && isBeforeTrickPower(localPlayer()?.princessId))}
                 <div class="seat-princess local-princess" class:exhausted={game.exhaustedPrincessUids.includes(currentUid)} class:armed={snowWhiteArmed || thumbelinaArmed} class:power-active={celebratedPrincessId === localPlayer()?.princessId}>
                   <button type="button" class="princess-card" aria-label={canSignalBeforeTrick(localPlayer()?.princessId) ? `${hasRaisedHand() ? 'Lower' : 'Raise'} hand for ${princessName(localPlayer()?.princessId)} on the next trick` : `Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={hasRaisedHand() || snowWhiteArmed || thumbelinaArmed || openPrincessPower === localPlayer()?.princessId} disabled={!princessUsable(localPlayer()?.princessId)} on:click={usePrincessCard}>
@@ -1083,7 +1122,7 @@
             {/if}
           </div>
           <span class="sr-only" data-testid="stream-card-count">Shared stream contains {Object.values(game.hands).flat().length} cards</span>
-          <span class="sr-only" data-testid="bot-controller-count">{liveBots.length} RL bot controllers loaded</span>
+          <span class="sr-only" data-testid="bot-controller-count">{liveBots.length} bot controllers loaded</span>
         </section>
       {:else if activeGameId}
         <section class="room" aria-label="Game room">
@@ -1092,7 +1131,15 @@
           <h2>Players · {game?.players.length ?? 0}</h2>
           <ul aria-label="Players">
             {#each game?.players ?? [] as player (player.uid)}
-              <li><span>{player.displayName}{#if game?.players.every((candidate) => candidate.ready)}{' · '}{princessName(player.princessId)}{:else}{' · Princess hidden'}{/if}</span><span>{#if player.host}<small>Host</small>{/if} {player.ready || game?.princessCommitments[player.uid] ? 'Ready' : 'Choosing'}</span></li>
+              <li>
+                <span>{player.displayName}{#if game?.players.every((candidate) => candidate.ready)}{' · '}{princessName(player.princessId)}{:else}{' · Princess hidden'}{/if}</span>
+                <span>
+                  {#if player.host}<small>Host</small>{/if} {player.ready || game?.princessCommitments[player.uid] ? 'Ready' : 'Choosing'}
+                  {#if game?.players[0]?.uid === currentUid && isBotSeat(player) && !game.hands && !Object.keys(game.princessCommitments).length}
+                    <button class="remove-bot" type="button" disabled={Boolean(removingBotUid)} aria-label={`Remove ${player.displayName}`} on:click={() => removeBot(player.uid)}>Remove</button>
+                  {/if}
+                </span>
+              </li>
             {/each}
           </ul>
           {#if !game?.players.find((player) => player.uid === currentUid)?.ready && !game?.princessCommitments[currentUid]}
@@ -1128,12 +1175,20 @@
           {#if game?.players[0]?.uid === currentUid}
             <p class="automatic-rounds">Five Round powers will be drawn automatically when the game is dealt.</p>
             {#if !Object.keys(game.princessCommitments).length && game.players.length < 6}
-              <button class="secondary add-bot" type="button" disabled={addingBot} on:click={addRlBot}>{addingBot ? 'Adding RL bot…' : 'Add RL bot'}</button>
+              <div class="bot-controls">
+                <label for="bot-difficulty">Bot difficulty</label>
+                <select id="bot-difficulty" bind:value={botDifficulty} disabled={addingBot}>
+                  {#each BOT_DIFFICULTIES as difficulty}
+                    <option value={difficulty}>{BOT_DIFFICULTY_LABELS[difficulty]}</option>
+                  {/each}
+                </select>
+                <button class="secondary add-bot" type="button" disabled={addingBot} on:click={addBot}>{addingBot ? 'Adding bot…' : `Add ${BOT_DIFFICULTY_LABELS[botDifficulty]} bot`}</button>
+              </div>
             {/if}
             {#if liveBots.length}
-              <ul class="bot-status" aria-label="RL bot status">
+              <ul class="bot-status" aria-label="Bot status">
                 {#each liveBots as bot}
-                  <li><strong>{bot.displayName}</strong><span>{bot.status === 'error' ? bot.detail : bot.status}</span></li>
+                  <li><strong>{bot.displayName}</strong><span>{BOT_DIFFICULTY_LABELS[bot.difficulty]} · {bot.status === 'error' ? bot.detail : bot.status}</span></li>
                 {/each}
               </ul>
             {/if}
@@ -1409,6 +1464,11 @@
   .choice-grid .princess-choice.chosen .princess-choice-mark { display: block; color: #ffc75f; }
   .automatic-rounds { margin: 18px 0 10px; padding: 10px 12px; border-left: 3px solid #b88cdf; color: #d9cedd; background: rgba(50, 31, 62, .45); font-size: 12px; line-height: 1.35; }
   .add-bot { margin: 0 0 8px; }
+  .bot-controls { display: grid; grid-template-columns: auto minmax(105px, 1fr) minmax(140px, auto); align-items: center; gap: 8px; margin: 0 0 8px; }
+  .bot-controls label { color: #d9cedd; font-size: 12px; font-weight: 700; }
+  .bot-controls select { min-width: 0; padding: 7px 9px; border: 1px solid rgba(184, 140, 223, .45); border-radius: 5px; color: #fff4d0; background: #24162f; }
+  .bot-controls .add-bot { margin: 0; }
+  .remove-bot { width: auto; margin-left: 6px; padding: 3px 7px; border: 1px solid rgba(255, 199, 95, .45); color: #ffc75f; background: transparent; font-size: 10px; }
   .bot-status { display: grid; gap: 4px; margin: 0 0 10px; padding: 0; list-style: none; }
   .bot-status li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border: 1px solid rgba(184, 140, 223, .3); border-radius: 5px; color: #d9cedd; background: rgba(20, 13, 30, .45); font-size: 11px; }
   .bot-status span { color: #b88cdf; text-transform: capitalize; }
@@ -1438,7 +1498,8 @@
   .opponent-seat::before { content: ''; position: absolute; z-index: -1; inset: -7px -9px -8px; border: 2px solid transparent; border-radius: 10px; pointer-events: none; transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
   .opponent-seat.action-active::before { border-color: #ffc75f; background: rgba(255, 199, 95, .08); box-shadow: 0 0 0 3px rgba(255, 199, 95, .12), 0 0 20px rgba(255, 199, 95, .4); }
   .opponent-seat > strong { display: block; margin-bottom: 5px; font-size: clamp(12px, 1.7cqh, 15px); }
-  .action-marker { display: block; width: max-content; max-width: 138px; margin: 0 auto 5px; padding: 3px 8px; border: 1px solid currentColor; border-radius: 999px; color: #ffc75f; background: rgba(33, 19, 41, .88); font-size: clamp(9px, 1.25cqh, 11px); font-weight: 700; line-height: 1.2; white-space: nowrap; }
+  .action-marker { display: flex; align-items: center; width: max-content; max-width: 138px; margin: 0 auto 5px; padding: 3px 8px; border: 1px solid currentColor; border-radius: 999px; color: #ffc75f; background: rgba(33, 19, 41, .88); font-size: clamp(9px, 1.25cqh, 11px); font-weight: 700; line-height: 1.2; white-space: nowrap; }
+  .action-marker.active::before { content: ''; width: 5px; height: 5px; margin-right: 4px; flex: 0 0 5px; border-radius: 50%; background: currentColor; }
   .opponent-seat.action-active > .action-marker { position: relative; left: var(--seat-snap-x); width: calc-size(max-content, round(nearest, size, 1px)); }
   .action-marker.complete { color: #7de2a7; }
   .seat-princess { position: absolute; top: clamp(25px, 4.3cqh, 40px); left: 2px; display: grid; justify-items: center; width: clamp(54px, 5.5cqw, 76px); color: #e9deeb; font-size: clamp(8px, 1.15cqh, 10px); line-height: 1.12; }

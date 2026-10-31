@@ -5,8 +5,8 @@ describe('bot controller registry', () => {
   it('round-trips valid controller ownership and rejects malformed or duplicate seats', () => {
     const storage = localStorage;
     const records: BotControllerRecord[] = [
-      { seatUid: 'bot-1', displayName: 'RL Bot 1', instanceId: 'instance-1' },
-      { seatUid: 'bot-2', displayName: 'RL Bot 2', instanceId: 'instance-2', emulatorUid: 'emulator-2' }
+      { seatUid: 'bot-1', displayName: 'RL Bot 1', instanceId: 'instance-1', difficulty: 'standard' },
+      { seatUid: 'bot-2', displayName: 'RL Bot 2', instanceId: 'instance-2', emulatorUid: 'emulator-2', difficulty: 'easy' }
     ];
     writeBotControllerRecords(storage, 'ROOM42', 'host', records);
     expect(readBotControllerRecords(storage, 'ROOM42', 'host')).toEqual(records);
@@ -17,6 +17,13 @@ describe('bot controller registry', () => {
       { displayName: 'missing identity' }
     ]));
     expect(readBotControllerRecords(storage, 'ROOM42', 'host')).toEqual([records[0]]);
+  });
+
+  it('loads legacy controller records as learned bots', () => {
+    localStorage.setItem(botControllerRegistryKey('LEGACY', 'host'), JSON.stringify([
+      { seatUid: 'bot-1', displayName: 'RL Bot 1', instanceId: 'instance-1' }
+    ]));
+    expect(readBotControllerRecords(localStorage, 'LEGACY', 'host')[0].difficulty).toBe('learned');
   });
 
   it('recognizes explicit bot seats and legacy reserved bot names', () => {

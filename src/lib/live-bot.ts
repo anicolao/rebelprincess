@@ -1,16 +1,16 @@
 import { choiceCommitment, crystalClearChoiceScope, princessChoiceScope } from './choice-commitment';
-import { botActionToEvent, buildBotObservation, createSeededRandom, legalBotActions } from './bot-engine';
-import { LinearRlBotPolicy, type BasicRlModel } from './bot-rl';
+import { botActionToEvent, buildBotObservation, createSeededRandom, legalBotActions, policyBotActions } from './bot-engine';
+import { createBotPolicy, type BotDifficulty } from './bot-policies';
 import type { BotAction, BotPolicy } from './bot-types';
 import { appendGameEvent, loadGame, subscribeToGame, type GameProjection } from './game-events';
 import { createIsolatedFirebaseClient, type IsolatedFirebaseClient } from './firebase';
-import modelData from './models/basic-rl-v1.json';
 
 export type LiveBotStatus = 'starting' | 'joining' | 'choosing' | 'waiting' | 'acting' | 'stopped' | 'error';
 
 export interface LiveBotState {
   uid: string;
   displayName: string;
+  difficulty: BotDifficulty;
   status: LiveBotStatus;
   detail: string;
 }
@@ -20,10 +20,6 @@ type StoredChoice = { choice: string; nonce: string };
 function storedChoiceKey(kind: 'princess' | 'crystal-clear', game: GameProjection, uid: string): string {
   const phase = kind === 'princess' ? game.gameNumber : `${game.gameNumber}:${game.roundIndex}`;
   return `rebel-princess:sealed-choice:${kind}:${game.gameId}:${phase}:${uid}`;
-}
-
-export function createBasicRlPolicy(): BotPolicy {
-  return new LinearRlBotPolicy(modelData as BasicRlModel);
 }
 
 function actionKey(action: BotAction): string {
@@ -67,6 +63,7 @@ export class LiveBotController {
     private readonly options: {
       gameId: string;
       displayName: string;
+      difficulty?: BotDifficulty;
       instanceId: string;
       emulatorUid?: string;
       seatUid?: string;
@@ -76,8 +73,9 @@ export class LiveBotController {
       receiveState?: (state: LiveBotState) => void;
     }
   ) {
-    this.policy = options.policy ?? createBasicRlPolicy();
-    this.state = { uid: '', displayName: options.displayName, status: 'starting', detail: 'Starting RL policy' };
+    const difficulty = options.difficulty ?? 'learned';
+    this.policy = options.policy ?? createBotPolicy(difficulty);
+    this.state = { uid: '', displayName: options.displayName, difficulty, status: 'starting', detail: `Starting ${difficulty} policy` };
   }
 
   private update(status: LiveBotStatus, detail: string): void {
@@ -222,7 +220,8 @@ export class LiveBotController {
         const uid = this.options.seatUid ?? this.client.uid;
         if (!game.players.some((player) => player.uid === uid)) continue;
         if (await this.revealChoices(game, uid)) continue;
-        let actions = legalBotActions(game, uid);
+        const observation = buildBotObservation(game, uid);
+        let actions = policyBotActions(this.policy, observation, legalBotActions(game, uid));
         // Freeze the roster before bots commit. The human host signals that setup
         // is final by sealing a choice; a six-seat room is necessarily final.
         if (!game.hands && Object.keys(game.princessCommitments).length === 0 && game.players.length < 6) actions = [];
@@ -234,7 +233,7 @@ export class LiveBotController {
         if (key === this.lastDecisionKey) continue;
         this.lastDecisionKey = key;
         const random = createSeededRandom(`${game.gameId}:${uid}:${key}`);
-        const decision = await this.policy.choose(buildBotObservation(game, uid), actions, random);
+        const decision = await this.policy.choose(observation, actions, random);
         const action = actions[decision.actionIndex];
         if (!action) throw new Error(`Policy ${this.policy.id} chose an invalid action`);
         this.update('acting', action.type);
@@ -252,6 +251,10 @@ export class LiveBotController {
           await this.append('round/suit-committed', {
             commitment: choiceCommitment(crystalClearChoiceScope(game.gameId, game.gameNumber, game.roundIndex, uid), action.suit, nonce)
           });
+        } else if (action.type === 'activate-power' && action.powerId === 'snow-white' && action.card) {
+          const intent = botActionToEvent(action);
+          await this.append(intent.type, intent.payload);
+          await this.append('card/played', { card: action.card });
         } else {
           const intent = botActionToEvent(action);
           await this.append(intent.type, intent.payload);
