@@ -172,22 +172,82 @@ function orderedSelections<T>(values: readonly T[], count: number, chosen: T[] =
 }
 
 export function legalBotActions(game: GameProjection, seatUid: string): BotAction[] {
-  if (game.gameComplete || game.roundComplete || !game.players.some((player) => player.uid === seatUid)) return [];
+  const player = game.players.find((candidate) => candidate.uid === seatUid);
+  if (game.gameComplete || game.roundComplete || !player) return [];
   const hand = game.hands?.[seatUid];
-  if (!hand) return [];
+  if (!hand) {
+    if (game.players.length < 3 || player.ready || game.princessCommitments[seatUid]) return [];
+    return (game.princessOptions[seatUid] ?? []).map((princessId) => ({ type: 'choose-princess', princessId }));
+  }
   if (!game.passComplete) {
-    if (game.passSubmissions[seatUid]) return [{ type: 'retract-pass' }];
+    // Retraction remains a valid human correction, but it is not an action the
+    // bot owes the game. Returning it as the sole choice makes a live bot undo
+    // every pass while it waits for the other seats.
+    if (game.passSubmissions[seatUid]) return [];
     const instruction = passInstruction(game.roundIds[game.roundIndex] ?? '');
     const selections = instruction.direction === 'split'
       ? orderedSelections(hand, instruction.count)
       : combinations(hand, instruction.count);
     return selections.map((cards) => ({ type: 'submit-pass', cards: copyCards(cards) }));
   }
-  if (game.beforeTrickWindow?.priorityUid === seatUid && !game.pendingPower) {
+  if (game.pendingMulanUid === seatUid) return [{ type: 'decline-power', powerId: 'mulan' }];
+  if (game.pendingPower) {
+    const pending = game.pendingPower;
+    if (pending.powerId === 'sleeping-beauty' && !pending.cards.some((entry) => entry.uid === seatUid)) {
+      return hand.map((card) => ({ type: 'contribute-power-card', powerId: 'sleeping-beauty', card: copyCard(card) }));
+    }
+    if (pending.actorUid !== seatUid) return [];
+    const windowId = game.beforeTrickWindow?.id;
+    const powerAction = (details: Omit<Extract<BotAction, { type: 'activate-power' }>, 'type' | 'powerId'>): BotAction => ({
+      type: 'activate-power', powerId: pending.powerId, ...(windowId ? { windowId } : {}), ...details
+    });
+    if (pending.powerId === 'pocahontas' && !pending.targetUid) {
+      return game.players.map((candidate) => powerAction({ targetUid: candidate.uid }));
+    }
+    if (pending.powerId === 'little-mermaid') {
+      const leaderHand = game.hands?.[game.trick?.leaderUid ?? ''] ?? [];
+      return [...new Set(leaderHand.map((card) => card.suit))].map((suit) => powerAction({ suit }));
+    }
+    if (pending.powerId === 'ice-princess' && !pending.targetUid) {
+      return game.players.map((candidate) => powerAction({ targetUid: candidate.uid }));
+    }
+    if (pending.powerId === 'ice-princess' && pending.targetUid) {
+      return pending.cards.map(({ card }) => powerAction({ card: copyCard(card) }));
+    }
+    if (pending.powerId === 'scheherazade' && !pending.targetUid) {
+      return game.players.filter((candidate) => candidate.uid !== seatUid).map((candidate) => powerAction({ targetUid: candidate.uid }));
+    }
+    if (pending.powerId === 'scheherazade' && pending.targetUid) {
+      return [
+        ...hand.map((card) => powerAction({ card: copyCard(card) })),
+        { type: 'decline-power', powerId: 'scheherazade' }
+      ];
+    }
+    if (pending.powerId === 'sleeping-beauty' && pending.cards.length === game.players.length) {
+      return orderedSelections(pending.cards.map((entry) => entry.card), pending.cards.length)
+        .map((cards) => powerAction({ cards: copyCards(cards) }));
+    }
+    return [];
+  }
+  if (game.awaitingRoundAction) {
+    if (game.awaitingRoundAction === 'haggle') return game.haggleWinnerUid === seatUid ? [{ type: 'decline-haggle' }] : [];
+    if (game.awaitingRoundAction === 'reveal-suit') {
+      if (game.suitCommitments[seatUid] || game.revealedSuits[seatUid]) return [];
+      return [...new Set(hand.map((card) => card.suit))].map((suit) => ({ type: 'choose-crystal-clear-suit', suit }));
+    }
+    if (game.roundActionSubmissions[seatUid] || game.roundCardSubmissions[seatUid]) return [];
+    if (game.awaitingRoundAction === 'set-aside') return hand.map((card) => ({ type: 'set-aside-round-card', card: copyCard(card) }));
+    if (game.awaitingRoundAction === 'musical-pass') return hand.map((card) => ({ type: 'submit-musical-chair-card', card: copyCard(card) }));
+    if (game.awaitingRoundAction === 'wedding-gift') return hand.map((card) => ({ type: 'submit-wedding-gift', card: copyCard(card) }));
+    if (game.awaitingRoundAction === 'split-hand') {
+      return combinations(hand, hand.length / 2).map((cards) => ({ type: 'select-after-party-half', cards: copyCards(cards) }));
+    }
+    return [];
+  }
+  if (game.beforeTrickWindow?.priorityUid === seatUid) {
     return [{ type: 'decline-before-trick-priority', windowId: game.beforeTrickWindow.id }];
   }
-  if (game.pendingMulanUid === seatUid) return [{ type: 'decline-power', powerId: 'mulan' }];
-  if (game.awaitingRoundAction || game.pendingPower || game.beforeTrickWindow || game.currentTurnUid !== seatUid || !game.trick) return [];
+  if (game.beforeTrickWindow || game.currentTurnUid !== seatUid || !game.trick) return [];
   const forced = game.forcedCards[seatUid];
   const cards = forced
     ? hand.filter((card) => cardLabel(card) === cardLabel(forced))

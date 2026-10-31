@@ -70,10 +70,10 @@ describe('bot engine contracts', () => {
     expect(reversed).toBeDefined();
   });
 
-  it('offers retraction while a pass is pending, then matches reducer-backed card legality', () => {
+  it('waits after submitting a pass, then matches reducer-backed card legality', () => {
     const game = fixture();
     game.events.push(game.event('pass/submitted', 'a', { cards: game.hands.a.slice(0, 3) }));
-    expect(legalBotActions(deriveGame(game.events), 'a')).toEqual([{ type: 'retract-pass' }]);
+    expect(legalBotActions(deriveGame(game.events), 'a')).toEqual([]);
 
     game.events.push(game.event('pass/submitted', 'b', { cards: game.hands.b.slice(0, 3) }));
     game.events.push(game.event('pass/submitted', 'c', { cards: game.hands.c.slice(0, 3) }));
