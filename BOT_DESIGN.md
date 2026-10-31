@@ -24,16 +24,21 @@ The first playable learned-bot increment is implemented:
 - a live controller that gives every bot a separate anonymous Firebase identity,
   performs sealed Princess and Crystal Clear choices, and appends normal game
   events through the same reducer used by people;
+- a host-scoped controller registry, persistent isolated Auth sessions, and
+  replayed controller claims that restore both current and legacy bot seats
+  after the host reloads;
 - an **Add RL bot** host control and zero-tolerance browser coverage in which one
-  human and two bots join, ready, pass, and complete a trick.
+  human and two bots join, ready, pass, survive a host reload, and complete a
+  trick.
 
 This is deliberately a basic RL policy, not a claim of strong play. Its learned
 features cover passing and trick play, while setup and unusual mandatory actions
 are legal-mask-driven and often conservative (for example, declining optional
-before-trick powers and Haggle). The host tab owns the in-memory bot sessions;
-closing or reloading that tab stops them. Complete-game headless simulation,
-optional Princess strategy, removal/difficulty controls, an incremental engine,
-and benchmark-based strength promotion remain future work.
+before-trick powers and Haggle). The creating host's browser owns the bot
+registry and automatically reconstructs its controllers after reload. Closing
+every host tab pauses them until that host returns. Complete-game headless
+simulation, optional Princess strategy, removal/difficulty controls, an
+incremental engine, and benchmark-based strength promotion remain future work.
 
 ## Decision summary
 
@@ -215,10 +220,13 @@ The existing Firestore rule requires an event's `actorUid` to equal the signed-i
 Firebase UID, and hands and turns are keyed by that UID. Do not make all bots
 impersonate the host.
 
-For the first live implementation, each bot gets a separate anonymous Firebase
-Auth session created by a named Firebase app with in-memory persistence. The
-host's browser owns those controller instances, but every bot joins and acts as
-its own UID. This preserves the current event schema and attribution model.
+Each bot gets a separate anonymous Firebase Auth session created by a named
+Firebase app with IndexedDB persistence. The host's browser records the named
+controller and sealed-choice nonces, then reconstructs the controller after a
+reload. If an older bot has no persistent credentials, the host appends a
+replayed controller claim that maps a new authenticated controller UID onto the
+existing bot seat. Every write remains attributable to the Firebase identity
+that actually submitted it.
 
 Initial product behavior:
 
@@ -228,8 +236,9 @@ Initial product behavior:
 - a bot acts immediately after the required observable state arrives;
 - a small deterministic presentation delay may be added by the UI later, but
   never by the policy, simulator, tests, or training environment;
-- if the host tab closes, its in-memory bot sessions stop. Host migration and
-  persistent bot leases are a later reliability increment.
+- if the host tab closes, bot decisions pause; reopening the room as that host
+  resumes them from the canonical event prefix;
+- controller ownership does not yet migrate to another human or device.
 
 If browser-managed Auth sessions prove fragile, a headless bot service can use
 the same controller and policy interfaces. That is an operational change, not a
@@ -630,7 +639,7 @@ gain without degrading unrelated contexts or making deployment unmanageable.
 
 Deliver:
 
-- persisted or transferable bot-controller ownership;
+- transferable bot-controller ownership across people or devices;
 - model caching, integrity checks, rollback, and compatibility handling;
 - opt-in anonymized decision telemetry;
 - continuous benchmark and replay regression jobs;
@@ -651,8 +660,8 @@ Turn the basic playable policy into a measurable full-game baseline:
    random/heuristic reports before making any strength claim;
 3. add explicit heuristic modules for optional Princess timing and the actions
    the MVP intentionally declines;
-4. add bot removal, difficulty selection, and controller recovery or migration
-   when the host reloads;
+4. add bot removal, difficulty selection, and controller migration to another
+   human or device;
 5. refactor replay-on-every-step into the incremental engine before scaling
    beyond the small linear trainer.
 

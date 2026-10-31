@@ -61,10 +61,28 @@ test('a host adds two trained RL bots and plays a complete trick with them', asy
     ]
   });
 
+  await page.reload();
+  await expect(page.locator('.status')).toHaveAttribute('data-status', 'synced');
+  await expect(page.getByTestId('bot-controller-count')).toHaveText('2 RL bot controllers loaded');
+  await steps.step('bots-recovered', {
+    description: 'Reloading the host reconstructs both bot controllers without changing the game',
+    verifications: [
+      { spec: 'Both independently authenticated bot controllers are restored', check: async () => expect(page.getByTestId('bot-controller-count')).toHaveText('2 RL bot controllers loaded') },
+      { spec: 'The host returns to the same playable turn with the same twelve-card hand', check: async () => {
+        await expect(page.getByRole('alert')).toContainText('Your turn');
+        await expect(page.getByRole('region', { name: 'Your hand' }).locator('.playing-card')).toHaveCount(12);
+      } },
+      { spec: 'Both bot seats remain present after replay', check: async () => {
+        await expect(page.getByLabel("RL Bot 1's hand")).toBeVisible();
+        await expect(page.getByLabel("RL Bot 2's hand")).toBeVisible();
+      } }
+    ]
+  });
+
   await hand.locator('.playing-card.playable').first().click();
   await expect(page.getByRole('alert')).toContainText('Trick 2');
   await steps.step('first-trick-complete', {
-    description: 'The bots finish the first trick and advance to the next human decision',
+    description: 'The recovered bots finish the first trick and advance to the next human decision',
     verifications: [
       { spec: 'The table advances to trick two without another human driving the bot seats', check: async () => expect(page.getByRole('alert')).toContainText('Trick 2') },
       { spec: 'The human played exactly one card in the completed trick', check: async () => expect(hand.locator('.playing-card')).toHaveCount(11) },

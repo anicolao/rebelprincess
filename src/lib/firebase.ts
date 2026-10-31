@@ -2,7 +2,7 @@ import { deleteApp, getApp, getApps, initializeApp, type FirebaseApp } from 'fir
 import {
   connectAuthEmulator,
   getAuth,
-  inMemoryPersistence,
+  indexedDBLocalPersistence,
   initializeAuth,
   onAuthStateChanged,
   signInWithCustomToken,
@@ -109,7 +109,7 @@ export interface IsolatedFirebaseClient {
 
 export async function createIsolatedFirebaseClient(appName: string, emulatorUid?: string): Promise<IsolatedFirebaseClient> {
   const app = initializeApp(readFirebaseConfig(import.meta.env), appName);
-  const auth = initializeAuth(app, { persistence: inMemoryPersistence });
+  const auth = initializeAuth(app, { persistence: indexedDBLocalPersistence });
   const database = getFirestore(app);
   if (import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true') {
     connectAuthEmulator(
@@ -123,9 +123,17 @@ export async function createIsolatedFirebaseClient(appName: string, emulatorUid?
       Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT ?? '8185')
     );
   }
-  const user = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' && emulatorUid
-    ? (await signInWithCustomToken(auth, emulatorCustomToken(emulatorUid))).user
-    : (await signInAnonymously(auth)).user;
+  const restored = await new Promise<User | null>((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+  const user = restored && (!emulatorUid || restored.uid === emulatorUid)
+    ? restored
+    : import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true' && emulatorUid
+      ? (await signInWithCustomToken(auth, emulatorCustomToken(emulatorUid))).user
+      : (await signInAnonymously(auth)).user;
   return {
     app,
     auth,
