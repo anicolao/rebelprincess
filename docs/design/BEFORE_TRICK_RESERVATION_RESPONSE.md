@@ -11,12 +11,13 @@
 Use advance hand-raising to decide whether the next trick needs a before-a-trick (BAT) priority window:
 
 1. During a trick, a player with an unused BAT power may secretly raise or lower their hand for the next trick at any time. During the opening pass, they may do the same for the first trick.
-2. If no hand is raised when the signaling phase ends, the next trick starts normally with no extra interaction.
+2. If no hand is raised when the signaling phase ends, the next trick becomes playable normally. The leader may still invoke their own unused BAT power before playing; a non-leader cannot demand a decision after missing the signal window.
 3. If at least one hand is raised, card play is blocked before the next trick and BAT priority starts with the leading player, then proceeds in play order among players with unused BAT powers.
-4. On priority, a player either activates their Princess or declines. An activated power resolves completely before priority advances.
-5. Every activation resets the decline sequence. Players who declined earlier but have not activated get another opportunity after priority goes around again.
-6. The window closes only when every player who still has an unused BAT power has declined consecutively since the most recent activation.
-7. Signals are consumed and all hands are lowered when their target window begins.
+4. If an unsignaled leader invokes their BAT power, that invocation opens the same rolling-priority window, starting with the leader, so every other eligible BAT owner may respond.
+5. On priority, a player either activates their Princess or declines. An activated power resolves completely before priority advances.
+6. Every activation resets the decline sequence. Players who declined earlier but have not activated get another opportunity after priority goes around again.
+7. The window closes only when every player who still has an unused BAT power has declined consecutively since the most recent activation.
+8. Signals are consumed and all hands are lowered when their target window begins.
 
 This is a rolling-priority protocol rather than the earlier simultaneous reservation queue. It removes the lead-versus-reservation race, uses table order instead of network arrival to break ties, and permits a player to respond even if they declined before another power was activated.
 
@@ -281,7 +282,7 @@ There is no timeout, auto-pass, or host override in this design. A disconnected 
 - Signals affect only their exact game, round, and target trick.
 - Raising or lowering never exhausts a Princess.
 - A signal’s latest canonical event wins until the boundary.
-- No priority window opens unless at least one eligible hand is raised at the boundary.
+- A priority window opens either when at least one eligible hand is raised at the boundary or when the unsignaled leader invokes their own eligible BAT power before leading.
 - A priority window exists only before an empty, incomplete trick.
 - Card play cannot change projection while a priority window exists.
 - Priority order is captured once and does not change when the eventual leader changes.
@@ -303,6 +304,8 @@ There is no timeout, auto-pass, or host override in this design. A disconnected 
 - A hand raised during the penultimate trick opens priority before the last trick.
 - No signal control or accepted signal exists during the final trick.
 - No raised hands permit the next lead without extra decisions.
+- With no raised hands, the leader can invoke their own BAT power and open rolling priority before leading.
+- With no raised hands, a non-leader cannot open priority after the signaling boundary.
 - Priority begins with the captured leader and skips ineligible seats.
 - One uninterrupted circuit of declines closes the window.
 - An activation resolves immediately, exhausts its actor, and resets prior declines.

@@ -5,7 +5,7 @@ export type PrincessGame = { host: Page; jo: Page; sam: Page; players: Page[]; c
 
 const BEFORE_TRICK_PRINCESSES = new Set(['Cinderella', 'Pocahontas', 'The Pea Princess', 'The Little Mermaid', 'Sleeping Beauty', 'Scheherazade', 'The Ice Princess', 'Rapunzel']);
 
-export async function setupPrincessGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, princess: string, seedPrefix = 'power', roundIds = 'once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs'): Promise<PrincessGame> {
+export async function setupPrincessGame(browser: Browser, host: Page, testInfo: TestInfo, gameId: string, princess: string, seedPrefix = 'power', roundIds = 'once-upon-a-time,magic-beans,masquerade-ball,royal-decree,musical-chairs', signalBeforeFirstTrick = true): Promise<PrincessGame> {
   const options = { viewport: host.viewportSize() ?? undefined, reducedMotion: 'reduce' as const, serviceWorkers: 'block' as const, deviceScaleFactor: 1 };
   const contexts = [await browser.newContext(options), await browser.newContext(options)];
   const jo = await contexts[0].newPage(); const sam = await contexts[1].newPage();
@@ -51,7 +51,7 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
   await clickAndConfirm(shuffleBtn, async () => {
     await expect(shuffleBtn).toHaveCount(0);
   });
-  if (BEFORE_TRICK_PRINCESSES.has(princess)) {
+  if (BEFORE_TRICK_PRINCESSES.has(princess) && signalBeforeFirstTrick) {
     const signal = host.getByRole('button', { name: `Raise hand for ${princess} on the next trick` });
     await clickAndConfirm(signal, async () => {
       await expect(host.getByText('Hand raised for trick 1')).toBeVisible();
@@ -74,7 +74,7 @@ export async function setupPrincessGame(browser: Browser, host: Page, testInfo: 
       await expect(submit).toHaveCount(0);
     });
   }
-  if (BEFORE_TRICK_PRINCESSES.has(princess)) {
+  if (BEFORE_TRICK_PRINCESSES.has(princess) && signalBeforeFirstTrick) {
     await expect(host.getByRole('alert')).toContainText('Your before-trick decision');
     for (const page of [jo, sam]) await expect(page.getByRole('alert')).toContainText("Alex's before-trick decision");
   } else {

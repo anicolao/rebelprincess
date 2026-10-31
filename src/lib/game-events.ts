@@ -158,7 +158,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   if (event.type === 'card/played') return !!payload.card && typeof payload.card === 'object';
   if (event.type === 'power/hand-raised' || event.type === 'power/hand-lowered') return Number.isInteger(payload.targetTrickIndex) && Number(payload.targetTrickIndex) >= 0;
   if (event.type === 'power/priority-declined') return typeof payload.windowId === 'string';
-  if (event.type === 'power/activation-started') return typeof payload.windowId === 'string' && typeof payload.powerId === 'string';
+  if (event.type === 'power/activation-started') return (payload.windowId === undefined || typeof payload.windowId === 'string') && typeof payload.powerId === 'string';
   if (event.type === 'power/activated') return typeof payload.powerId === 'string';
   if (event.type === 'power/contributed') return payload.powerId === 'sleeping-beauty' && !!payload.card;
   if (event.type === 'power/declined') return payload.powerId === 'mulan' || payload.powerId === 'scheherazade';
@@ -372,6 +372,16 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       if (!beforeTrickWindow) return;
       turnUid = '';
     };
+    const openLeaderBeforeTrickWindow = (actorUid: string, powerId: string) => {
+      if (!batPriorityEnabled || !roundTrick || beforeTrickWindow || pendingPower || awaitingRoundAction || pendingMulanUid || !completePass || roundTrick.plays.length || roundTrick.leaderUid !== actorUid || turnUid !== actorUid) return false;
+      const player = playerList.find((candidate) => candidate.uid === actorUid);
+      const eligibleUids = eligibleBeforeTrickUids();
+      if (!player || player.princessId !== powerId || !eligibleUids.includes(actorUid)) return false;
+      beforeTrickWindow = createBeforeTrickWindow(`${roundNumber}:${trickCount}:${roundTrick.leaderUid}`, playerUids, roundTrick.leaderUid, eligibleUids);
+      if (!beforeTrickWindow || beforeTrickWindow.priorityUid !== actorUid) return false;
+      turnUid = '';
+      return true;
+    };
     const finishBeforeTrickPower = (actorUid: string, powerId: string) => {
       exhausted.add(actorUid);
       powersThisTrick.push(powerId);
@@ -399,7 +409,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       }
       if (event.type === 'power/activation-started') {
         const powerId = event.payload.powerId;
-        if (!powerId || !beforeTrickWindow || pendingPower || event.payload.windowId !== beforeTrickWindow.id || event.actorUid !== beforeTrickWindow.priorityUid || !player || player.princessId !== powerId || !['pocahontas', 'little-mermaid', 'sleeping-beauty', 'scheherazade', 'ice-princess'].includes(powerId)) continue;
+        if (!powerId || (!beforeTrickWindow && (event.payload.windowId !== undefined || !openLeaderBeforeTrickWindow(event.actorUid, powerId))) || !beforeTrickWindow || pendingPower || (event.payload.windowId !== undefined && event.payload.windowId !== beforeTrickWindow.id) || event.actorUid !== beforeTrickWindow.priorityUid || !player || player.princessId !== powerId || !['pocahontas', 'little-mermaid', 'sleeping-beauty', 'scheherazade', 'ice-princess'].includes(powerId)) continue;
         pendingPower = { powerId, actorUid: player.uid, cards: [] };
         continue;
       }
@@ -581,7 +591,8 @@ export function deriveGame(events: GameEvent[]): GameProjection {
           thumbelinaPlays.set(player.uid, cardLabel(event.payload.card));
         } else {
           if (batPriorityEnabled && isBeforeTrickPower(powerId)) {
-            if (!beforeTrickWindow || event.payload.windowId !== beforeTrickWindow.id || beforeTrickWindow.priorityUid !== player.uid) continue;
+            if (!beforeTrickWindow && (event.payload.windowId !== undefined || !openLeaderBeforeTrickWindow(event.actorUid, powerId))) continue;
+            if (!beforeTrickWindow || (event.payload.windowId !== undefined && event.payload.windowId !== beforeTrickWindow.id) || beforeTrickWindow.priorityUid !== player.uid) continue;
             if (powerId === 'cinderella') roundTrick.reversed = true;
             else if (powerId === 'rapunzel') { roundTrick.requiredSuit = 'princes'; roundTrick.forcePrinceLead = true; }
             else if (powerId === 'pea-princess') peaActive = true;
