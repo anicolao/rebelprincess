@@ -35,13 +35,38 @@ export default defineConfig({
     }
   },
   snapshotPathTemplate: '{testDir}/{testFileDir}/screenshots/{arg}{ext}',
+  // Repeated display names preserve the viewport-based game IDs and snapshot
+  // filenames. Playwright assigns each entry a unique internal project ID, so
+  // every bounded group receives a fresh browser worker.
   projects: [
     {
       name: 'phone',
+      testMatch: /(?:00[1-9]|01[0-8])-.*\.spec\.ts/,
+      use: { browserName: 'chromium', viewport: { width: 393, height: 852 } }
+    },
+    {
+      name: 'phone',
+      testMatch: /(?:019|02\d|03[0-7])-.*\.spec\.ts/,
+      use: { browserName: 'chromium', viewport: { width: 393, height: 852 } }
+    },
+    {
+      name: 'phone',
+      testMatch: /(?:03[8-9]|04\d|05[0-4])-.*\.spec\.ts/,
       use: { browserName: 'chromium', viewport: { width: 393, height: 852 } }
     },
     {
       name: 'desktop',
+      testMatch: /(?:00[1-9]|01[0-8])-.*\.spec\.ts/,
+      use: { browserName: 'chromium', viewport: { width: 1280, height: 1000 } }
+    },
+    {
+      name: 'desktop',
+      testMatch: /(?:019|02\d|03[0-7])-.*\.spec\.ts/,
+      use: { browserName: 'chromium', viewport: { width: 1280, height: 1000 } }
+    },
+    {
+      name: 'desktop',
+      testMatch: /(?:03[8-9]|04\d|05[0-4])-.*\.spec\.ts/,
       use: { browserName: 'chromium', viewport: { width: 1280, height: 1000 } }
     }
   ],
