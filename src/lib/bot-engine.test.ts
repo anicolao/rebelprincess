@@ -12,7 +12,7 @@ import {
 import { BOT_ACTION_VERSION, BOT_ENGINE_VERSION, BOT_OBSERVATION_VERSION } from './bot-types';
 import { deriveGame, type GameEvent, type GameEventPayload, type GameEventType } from './game-events';
 import { roundLegalCards } from './round-rules';
-import { cardLabel, dealForPlayers, ROUND_RULES, type Card } from './setup';
+import { cardLabel, dealForPlayers, ROUND_RULES, SUITS, type Card } from './setup';
 
 function fixture(roundId = 'once-upon-a-time') {
   const uids = ['a', 'b', 'c'];
@@ -120,6 +120,23 @@ describe('bot engine contracts', () => {
     masqueradeTwo.trick!.plays[1].card = card('fairies', 11);
     expect(buildBotObservation(masqueradeOne, 'a')).toEqual(buildBotObservation(masqueradeTwo, 'a'));
     expect(buildBotObservation(masqueradeOne, 'b')).not.toEqual(buildBotObservation(masqueradeTwo, 'b'));
+  });
+
+  it('does not inspect the leader hand when Little Mermaid chooses a suit', () => {
+    const setup = fixture();
+    const projection = deriveGame(setup.events);
+    projection.players[0].princessId = 'little-mermaid';
+    projection.passComplete = true;
+    projection.pendingPower = { powerId: 'little-mermaid', actorUid: 'a', cards: [] };
+    projection.trick = { leaderUid: 'b', plays: [] };
+    const changedHiddenHand = structuredClone(projection);
+    changedHiddenHand.hands!.b = [card('pets', 8)];
+
+    const choices = (game: typeof projection) => legalBotActions(game, 'a').map((action) =>
+      action.type === 'activate-power' ? action.suit : undefined
+    );
+    expect(choices(projection)).toEqual([...SUITS]);
+    expect(choices(changedHiddenHand)).toEqual([...SUITS]);
   });
 
   it('copies observation data so a policy cannot mutate the authoritative projection', () => {

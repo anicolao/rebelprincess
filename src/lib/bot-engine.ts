@@ -18,7 +18,7 @@ import {
   type GameEventType,
   type GameProjection
 } from './game-events';
-import { cardLabel, dealForPlayers, type Card } from './setup';
+import { cardLabel, dealForPlayers, SUITS, type Card } from './setup';
 import { choiceCommitment, crystalClearChoiceScope } from './choice-commitment';
 
 function copyCard(card: Card): Card {
@@ -233,8 +233,7 @@ export function legalBotActions(game: GameProjection, seatUid: string): BotActio
       return game.players.map((candidate) => powerAction({ targetUid: candidate.uid }));
     }
     if (pending.powerId === 'little-mermaid') {
-      const leaderHand = game.hands?.[game.trick?.leaderUid ?? ''] ?? [];
-      return [...new Set(leaderHand.map((card) => card.suit))].map((suit) => powerAction({ suit }));
+      return SUITS.map((suit) => powerAction({ suit }));
     }
     if (pending.powerId === 'ice-princess' && !pending.targetUid) {
       return game.players.map((candidate) => powerAction({ targetUid: candidate.uid }));
@@ -291,7 +290,7 @@ export function legalBotActions(game: GameProjection, seatUid: string): BotActio
   if (game.beforeTrickWindow) return [];
   const signal = signalAction();
   if (game.currentTurnUid !== seatUid || !game.trick) return signal ? [signal] : [];
-  const leaderPower = game.trick.plays.length === 0 && game.trick.leaderUid === seatUid ? beforeTrickPowerAction() : null;
+  const leaderPower = hand.length > 0 && game.trick.plays.length === 0 && game.trick.leaderUid === seatUid ? beforeTrickPowerAction() : null;
   const forced = game.forcedCards[seatUid];
   const cards = forced
     ? hand.filter((card) => cardLabel(card) === cardLabel(forced))
@@ -559,7 +558,18 @@ export async function runHeadlessFiveRoundGame(options: {
         return { uid, actingPolicy, observation, actions: policyBotActions(actingPolicy, observation, legalBotActions(before, uid)) };
       })
       .find(({ actions }) => actions.length > 0);
-    if (!candidate) throw new Error(`No acting seat in ${botPhase(before)} phase`);
+    if (!candidate) throw new Error(`No acting seat in ${botPhase(before)} phase: ${JSON.stringify({
+      currentTurnUid: before.currentTurnUid,
+      activeRoundId: before.roundIds[before.roundIndex],
+      trick: before.trick,
+      handSizes: Object.fromEntries(Object.entries(before.hands ?? {}).map(([uid, cards]) => [uid, cards.length])),
+      currentHand: before.currentTurnUid ? before.hands?.[before.currentTurnUid] : null,
+      forcedCards: before.forcedCards,
+      pendingMulanUid: before.pendingMulanUid,
+      pendingPower: before.pendingPower,
+      awaitingRoundAction: before.awaitingRoundAction,
+      beforeTrickWindow: before.beforeTrickWindow
+    })}`);
     const decision = await candidate.actingPolicy.choose(candidate.observation, candidate.actions, random);
     if (!Number.isInteger(decision.actionIndex) || !candidate.actions[decision.actionIndex]) throw new Error(`Policy ${candidate.actingPolicy.id} returned an invalid action index`);
     const action = candidate.actions[decision.actionIndex];
@@ -569,12 +579,24 @@ export async function runHeadlessFiveRoundGame(options: {
       append('round/suit-committed', candidate.uid, {
         commitment: choiceCommitment(crystalClearChoiceScope(before.gameId, before.gameNumber, before.roundIndex, candidate.uid), action.suit, nonce)
       });
+    } else if (action.type === 'activate-power' && action.powerId === 'snow-white' && action.card) {
+      const activation = botActionToEvent(action);
+      append(activation.type, candidate.uid, activation.payload);
+      append('card/played', candidate.uid, { card: action.card });
     } else {
       const intent = botActionToEvent(action);
       append(intent.type, candidate.uid, intent.payload);
     }
     const after = deriveGame(events);
-    if (JSON.stringify(before) === JSON.stringify(after)) throw new Error(`Reducer rejected ${action.type} from ${candidate.uid}`);
+    if (JSON.stringify(before) === JSON.stringify(after)) throw new Error(`Reducer rejected ${action.type} from ${candidate.uid}: ${JSON.stringify({
+      action,
+      phase: botPhase(before),
+      activeRoundId: before.roundIds[before.roundIndex],
+      princessId: before.players.find((player) => player.uid === candidate.uid)?.princessId,
+      pendingPower: before.pendingPower,
+      beforeTrickWindow: before.beforeTrickWindow,
+      trick: before.trick
+    })}`);
     decisionCount += 1;
   }
   throw new Error(`Headless game exceeded ${maxDecisions} decisions`);
