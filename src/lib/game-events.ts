@@ -391,7 +391,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       .filter((candidate) => !lateCardsReleased || (candidate.princessId !== 'sleeping-beauty' && candidate.princessId !== 'scheherazade'))
       .map((candidate) => candidate.uid);
     const ensureBeforeTrickWindow = () => {
-      if (!batPriorityEnabled || !roundHands || !roundTrick || !completePass || roundTrick.plays.length || awaitingRoundAction || pendingMulanUid || pendingPower || beforeTrickWindow) return;
+      if (!batPriorityEnabled || !roundHands || !roundTrick || !completePass || !playerList.some((player) => roundHands?.[player.uid].length) || roundTrick.plays.length || awaitingRoundAction || pendingMulanUid || pendingPower || beforeTrickWindow) return;
       const eligibleUids = eligibleBeforeTrickUids();
       const signalRaised = eligibleUids.some((uid) => batSignals[uid]?.targetTrickIndex === trickCount && batSignals[uid].raised);
       batWindowsEvaluated.add(trickCount);
@@ -404,7 +404,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       turnUid = '';
     };
     const openLeaderBeforeTrickWindow = (actorUid: string, powerId: string) => {
-      if (!batPriorityEnabled || !roundTrick || beforeTrickWindow || pendingPower || awaitingRoundAction || pendingMulanUid || !completePass || roundTrick.plays.length || roundTrick.leaderUid !== actorUid || turnUid !== actorUid) return false;
+      if (!batPriorityEnabled || !roundHands || !playerList.some((player) => roundHands?.[player.uid].length) || !roundTrick || beforeTrickWindow || pendingPower || awaitingRoundAction || pendingMulanUid || !completePass || roundTrick.plays.length || roundTrick.leaderUid !== actorUid || turnUid !== actorUid) return false;
       const player = playerList.find((candidate) => candidate.uid === actorUid);
       const eligibleUids = eligibleBeforeTrickUids();
       if (!player || player.princessId !== powerId || !eligibleUids.includes(actorUid)) return false;
@@ -421,7 +421,13 @@ export function deriveGame(events: GameEvent[]): GameProjection {
       beforeTrickWindow = completeBeforeTrickPower(beforeTrickWindow, playerUids, actorUid);
       turnUid = beforeTrickWindow ? '' : roundTrick?.leaderUid ?? '';
     };
+    const removeStaleForcedCards = () => {
+      for (const [uid, forced] of Object.entries(forcedCards)) {
+        if (!roundHands?.[uid]?.some((card) => cardLabel(card) === cardLabel(forced))) delete forcedCards[uid];
+      }
+    };
     if (roundHands && roundTrick) for (const event of segment.filter((entry) => ['card/played', 'power/hand-raised', 'power/hand-lowered', 'power/priority-declined', 'power/activation-started', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-committed', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted', 'round/haggle-swapped', 'round/haggle-declined'].includes(entry.type))) {
+      removeStaleForcedCards();
       const player = playerList.find((candidate) => candidate.uid === event.actorUid);
       if (event.type === 'power/hand-raised' || event.type === 'power/hand-lowered') {
         const targetTrickIndex = event.payload.targetTrickIndex;
@@ -678,6 +684,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
         } else resolveTrick();
       } else turnUid = playerList[(playerList.findIndex((player) => player.uid === event.actorUid) + 1) % playerList.length].uid;
     }
+    removeStaleForcedCards();
     ensureBeforeTrickWindow();
     const batSignalTargetTrick = batPriorityEnabled
       ? (!completePass ? 0 : signalTargetTrick())

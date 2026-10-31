@@ -103,11 +103,11 @@ describe('modular heuristic bot', () => {
   it('maps stable product difficulties to distinct policies and preserves the legacy default', () => {
     expect(createBotPolicy('easy').id).toBe('heuristic-easy-v1');
     expect(createBotPolicy('standard').id).toBe('heuristic-standard-v1');
-    expect(createBotPolicy('learned').id).toBe('basic-rl-2000');
+    expect(createBotPolicy('learned').id).toBe('learned-outcome-v2');
     expect(normalizeBotDifficulty(undefined)).toBe('learned');
   });
 
-  it('keeps untrained Learned bots conservative about optional before-trick powers', () => {
+  it('lets the Learned bot evaluate optional before-trick powers', () => {
     const observation = buildBotObservation(openingGame(), 'a');
     observation.beforeTrickWindow = {
       id: 'window', startingLeaderUid: 'a', eligibleUids: ['a'], priorityUid: 'a', actedUids: [], declinedSinceActivation: []
@@ -116,7 +116,7 @@ describe('modular heuristic bot', () => {
       { type: 'begin-before-trick-power', powerId: 'sleeping-beauty', windowId: 'window' } as const,
       { type: 'decline-before-trick-priority', windowId: 'window' } as const
     ];
-    expect(policyBotActions(createBotPolicy('learned'), observation, actions)).toEqual([actions[1]]);
+    expect(policyBotActions(createBotPolicy('learned'), observation, actions)).toEqual(actions);
     expect(policyBotActions(createBotPolicy('standard'), observation, actions)).toEqual(actions);
   });
 });

@@ -9,10 +9,27 @@ const trainedModel = modelData as BasicRlModel;
 describe('basic reinforcement-learning policy', () => {
   it('loads a versioned, genuinely trained model with one weight per feature', () => {
     expect(trainedModel.format).toBe(BASIC_RL_MODEL_FORMAT);
-    expect(trainedModel.trainedEpisodes).toBe(2_000);
+    expect(trainedModel.id).toBe('learned-outcome-v2');
+    expect(trainedModel.trainingMethod).toBe('targeted-full-game-outcome-search-v1');
+    expect(trainedModel.trainingGames).toBe(2_420);
     expect(trainedModel.featureNames).toEqual([...RL_FEATURE_NAMES]);
     expect(trainedModel.weights).toHaveLength(RL_FEATURE_NAMES.length);
     expect(trainedModel.weights.some((weight) => Math.abs(weight) > 0.01)).toBe(true);
+  });
+
+  it('keeps the trained residual sparse and auditable on top of Standard', () => {
+    const nonZero = Object.fromEntries(trainedModel.featureNames.flatMap((name, index) =>
+      trainedModel.weights[index] === 0 ? [] : [[name, trainedModel.weights[index]]]
+    ));
+    expect(nonZero).toEqual({
+      'heuristic-score': 1,
+      'creates-void': 0.5,
+      'leaves-singleton': -0.5,
+      'haggle:offered-danger': -2,
+      'haggle:taken-danger': 2,
+      'mulan:recipient-danger': 1,
+      'princess:pocahontas:target-self': -0.1
+    });
   });
 
   it('scores only the supplied legal actions and is deterministic in evaluation mode', async () => {

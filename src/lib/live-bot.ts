@@ -251,6 +251,10 @@ export class LiveBotController {
           await this.append('round/suit-committed', {
             commitment: choiceCommitment(crystalClearChoiceScope(game.gameId, game.gameNumber, game.roundIndex, uid), action.suit, nonce)
           });
+        } else if (action.type === 'activate-power' && action.powerId === 'snow-white' && action.card) {
+          const intent = botActionToEvent(action);
+          await this.append(intent.type, intent.payload);
+          await this.append('card/played', { card: action.card });
         } else {
           const intent = botActionToEvent(action);
           await this.append(intent.type, intent.payload);
