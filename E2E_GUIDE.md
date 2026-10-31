@@ -156,10 +156,11 @@ the deterministic font/rendering flags established by the sibling projects.
 Commit the configuration with both `threshold: 0` and `maxDiffPixels: 0`—not
 merely a zero ratio.
 
-Partition each viewport into bounded sequential projects so every project gets
-a fresh browser renderer without restarting the application server. A project
-boundary is not a retry: every test runs exactly once, and the first screenshot
-mismatch still fails the command.
+Run each tracer bullet as a separate sequential project so it gets a fresh
+browser renderer without restarting the application server. This prevents font
+and image caches from leaking between unrelated games. A project boundary is
+not a retry: every test runs exactly once, and the first screenshot mismatch
+still fails the command.
 
 ## Scenario layout
 

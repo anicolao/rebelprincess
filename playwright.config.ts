@@ -1,5 +1,17 @@
 import { defineConfig } from '@playwright/test';
 
+const scenarioIds = Array.from({ length: 54 }, (_, index) =>
+  String(index + 1).padStart(3, '0')
+);
+
+function scenarioProjects(name: 'phone' | 'desktop', viewport: { width: number; height: number }) {
+  return scenarioIds.map((id) => ({
+    name,
+    testMatch: new RegExp(`${id}-.*\\.spec\\.ts`),
+    use: { browserName: 'chromium' as const, viewport }
+  }));
+}
+
 export default defineConfig({
   testDir: './tests/e2e',
   globalSetup: './tests/e2e/global-setup.ts',
@@ -35,40 +47,12 @@ export default defineConfig({
     }
   },
   snapshotPathTemplate: '{testDir}/{testFileDir}/screenshots/{arg}{ext}',
-  // Repeated display names preserve the viewport-based game IDs and snapshot
-  // filenames. Playwright assigns each entry a unique internal project ID, so
-  // every bounded group receives a fresh browser worker.
+  // Repeated display names preserve viewport-based game IDs and snapshot names.
+  // Each tracer bullet is its own project so Playwright starts it with a fresh
+  // renderer instead of carrying glyph/image caches across unrelated games.
   projects: [
-    {
-      name: 'phone',
-      testMatch: /(?:00[1-9]|01[0-8])-.*\.spec\.ts/,
-      use: { browserName: 'chromium', viewport: { width: 393, height: 852 } }
-    },
-    {
-      name: 'phone',
-      testMatch: /(?:019|02\d|03[0-7])-.*\.spec\.ts/,
-      use: { browserName: 'chromium', viewport: { width: 393, height: 852 } }
-    },
-    {
-      name: 'phone',
-      testMatch: /(?:03[8-9]|04\d|05[0-4])-.*\.spec\.ts/,
-      use: { browserName: 'chromium', viewport: { width: 393, height: 852 } }
-    },
-    {
-      name: 'desktop',
-      testMatch: /(?:00[1-9]|01[0-8])-.*\.spec\.ts/,
-      use: { browserName: 'chromium', viewport: { width: 1280, height: 1000 } }
-    },
-    {
-      name: 'desktop',
-      testMatch: /(?:019|02\d|03[0-7])-.*\.spec\.ts/,
-      use: { browserName: 'chromium', viewport: { width: 1280, height: 1000 } }
-    },
-    {
-      name: 'desktop',
-      testMatch: /(?:03[8-9]|04\d|05[0-4])-.*\.spec\.ts/,
-      use: { browserName: 'chromium', viewport: { width: 1280, height: 1000 } }
-    }
+    ...scenarioProjects('phone', { width: 393, height: 852 }),
+    ...scenarioProjects('desktop', { width: 1280, height: 1000 })
   ],
   webServer: {
     command: 'bun run dev:e2e',
