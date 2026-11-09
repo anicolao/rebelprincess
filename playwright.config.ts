@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 
-const scenarioIds = Array.from({ length: 54 }, (_, index) =>
+const scenarioIds = Array.from({ length: 55 }, (_, index) =>
   String(index + 1).padStart(3, '0')
 );
 

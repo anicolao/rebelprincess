@@ -19,7 +19,7 @@
 <main data-e2e-layout>
   <header class="masthead">
     <a class="wordmark" href={`${base}/`} aria-label="Rebel Princess home"><span>Rebel</span><strong>Princess</strong></a>
-    <a class="back-link" href={`${base}/`}>Back to game</a>
+    <nav aria-label="Review navigation"><a class="back-link" href={`${base}/zombie/assets/`}>Zombie study</a><a class="back-link" href={`${base}/`}>Back to game</a></nav>
   </header>
 
   <section class="intro" aria-labelledby="asset-title">
@@ -88,6 +88,7 @@
   :global(button), :global(a) { font: inherit; }
   main { width: min(1480px, calc(100% - clamp(28px, 5vw, 80px))); min-height: 100vh; margin: 0 auto; padding-bottom: 64px; }
   .masthead { min-height: 88px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 239, 199, .22); }
+  .masthead nav { display: flex; gap: 8px; }
   .wordmark { display: flex; align-items: baseline; gap: 7px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 23px; text-decoration: none; }
   .wordmark strong { color: #ffc75f; font-size: 32px; }
   .back-link { padding: 8px 12px; border: 1px solid rgba(255, 226, 163, .35); border-radius: 999px; color: #fff4d0; text-decoration: none; }
