@@ -5,7 +5,7 @@
   import '@fontsource/cormorant-garamond/latin-700.css';
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
-  import { replaceState } from '$app/navigation';
+  import { goto, replaceState } from '$app/navigation';
   import SpriteCard from '$lib/components/SpriteCard.svelte';
   import { cardSpriteProps, princessSpriteProps, roundSpriteProps, roundTargetAspect } from '$lib/asset-sprites';
   import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
@@ -15,6 +15,7 @@
     loadGame,
     normalizeGameId,
     subscribeToGame,
+    type GameVariant,
     type GameProjection
   } from '$lib/game-events';
   import { cardLabel, dealForPlayers, PRINCESSES, roundPowersForGame, ROUND_RULES, ROUND_RULE_TEXT, SUITS, type Card } from '$lib/setup';
@@ -32,6 +33,7 @@
   let connectionLabel = 'Checking Firebase…';
   let displayName = '';
   let inviteCode = '';
+  let selectedVariant: GameVariant = 'rebel';
   let activeGameId = '';
   let game: GameProjection | null = null;
   let actionError = '';
@@ -130,6 +132,10 @@
     parameters.delete('gameId');
     replaceState(`?${parameters.toString()}`, {});
     unsubscribe = subscribeToGame(firebaseDatabase(), gameId, (next) => {
+      if (next.variant === 'zombie') {
+        void goto(`${base}/zombie/?game=${encodeURIComponent(gameId)}`);
+        return;
+      }
       if (next.roundIndex !== observedRoundIndex || next.gameNumber !== observedGameNumber) {
         selectedPassCards = [];
         openPrincessPower = '';
@@ -285,13 +291,16 @@
     try {
       const user = await ensureAnonymousIdentity(new URL(location.href).searchParams.get('e2eUid') ?? undefined);
       currentUid = user.uid;
+      let variant: GameVariant = selectedVariant;
       if (type === 'player/joined') {
         const existing = await loadGame(firebaseDatabase(), gameId);
         if (existing.players.length === 0) throw new Error('Game not found');
         if (existing.players.length >= 6 && !existing.players.some((player) => player.uid === user.uid)) throw new Error('Game is full');
+        variant = existing.variant ?? 'rebel';
       }
-      await appendGameEvent(firebaseDatabase(), gameId, user.uid, type, { displayName: name });
-      watchGame(gameId);
+      await appendGameEvent(firebaseDatabase(), gameId, user.uid, type, { displayName: name, ...(type === 'game/created' ? { variant } : {}) });
+      if (variant === 'zombie') await goto(`${base}/zombie/?game=${encodeURIComponent(gameId)}`);
+      else watchGame(gameId);
     } catch {
       connection = 'error';
       connectionLabel = 'Could not update the room';
@@ -1205,6 +1214,17 @@
         <form class="room-form" on:submit|preventDefault={createGame}>
           <label for="display-name">Your name</label>
           <input id="display-name" bind:value={displayName} maxlength="30" autocomplete="nickname" placeholder="Princess name" />
+          <fieldset class="variant-choice">
+            <legend>Game</legend>
+            <label class:chosen={selectedVariant === 'rebel'}>
+              <input type="radio" bind:group={selectedVariant} value="rebel" />
+              <strong>Rebel Princess</strong><span>Avoid proposals across five rounds.</span>
+            </label>
+            <label class:chosen={selectedVariant === 'zombie'}>
+              <input type="radio" bind:group={selectedVariant} value="zombie" />
+              <strong>Zombie Princess</strong><span>Bid for tricks and manage skulls across four rounds.</span>
+            </label>
+          </fieldset>
           <div class="actions">
             <button type="submit" disabled={connection !== 'synced'}>Create a game</button>
             <span>or</span>
@@ -1430,6 +1450,13 @@
   .room-form { margin-top: 28px; }
   .room-form > label { display: block; margin-bottom: 7px; color: #e4d8e5; font-size: 13px; }
   .room-form > input { width: min(100%, 330px); }
+  .variant-choice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 650px; margin: 22px 0 0; padding: 0; border: 0; }
+  .variant-choice legend { grid-column: 1 / -1; margin-bottom: 3px; color: #e4d8e5; font-size: 13px; }
+  .variant-choice label { position: relative; display: grid; gap: 3px; padding: 14px 16px; border: 1px solid rgba(255, 226, 163, .24); border-radius: 12px; color: #bdb0c4; background: rgba(13, 8, 20, .38); cursor: pointer; }
+  .variant-choice label.chosen { border-color: #ffc75f; color: #fff5dc; background: rgba(112, 66, 119, .3); box-shadow: inset 0 0 0 1px rgba(255, 199, 95, .35); }
+  .variant-choice input { position: absolute; opacity: 0; pointer-events: none; }
+  .variant-choice strong { font-family: 'Cormorant Garamond', serif; font-size: 21px; }
+  .variant-choice span { font-size: 12px; line-height: 1.35; }
   .actions { flex-wrap: wrap; }
   .actions input { width: 132px; text-transform: uppercase; }
   .actions > span { color: #9f93a5; }
@@ -1778,6 +1805,7 @@
       gap: 12px;
     }
 
+    .variant-choice { grid-template-columns: 1fr; }
     .actions input { width: 118px; }
     .room { max-width: none; padding: 15px; }
     .choice-grid .princess-choice { min-height: 168px; grid-template-columns: 68px minmax(0, 1fr); padding: 9px; column-gap: 9px; }

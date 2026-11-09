@@ -1,6 +1,6 @@
 # Zombie Princess variant rules
 
-Status: research summary for design and art review. No Zombie Princess game logic is implemented yet.
+Status: the first manually playable implementation is available behind the room-level Zombie Princess selection. It supports individual play with the recommended A–D round set, all ten individual-play Princesses, bidding, Prince trump/breaking, the Frog decision, skull purchases, overtricks, four-round scoring, and reconnect through the shared event stream. Team play, Alice, Sleeping Beauty, and round cards E–Z remain follow-up implementation work after the first playtest.
 
 This document follows the current 32-page deluxe rulebook (version 5.3.1) as written. It paraphrases the rules rather than replacing the published rulebook.
 
