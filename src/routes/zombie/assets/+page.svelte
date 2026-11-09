@@ -5,18 +5,18 @@
   import '@fontsource/cormorant-garamond/latin-700.css';
   import { base } from '$app/paths';
   import bidCoin from '../../../../assets/zombie/concepts/bid-coin.png';
-  import frog from '../../../../assets/zombie/concepts/frog.png';
-  import dorothy from '../../../../assets/zombie/concepts/princess-dorothy.png';
-  import goldilocks from '../../../../assets/zombie/concepts/princess-goldilocks.png';
-  import redRidingHood from '../../../../assets/zombie/concepts/princess-red-riding-hood.png';
-  import brainDrain from '../../../../assets/zombie/concepts/round-brain-drain.png';
-  import hourglassComeback from '../../../../assets/zombie/concepts/round-hourglass-comeback.png';
-  import openingNight from '../../../../assets/zombie/concepts/round-opening-night.png';
+  import frog from '../../../../assets/zombie/concepts/frog.jpg';
+  import dorothy from '../../../../assets/zombie/concepts/princess-dorothy.jpg';
+  import goldilocks from '../../../../assets/zombie/concepts/princess-goldilocks.jpg';
+  import redRidingHood from '../../../../assets/zombie/concepts/princess-red-riding-hood.jpg';
+  import brainDrain from '../../../../assets/zombie/concepts/round-brain-drain.jpg';
+  import hourglassComeback from '../../../../assets/zombie/concepts/round-hourglass-comeback.jpg';
+  import openingNight from '../../../../assets/zombie/concepts/round-opening-night.jpg';
   import skullToken from '../../../../assets/zombie/concepts/skull-token.png';
-  import knight from '../../../../assets/zombie/concepts/suit-knight.png';
-  import pet from '../../../../assets/zombie/concepts/suit-pet.png';
-  import prince from '../../../../assets/zombie/concepts/suit-prince.png';
-  import villager from '../../../../assets/zombie/concepts/suit-villager.png';
+  import knight from '../../../../assets/zombie/concepts/suit-knight.jpg';
+  import pet from '../../../../assets/zombie/concepts/suit-pet.jpg';
+  import prince from '../../../../assets/zombie/concepts/suit-prince.jpg';
+  import villager from '../../../../assets/zombie/concepts/suit-villager.jpg';
 
   const suits = [
     { id: 'villager', name: 'Villagers', rank: 11, art: villager, accent: '#d49a42', ink: '#3b220f', alt: 'A friendly zombie village baker in a warm night market' },
