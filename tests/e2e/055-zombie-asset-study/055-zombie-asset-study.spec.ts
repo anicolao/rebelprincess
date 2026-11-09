@@ -24,10 +24,11 @@ test('Zombie Princess study presents the complete art and component system', asy
   await steps.step('complete-asset-set', {
     description: `The complete asset set remains readable in the ${testInfo.project.name} viewport`,
     verifications: [
-      { spec: 'The route identifies all 98 card illustrations', check: async () => expect(page.getByRole('status')).toHaveText(/98 card illustrations60 suited · 12 princess · 26 round/) },
+      { spec: 'The complete Zombie Princess gallery is present', check: async () => expect(page.getByRole('heading', { name: 'Zombie Princess' })).toBeVisible() },
       { spec: 'All 60 suited cards use the shared playing-card frame', check: async () => expect(page.locator('.playing-grid .playing-card')).toHaveCount(60) },
       { spec: 'The Frog is correctly identified as the special Pet 6', check: async () => expect(page.getByLabel('Pets 6, the Frog')).toHaveCount(1) },
       { spec: 'All 12 Princesses and all 26 round cards are present', check: async () => { await expect(page.locator('.princess-grid .princess-card')).toHaveCount(12); await expect(page.locator('.round-grid .round-card')).toHaveCount(26); } },
+      { spec: 'Every Princess portrait is fully contained without cropping', check: async () => expect(await page.locator('.princess-art img').evaluateAll((images) => images.every((image) => getComputedStyle(image).objectFit === 'contain'))).toBe(true) },
       { spec: 'All 26 verified pass instructions match the printed A–Z sequence', check: async () => expect(await page.locator('.round-grid .pass-icon').evaluateAll((icons) => icons.map((icon) => icon.getAttribute('aria-label')))).toEqual(expectedPasses) },
       { spec: 'Bidding, skull economy, and phase-order UI studies are present', check: async () => { await expect(page.getByLabel('Example bidding interface')).toBeVisible(); await expect(page.getByLabel('Example Zombie Princess phase display')).toBeVisible(); } },
       { spec: 'Every asset has loaded at its intrinsic dimensions', check: async () => expect(await page.locator('main img').evaluateAll((images) => images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true) }

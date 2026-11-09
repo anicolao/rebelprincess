@@ -102,22 +102,21 @@
     <a class="wordmark" href={`${base}/`} aria-label="Rebel Princess home"><span>Rebel</span><strong>Princess</strong></a>
     <nav aria-label="Review navigation"><a href={`${base}/assets/`}>Rebel assets</a><a href={`${base}/`}>Back to game</a></nav>
   </header>
+  <span class="sr-only" role="status" data-status="synced">Ready</span>
 
   <section class="hero" aria-labelledby="zombie-title">
     <div class="hero-copy">
-      <p class="eyebrow">Variant art direction · complete review set</p>
       <h1 id="zombie-title"><span>Zombie</span> Princess</h1>
-      <p class="lede">The complete card inventory, grouped by game role. Source illustrations stay free of ranks, rules, and pass marks so the shared component frames remain exact and editable.</p>
-      <div class="status" role="status" data-status="synced"><i aria-hidden="true"></i><strong>98 card illustrations</strong><span>60 suited · 12 princess · 26 round</span></div>
+      <p class="lede">60 suited cards, 12 Princesses, and 26 round cards.</p>
     </div>
-    <figure class="hero-art"><img src={art('playing/princes/11.jpg')} alt="An undead prince in a ruined ballroom" /><figcaption>Bruised plum · moonlit teal · oxidized copper</figcaption></figure>
+    <figure class="hero-art"><img src={art('playing/princes/11.jpg')} alt="An undead prince in a ruined ballroom" /></figure>
   </section>
 
   <section class="gallery-section" aria-labelledby="playing-title">
-    <header class="section-heading"><div><p class="eyebrow">60-card deck</p><h2 id="playing-title">Every suited card</h2></div><p>Four logical families, each numbered 1–15. The frame, rank, and suit emblem are one reusable UI component; only the source illustration changes.</p></header>
+    <header class="section-heading"><h2 id="playing-title">Playing cards</h2></header>
     {#each suits as suit}
       <section class="suit-family" aria-labelledby={`${suit.id}-title`} style={`--accent:${suit.accent};--ink:${suit.ink}`}>
-        <header><span class={`large-suit-icon ${suit.id}`} aria-hidden="true">{suit.id === 'villager' ? '⌂' : suit.id === 'pet' ? '●' : suit.id === 'knight' ? '◆' : '♛'}</span><div><p>Ranks 1–15</p><h3 id={`${suit.id}-title`}>{suit.name}</h3></div></header>
+        <header><span class={`large-suit-icon ${suit.id}`} aria-hidden="true">{suit.id === 'villager' ? '⌂' : suit.id === 'pet' ? '●' : suit.id === 'knight' ? '◆' : '♛'}</span><h3 id={`${suit.id}-title`}>{suit.name}</h3></header>
         <div class="playing-grid">
           {#each suit.cards as card}
             <article class:the-frog={suit.id === 'pet' && card.rank === 6} class="playing-card" aria-label={`${suit.name} ${card.rank}${suit.id === 'pet' && card.rank === 6 ? ', the Frog' : ''}`}>
@@ -129,11 +128,11 @@
         </div>
       </section>
     {/each}
-    <aside class="frog-note"><strong>Pet 6 · The Frog</strong><span>Its captured trick may be counted or ignored at round end.</span><i>Princess → Frog → Round rule</i></aside>
+    <aside class="frog-note"><strong>Pet 6 · The Frog</strong><span>Its captured trick may be counted or ignored at round end.</span></aside>
   </section>
 
   <section class="gallery-section" aria-labelledby="princess-title">
-    <header class="section-heading"><div><p class="eyebrow">12 identities</p><h2 id="princess-title">Every Princess</h2></div><p>Portrait-first, with a thin white edge and live type. Team-only and always-active powers are labeled rather than forced into a generic once-per-round badge.</p></header>
+    <header class="section-heading"><h2 id="princess-title">Princesses</h2></header>
     <div class="princess-grid">
       {#each princesses as princess}
         <article class="princess-card"><div class="princess-art"><img src={princess.art} alt={`${princess.name} character art`} /></div><div class="princess-copy"><p>{princess.name}</p><h3>{princess.power}</h3><span>{princess.text}</span><i>{princess.tag}</i></div></article>
@@ -142,29 +141,27 @@
   </section>
 
   <section class="gallery-section" aria-labelledby="round-title">
-    <header class="section-heading"><div><p class="eyebrow">26 rules · A–Z</p><h2 id="round-title">Every round card</h2></div><p>Every printed pass was checked across the complete official sheet. Curved arrows now match Rebel Princess: arrow before the count means left; arrow after it means right.</p></header>
+    <header class="section-heading"><h2 id="round-title">Round cards</h2></header>
     <div class="round-grid">
       {#each rounds as round}
         <article class:hourglass={round.hourglass} class="round-card" data-round={round.id}>
           <div class="round-art"><img src={round.art} alt={`${round.name} round art`} /><strong>{round.id}</strong>{#if round.hourglass}<span class="hourglass-mark" aria-label="Black hourglass round">⧖</span>{/if}</div>
-          <div class="round-copy"><span>{round.hourglass ? 'Black hourglass' : 'Round rule'}</span><h3>{round.name}</h3><p>{round.text}</p><div class="pass-row"><b>PASS</b><div class="pass-icon" aria-label={passLabel(round.passDirection, round.passCount)}>{#if round.passDirection === 'left'}<span aria-hidden="true">&#8635;</span>{/if}<strong>{round.passCount}</strong>{#if round.passDirection === 'right'}<span aria-hidden="true">&#8634;</span>{/if}</div></div></div>
+          <div class="round-copy"><h3>{round.name}</h3><p>{round.text}</p><div class="pass-row"><div class="pass-icon" aria-label={passLabel(round.passDirection, round.passCount)}>{#if round.passDirection === 'left'}<span aria-hidden="true">&#8635;</span>{/if}<strong>{round.passCount}</strong>{#if round.passDirection === 'right'}<span aria-hidden="true">&#8634;</span>{/if}</div></div></div>
         </article>
       {/each}
     </div>
   </section>
 
   <section class="gallery-section" aria-labelledby="economy-title">
-    <header class="section-heading"><div><p class="eyebrow">Bidding and economy</p><h2 id="economy-title">Table components</h2></div><p>Token art and a compact interaction study complete the current component inventory.</p></header>
+    <header class="section-heading"><h2 id="economy-title">Tokens and bidding</h2></header>
     <div class="economy-grid">
-      <article class="token-study"><img src={bidCoin} alt="Oxidized-copper bidding coin" /><div><p class="eyebrow">Bid coin</p><h3>Predict the tricks</h3><p>Take one coin per expected trick. Team bids combine; zero bids stay personal.</p></div></article>
-      <article class="token-study"><img src={skullToken} alt="Carved bone skull counter" /><div><p class="eyebrow">Skull token</p><h3>Spend or save</h3><p>Buy missing tricks, pay for overtricks, or keep pairs for final points.</p></div></article>
+      <article class="token-study"><img src={bidCoin} alt="Oxidized-copper bidding coin" /><div><h3>Bid coin</h3><p>Take one per expected trick. Team bids combine; zero bids stay personal.</p></div></article>
+      <article class="token-study"><img src={skullToken} alt="Carved bone skull counter" /><div><h3>Skull token</h3><p>Buy missing tricks, pay for overtricks, or keep pairs for final points.</p></div></article>
       <article class="bid-panel" aria-label="Example bidding interface"><div class="bid-head"><span>Your bid</span><strong>3</strong></div><div class="bid-meter"><button type="button" aria-label="Decrease example bid">−</button><div><i></i><i></i><i></i><span></span><span></span></div><button type="button" aria-label="Increase example bid">+</button></div><div class="team-line"><span>You <b>3</b></span><span>Partner <b>2</b></span><strong>Team 5</strong></div><button class="lock-bid" type="button">Lock in 3</button></article>
     </div>
   </section>
 
-  <section class="interface-strip" aria-labelledby="interface-title"><div><p class="eyebrow">Shared table shell</p><h2 id="interface-title">Same room. New rhythm.</h2><p>Passing leads into bidding, then tricks. The active phase, team total, Prince-break state, and deferred Frog choice remain visible.</p></div><div class="phase-demo" aria-label="Example Zombie Princess phase display"><span>Round 2 of 4</span><strong>Bidding</strong><ol><li class="done">Pass</li><li class="active">Bid</li><li>Play</li><li>Score</li></ol><p><b>Princes</b> locked · <b>Frog</b> unresolved</p></div></section>
-
-  <footer><p>Complete art-direction set · 98 independent source illustrations in reusable component frames.</p><a href={`${base}/zombie/assets/`}>Zombie asset review</a></footer>
+  <section class="interface-strip" aria-labelledby="interface-title"><div><h2 id="interface-title">Phase display</h2><p>Passing leads into bidding, then tricks. Prince-break state and an unresolved Frog remain visible.</p></div><div class="phase-demo" aria-label="Example Zombie Princess phase display"><span>Round 2 of 4</span><strong>Bidding</strong><ol><li class="done">Pass</li><li class="active">Bid</li><li>Play</li><li>Score</li></ol><p><b>Princes</b> locked · <b>Frog</b> unresolved</p></div></section>
 </main>
 
 <style>
@@ -180,26 +177,20 @@
   .masthead nav a { padding: 7px 11px; border: 1px solid rgba(222, 202, 149, .28); border-radius: 999px; color: #eee1bd; font-size: 13px; text-decoration: none; }
   a:focus-visible, button:focus-visible { outline: 3px solid #cfe58e; outline-offset: 3px; }
   .hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, .55fr); align-items: center; gap: clamp(30px, 7vw, 110px); min-height: min(760px, 86vh); padding: clamp(54px, 8vw, 108px) 0; }
-  .eyebrow { margin: 0 0 9px; color: #bad56f; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
   h1, h2, h3, p { overflow-wrap: break-word; }
   h1 { margin: 0; color: #f1dfb1; font-family: 'Cormorant Garamond', serif; font-size: clamp(72px, 11vw, 154px); font-weight: 700; line-height: .69; letter-spacing: -.045em; }
   h1 span { display: block; color: #aac85b; font-size: .67em; letter-spacing: .02em; }
-  .lede { max-width: 720px; margin: 37px 0 25px; color: #c0c8bd; font-size: clamp(17px, 1.7vw, 23px); line-height: 1.45; }
-  .status { display: flex; align-items: center; width: max-content; max-width: 100%; padding: 9px 13px; border: 1px solid rgba(186, 213, 111, .3); border-radius: 999px; color: #d7ddcf; background: rgba(9, 21, 20, .72); font-size: 12px; }
-  .status i { width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: #bad56f; box-shadow: 0 0 12px #bad56f; }
-  .status span { margin-left: 8px; color: #84968b; }
+  .lede { max-width: 720px; margin: 37px 0 0; color: #c0c8bd; font-size: clamp(17px, 1.7vw, 23px); line-height: 1.45; }
   .hero-art { position: relative; width: min(100%, 430px); margin: 0 auto; transform: rotate(2.5deg); }
   .hero-art::before { position: absolute; inset: -11px; content: ''; border: 1px solid rgba(214, 175, 98, .68); border-radius: 51% 51% 12px 12px; box-shadow: 0 34px 70px rgba(0, 0, 0, .48), 0 0 0 5px #172324; }
   .hero-art img { position: relative; display: block; width: 100%; aspect-ratio: 3 / 5; object-fit: cover; border-radius: 50% 50% 8px 8px; }
-  .hero-art figcaption { position: relative; margin-top: 23px; color: #8d9a90; font-size: 10px; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
   .gallery-section { margin: 0 0 clamp(76px, 10vw, 140px); }
-  .section-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 520px); align-items: end; gap: 30px; margin-bottom: 33px; padding-top: 30px; border-top: 1px solid rgba(222, 202, 149, .2); }
+  .section-heading { margin-bottom: 33px; padding-top: 30px; border-top: 1px solid rgba(222, 202, 149, .2); }
   .section-heading h2, .interface-strip h2 { margin: 0; color: #efe1bc; font-family: 'Cormorant Garamond', serif; font-size: clamp(43px, 6vw, 72px); line-height: .86; }
-  .section-heading > p { margin: 0; color: #9da9a1; font-size: 15px; line-height: 1.5; }
   .suit-family { margin-bottom: 48px; padding: clamp(14px, 2vw, 24px); border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent); border-radius: 22px; background: color-mix(in srgb, var(--ink) 52%, transparent); }
   .suit-family > header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; color: var(--accent); }
-  .suit-family > header p { margin: 0; color: #8fa097; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
-  .suit-family > header h3 { margin: -2px 0 0; color: #f0e3c2; font-family: 'Cormorant Garamond', serif; font-size: 36px; }
+  .suit-family > header h3 { margin: 0; color: #f0e3c2; font-family: 'Cormorant Garamond', serif; font-size: 36px; }
   .large-suit-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; color: var(--ink); background: var(--accent); font-size: 27px; }
   .playing-grid { display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: clamp(4px, .55vw, 9px); }
   .playing-card { position: relative; overflow: hidden; aspect-ratio: 3 / 5; padding: 4px; border: 3px solid var(--accent); border-radius: clamp(6px, .7vw, 11px); background: var(--ink); box-shadow: inset 0 0 0 1px rgba(249, 232, 188, .75), 0 8px 14px rgba(0, 0, 0, .3); }
@@ -211,11 +202,10 @@
   .playing-card.the-frog { box-shadow: 0 0 0 3px #d9ed7d, 0 0 22px rgba(217, 237, 125, .6); }
   .frog-note { display: flex; align-items: center; gap: 16px; margin-top: -22px; padding: 16px 20px; border: 1px solid rgba(196, 222, 112, .3); border-radius: 16px; color: #b6c4b8; background: rgba(50, 78, 42, .23); }
   .frog-note strong { color: #e8f0bc; }
-  .frog-note i { margin-left: auto; color: #cde37d; font-size: 11px; font-style: normal; font-weight: 700; }
   .princess-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(12px, 1.8vw, 25px); }
   .princess-card { overflow: hidden; border: 2px solid rgba(247, 244, 228, .85); border-radius: 12px; background: #eae5d5; box-shadow: 0 19px 42px rgba(0, 0, 0, .34); }
-  .princess-art { aspect-ratio: 1; overflow: hidden; }
-  .princess-art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; }
+  .princess-art { aspect-ratio: 666 / 1000; overflow: hidden; background: #172422; }
+  .princess-art img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
   .princess-copy { min-height: 190px; padding: 18px; color: #1d2a28; }
   .princess-copy p { margin: 0; color: #6d735c; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
   .princess-copy h3 { margin: 3px 0 9px; color: #273a31; font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 2.5vw, 34px); line-height: .95; }
@@ -228,14 +218,12 @@
   .round-art > strong, .hourglass-mark { position: absolute; top: 8px; display: grid; place-items: center; height: 35px; border: 1px solid #eadba9; border-radius: 50%; color: #f6e8bf; background: #263a34; font-family: 'Cormorant Garamond', serif; }
   .round-art > strong { left: 9px; width: 35px; font-size: 23px; }
   .hourglass-mark { right: 9px; width: 35px; font-size: 19px; }
-  .round-copy { min-height: 230px; padding: 15px 12px 9px; color: #29342f; }
-  .round-copy > span { color: #776a4e; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-  .round-copy h3 { margin: 2px 0 8px; font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 2.4vw, 34px); line-height: .95; }
+  .round-copy { display: flex; flex-direction: column; min-height: 220px; padding: 15px 12px 9px; color: #29342f; }
+  .round-copy h3 { margin: 0 0 8px; font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 2.4vw, 34px); line-height: .95; }
   .round-copy p { min-height: 4.1em; margin: 0; color: #535b52; font-size: 12px; line-height: 1.35; }
-  .pass-row { display: flex; align-items: center; margin-top: 14px; padding-top: 9px; border-top: 1px solid rgba(83, 71, 45, .3); }
-  .pass-row > b { margin-right: auto; color: #6f6042; font-size: 9px; letter-spacing: .1em; }
-  .pass-icon { display: flex; justify-content: center; align-items: center; gap: 3px; color: #59684e; font-size: clamp(20px, 2vw, 27px); line-height: 1; }
-  .pass-icon strong { font-size: .72em; }
+  .pass-row { display: flex; justify-content: center; align-items: center; margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(83, 71, 45, .3); }
+  .pass-icon { display: flex; justify-content: center; align-items: center; gap: 5px; color: #59684e; font-size: clamp(34px, 3.2vw, 46px); line-height: 1; }
+  .pass-icon strong { font-size: .76em; }
   .round-card.hourglass { border-color: #5c5a5a; background: #d8d0bd; box-shadow: inset 0 0 0 2px #242525, 0 20px 40px rgba(0, 0, 0, .35); }
   .round-card.hourglass .round-copy { border-bottom: 11px solid #252a28; }
   .economy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(300px, .9fr); gap: 18px; }
@@ -267,8 +255,6 @@
   .phase-demo li.active { border-color: #c5dd6d; color: #eaf2c8; }
   .phase-demo p { margin: 16px 0 0; color: #7d8e83; font-size: 11px; }
   .phase-demo p b { color: #c7d7ca; }
-  footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 30px 0 46px; border-top: 1px solid rgba(222, 202, 149, .17); color: #71847a; font-size: 11px; }
-  footer a { color: #b8cb76; text-decoration: none; }
 
   @media (max-width: 1100px) {
     .playing-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
@@ -285,26 +271,19 @@
     .hero { display: flex; flex-direction: column; align-items: stretch; min-height: 0; padding: 56px 0 80px; }
     h1 { font-size: clamp(70px, 24vw, 110px); }
     .hero-art { width: min(78vw, 350px); margin-top: 20px; }
-    .section-heading { display: block; }
-    .section-heading > p { margin-top: 15px; }
     .playing-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
     .playing-card { border-width: 2px; }
     .corner { min-width: 38%; }
     .frog-note { align-items: flex-start; flex-direction: column; gap: 5px; }
-    .frog-note i { margin-left: 0; }
     .princess-grid, .round-grid, .economy-grid { grid-template-columns: 1fr; }
-    .princess-card { display: grid; grid-template-columns: 43% 57%; }
-    .princess-art { height: 100%; aspect-ratio: auto; }
-    .princess-copy { min-height: 230px; padding: 16px; }
+    .princess-copy { min-height: 190px; padding: 16px; }
     .round-copy { min-height: 210px; }
     .bid-panel { grid-column: auto; }
     .interface-strip { display: block; padding: 26px 19px; }
     .phase-demo { margin-top: 28px; }
-    footer { display: block; }
   }
   @media (max-width: 410px) {
     .masthead nav a:first-child { display: none; }
-    .status span { display: none; }
     .playing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .token-study { grid-template-columns: 105px 1fr; padding: 15px; }
   }
