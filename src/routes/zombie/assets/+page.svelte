@@ -4,174 +4,167 @@
   import '@fontsource/cormorant-garamond/latin-600.css';
   import '@fontsource/cormorant-garamond/latin-700.css';
   import { base } from '$app/paths';
-  import bidCoin from '../../../../assets/zombie/concepts/bid-coin.png';
-  import frog from '../../../../assets/zombie/concepts/frog.jpg';
-  import dorothy from '../../../../assets/zombie/concepts/princess-dorothy.jpg';
-  import goldilocks from '../../../../assets/zombie/concepts/princess-goldilocks.jpg';
-  import redRidingHood from '../../../../assets/zombie/concepts/princess-red-riding-hood.jpg';
-  import brainDrain from '../../../../assets/zombie/concepts/round-brain-drain.jpg';
-  import hourglassComeback from '../../../../assets/zombie/concepts/round-hourglass-comeback.jpg';
-  import openingNight from '../../../../assets/zombie/concepts/round-opening-night.jpg';
-  import skullToken from '../../../../assets/zombie/concepts/skull-token.png';
-  import knight from '../../../../assets/zombie/concepts/suit-knight.jpg';
-  import pet from '../../../../assets/zombie/concepts/suit-pet.jpg';
-  import prince from '../../../../assets/zombie/concepts/suit-prince.jpg';
-  import villager from '../../../../assets/zombie/concepts/suit-villager.jpg';
+  import bidCoin from '../../../../assets/zombie/tokens/bid-coin.png';
+  import skullToken from '../../../../assets/zombie/tokens/skull-token.png';
+
+  const artModules = import.meta.glob('../../../../assets/zombie/{playing,princesses,rounds}/**/*.jpg', {
+    eager: true,
+    query: '?url',
+    import: 'default'
+  }) as Record<string, string>;
+
+  function art(path: string) {
+    const source = artModules[`../../../../assets/zombie/${path}`];
+    if (!source) throw new Error(`Missing Zombie Princess art: ${path}`);
+    return source;
+  }
 
   const suits = [
-    { id: 'villager', name: 'Villagers', rank: 11, art: villager, accent: '#d49a42', ink: '#3b220f', alt: 'A friendly zombie village baker in a warm night market' },
-    { id: 'pet', name: 'Pets', rank: 11, art: pet, accent: '#83a34f', ink: '#1a301c', alt: 'A scrappy zombie rabbit companion in an overgrown moonlit garden' },
-    { id: 'knight', name: 'Knights', rank: 11, art: knight, accent: '#6ea3b4', ink: '#132b37', alt: 'An undead knight standing guard in blue moonlight' },
-    { id: 'prince', name: 'Princes', rank: 11, art: prince, accent: '#a76b9d', ink: '#31162d', alt: 'A charming zombie prince in a ruined ballroom' }
-  ] as const;
+    { id: 'villager', folder: 'villagers', name: 'Villagers', accent: '#d49a42', ink: '#3b220f' },
+    { id: 'pet', folder: 'pets', name: 'Pets', accent: '#83a34f', ink: '#1a301c' },
+    { id: 'knight', folder: 'knights', name: 'Knights', accent: '#6ea3b4', ink: '#132b37' },
+    { id: 'prince', folder: 'princes', name: 'Princes', accent: '#a76b9d', ink: '#31162d' }
+  ].map((suit) => ({
+    ...suit,
+    cards: Array.from({ length: 15 }, (_, index) => ({
+      rank: index + 1,
+      art: art(`playing/${suit.folder}/${String(index + 1).padStart(2, '0')}.jpg`)
+    }))
+  }));
 
   const princesses = [
-    { name: 'Red Riding Hood', power: 'Axe-cessorize', art: redRidingHood, alt: 'Red Riding Hood as an adult forest ranger with a practical axe', text: 'At the start of your turn, swap a hand card for a non-Prince in one trick you previously won.' },
-    { name: 'Dorothy', power: 'Drop a House On It', art: dorothy, alt: 'Dorothy as an adult storm-country engineer with a house-shaped hammer', text: 'Hide a trick you just won so it does not count, then gain 3 skulls at scoring.' },
-    { name: 'Goldilocks', power: 'This Bid Is Just Right', art: goldilocks, alt: 'Goldilocks as an adult survivalist with a cast-iron pan shield', text: 'Always active: gain 3 skulls when your own tricks match your bid exactly.' }
-  ] as const;
+    { slug: 'alice', name: 'Alice', power: 'Tea(m) Time', tag: 'Teams · 1× per round', text: 'Ask your partner to play a card in front of you, then give them one card in return.' },
+    { slug: 'cinderella', name: 'Cinderella', power: 'Smashing Pumpkins', tag: 'Always active', text: 'When Princes are led, you do not have to follow with a Prince.' },
+    { slug: 'dorothy', name: 'Dorothy', power: 'Drop a House On It', tag: '1× per round', text: 'Hide a trick you just won so it does not count, then gain 3 skulls at scoring.' },
+    { slug: 'goldilocks', name: 'Goldilocks', power: 'This Bid Is Just Right', tag: 'Always active', text: 'Gain 3 skulls when your own tricks match your bid exactly.' },
+    { slug: 'ice-princess', name: 'Ice Princess', power: 'Flurry Fury', tag: '1× per round', text: 'Before a trick, return one bid coin to reduce your bid by one, including to zero.' },
+    { slug: 'pea-princess', name: 'Pea Princess', power: 'Pea Shooter', tag: '1× per round', text: 'Add 5 to your played card for this trick and win ties.' },
+    { slug: 'rapunzel', name: 'Rapunzel', power: 'A Brush with Death', tag: '1× per round', text: 'When you win a trick with Villagers, gain one skull per Villager at scoring.' },
+    { slug: 'red-riding-hood', name: 'Red Riding Hood', power: 'Axe-cessorize', tag: '1× per round', text: 'Inspect a trick you won and swap a hand card for one non-Prince in it.' },
+    { slug: 'scheherazade', name: 'Scheherazade', power: 'The Pen Is Mightier', tag: '1× per round', text: 'Before the fourth trick, change your bid; changing it to zero creates a zero bid.' },
+    { slug: 'sleeping-beauty', name: 'Sleeping Beauty', power: 'Spindle of Fight', tag: 'Teams · 1× per round', text: 'Before a trick, give your partner one to three cards; they return the same number.' },
+    { slug: 'swan-maiden', name: 'Swan Maiden', power: '2 Birds 1 Skull', tag: 'Always active', text: 'Gain one skull for every two tricks you win.' },
+    { slug: 'thumbelina', name: 'Thumbelina', power: 'Choose Your Weapon', tag: '1× per round', text: 'Play any non-Prince card, ignoring the requirement to follow suit.' }
+  ].map((princess) => ({ ...princess, art: art(`princesses/${princess.slug}.jpg`) }));
 
-  const rounds = [
-    { id: 'A', name: 'Opening Night', art: openingNight, alt: 'A moonlit village theater opening while friendly zombies arrive', tag: 'First-game round', text: 'No additional rule. The pass instruction still applies.' },
-    { id: 'G', name: 'Brain Drain', art: brainDrain, alt: 'Glowing thoughts stream away from a comic zombie crowd', tag: 'Trick modifier', text: 'Tricks containing a Villager do not count toward the bid.' },
-    { id: '⧖', name: 'Final-round study', art: hourglassComeback, alt: 'A dramatic hourglass surrounded by skulls and an underdog rebellion', tag: 'Black hourglass', text: 'A frame direction for one of the catch-up rules used only in round four.' }
-  ] as const;
+  type PassDirection = 'left' | 'right';
+  type PassCount = number | '½';
+
+  type RoundSource = {
+    id: string; slug: string; name: string; text: string;
+    passDirection: PassDirection; passCount: PassCount; hourglass?: boolean;
+  };
+
+  const roundSources: RoundSource[] = [
+    { id: 'A', slug: 'opening-night', name: 'Opening Night (of Living Dead)', text: 'No additional rule.', passDirection: 'left', passCount: 4 },
+    { id: 'B', slug: 'ah-one-and-ah-two', name: 'Ah One and Ah Two', text: 'A captured 1 grants 1 skull; a captured 2 grants 2 skulls.', passDirection: 'right', passCount: 1 },
+    { id: 'C', slug: 'dead-last', name: 'Dead Last', text: 'Set one card aside before play and use it in the final trick.', passDirection: 'right', passCount: 2 },
+    { id: 'D', slug: 'dead-set-on-winning', name: 'Dead Set on Winning', text: 'Every trick won by someone not currently leading grants 1 skull.', passDirection: 'left', passCount: 5, hourglass: true },
+    { id: 'E', slug: 'triple-tap', name: 'Triple Tap', text: 'Every captured 3 grants 1 skull.', passDirection: 'left', passCount: 5 },
+    { id: 'F', slug: 'shambler-swap', name: 'Shambler Swap', text: 'After each trick, pass one card right, or to your partner in teams.', passDirection: 'right', passCount: 1 },
+    { id: 'G', slug: 'brain-drain', name: 'Brain Drain', text: 'Tricks containing a Villager do not count.', passDirection: 'right', passCount: 5 },
+    { id: 'H', slug: 'headhunters', name: 'Headhunters', text: 'A nonleader may wager all skulls on matching their bid exactly.', passDirection: 'left', passCount: 1, hourglass: true },
+    { id: 'I', slug: 'brainpan-bonanza', name: 'Brainpan Bonanza', text: 'Gain skulls equal to the lowest printed value among cards you won.', passDirection: 'right', passCount: 4 },
+    { id: 'J', slug: 'necro-narcissism', name: 'Necro Narcissism', text: 'Before play, choose one suit you hold and expose all of it.', passDirection: 'left', passCount: 2 },
+    { id: 'K', slug: 'conspiratorial-corpse-crusade', name: 'Conspiratorial Corpse Crusade', text: 'Secretly show all cards of one suit to your partner, or the player on your right.', passDirection: 'right', passCount: 3 },
+    { id: 'L', slug: 'revenge-of-the-living', name: 'Revenge of the Living', text: 'A leader who fails to make their bid exactly loses all skulls.', passDirection: 'right', passCount: 5, hourglass: true },
+    { id: 'M', slug: 'ultimate-won-knight', name: 'Ultimate Won Knight', text: 'Gain one skull for every captured Knight.', passDirection: 'left', passCount: 2 },
+    { id: 'N', slug: 'grave-new-world', name: 'Grave New World', text: 'Set aside half your hand; play the other half before picking it up.', passDirection: 'left', passCount: '½' },
+    { id: 'O', slug: 'decomposing-duos', name: 'Decomposing Duos', text: 'Before each trick, nonleaders choose two cards and may play only one.', passDirection: 'right', passCount: 2 },
+    { id: 'P', slug: 'a-view-to-a-kill', name: 'A View to a Kill', text: 'After passing, nonleaders inspect the player to their right’s hand.', passDirection: 'right', passCount: 4, hourglass: true },
+    { id: 'Q', slug: 'skull-smashers', name: 'Skull Smashers', text: 'Double the normal skull cost for every overtrick.', passDirection: 'left', passCount: 4 },
+    { id: 'R', slug: 'we-the-villagers', name: 'We the Villagers', text: 'Villagers are wild and count as the led suit.', passDirection: 'left', passCount: 1 },
+    { id: 'S', slug: 'divide-and-conquer', name: 'Divide and Conquer', text: 'Set aside half your hand, then give it away after playing the first half.', passDirection: 'right', passCount: '½' },
+    { id: 'T', slug: 'high-cost-of-living', name: 'High Cost of Living', text: 'Each leader’s Prince adds a skull to a pot awarded to last place.', passDirection: 'right', passCount: 3, hourglass: true },
+    { id: 'U', slug: 'his-majestys-last-groan', name: 'His Majesty’s Last Groan', text: 'Give the final trick to the player on its winner’s left.', passDirection: 'left', passCount: 3 },
+    { id: 'V', slug: 'undead-on-arrival', name: 'Undead on Arrival', text: 'Stop taking turns after matching your bid exactly.', passDirection: 'left', passCount: 1 },
+    { id: 'W', slug: 'fester-feast', name: 'Fester Feast', text: 'Discard and total one card each; the first card above that total wins its trick.', passDirection: 'right', passCount: 4 },
+    { id: 'X', slug: 'revenge-of-the-reanimated', name: 'Revenge of the Reanimated', text: 'After passing, current leaders give printed cards to last place.', passDirection: 'left', passCount: 3, hourglass: true },
+    { id: 'Y', slug: 'undead-uprising', name: 'Undead Uprising', text: 'Every newly played suit becomes the led suit; Princes remain trump.', passDirection: 'right', passCount: 2 },
+    { id: 'Z', slug: 'ghoulfriends', name: 'Ghoulfriends', text: 'Everyone plays twice; compare combined values and split the winning pile.', passDirection: 'left', passCount: 4 }
+  ];
+
+  const rounds = roundSources.map((round) => ({ ...round, art: art(`rounds/${round.id.toLowerCase()}-${round.slug}.jpg`) }));
+
+  function passLabel(direction: PassDirection, count: PassCount) {
+    const cards = count === '½' ? 'half your hand' : `${count} ${count === 1 ? 'card' : 'cards'}`;
+    return `Pass ${cards} ${direction}`;
+  }
 </script>
 
 <svelte:head>
-  <title>Zombie Princess component study</title>
-  <meta name="description" content="Review the proposed Zombie Princess card art and interface components." />
+  <title>Zombie Princess complete asset review</title>
+  <meta name="description" content="Review all Zombie Princess playing cards, Princesses, round cards, and table components." />
 </svelte:head>
 
 <main data-e2e-layout>
   <header class="masthead">
     <a class="wordmark" href={`${base}/`} aria-label="Rebel Princess home"><span>Rebel</span><strong>Princess</strong></a>
-    <nav aria-label="Review navigation">
-      <a href={`${base}/assets/`}>Rebel assets</a>
-      <a href={`${base}/`}>Back to game</a>
-    </nav>
+    <nav aria-label="Review navigation"><a href={`${base}/assets/`}>Rebel assets</a><a href={`${base}/`}>Back to game</a></nav>
   </header>
 
   <section class="hero" aria-labelledby="zombie-title">
     <div class="hero-copy">
-      <p class="eyebrow">Variant art direction · concept set 01</p>
+      <p class="eyebrow">Variant art direction · complete review set</p>
       <h1 id="zombie-title"><span>Zombie</span> Princess</h1>
-      <p class="lede">A storybook resistance after dark: adventurous, theatrical, a little macabre, and never gory. This review combines borderless source art with deterministic component frames.</p>
-      <div class="status" role="status" data-status="synced"><i aria-hidden="true"></i><strong>13 concept images</strong><span>not a production atlas</span></div>
+      <p class="lede">The complete card inventory, grouped by game role. Source illustrations stay free of ranks, rules, and pass marks so the shared component frames remain exact and editable.</p>
+      <div class="status" role="status" data-status="synced"><i aria-hidden="true"></i><strong>98 card illustrations</strong><span>60 suited · 12 princess · 26 round</span></div>
     </div>
-    <figure class="hero-art">
-      <img src={prince} alt="Zombie Prince concept art in a ruined ballroom" />
-      <figcaption>Bruised plum · moonlit teal · oxidized copper</figcaption>
-    </figure>
+    <figure class="hero-art"><img src={art('playing/princes/11.jpg')} alt="An undead prince in a ruined ballroom" /><figcaption>Bruised plum · moonlit teal · oxidized copper</figcaption></figure>
   </section>
 
-  <section class="gallery-section playing-section" aria-labelledby="playing-title">
-    <header class="section-heading">
-      <div><p class="eyebrow">60-card deck</p><h2 id="playing-title">Four suit families</h2></div>
-      <p>One code-owned frame, four emblem and color systems. The art has no baked border, rank, or suit mark.</p>
-    </header>
-    <div class="playing-grid">
-      {#each suits as suit}
-        <article class="playing-card" style={`--accent:${suit.accent};--ink:${suit.ink}`}>
-          <div class="card-rank top"><strong>{suit.rank}</strong><span class={`suit-icon ${suit.id}`} aria-label={suit.name}>
-            {#if suit.id === 'villager'}
-              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 15 16 5l11 10v12H19v-8h-6v8H5Z" /></svg>
-            {:else if suit.id === 'pet'}
-              <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="9" cy="10" r="4"/><circle cx="16" cy="7" r="4"/><circle cx="23" cy="10" r="4"/><path d="M7 22c0-6 4-10 9-10s9 4 9 10c0 4-3 6-9 6s-9-2-9-6Z"/></svg>
-            {:else if suit.id === 'knight'}
-              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 27 7v8c0 7-4 12-11 15C9 27 5 22 5 15V7Zm0 6-5 2v5c0 3 2 6 5 8 3-2 5-5 5-8v-5Z" /></svg>
-            {:else}
-              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m4 10 7 6 5-10 5 10 7-6-3 16H7Zm4 19h16v-3H8Z" /></svg>
-            {/if}
-          </span></div>
-          <div class="playing-art"><img src={suit.art} alt={suit.alt} /></div>
-          <div class="suit-name"><span>{suit.name}</span></div>
-          <div class="card-rank bottom" aria-hidden="true"><strong>{suit.rank}</strong></div>
-        </article>
-      {/each}
-    </div>
-    <div class="frog-row">
-      <article class="playing-card frog-card">
-        <div class="card-rank top"><strong>6</strong><span class="frog-mark" aria-hidden="true">●</span></div>
-        <div class="playing-art"><img src={frog} alt="A living heroic frog resistance fighter with a sword and shield" /></div>
-        <div class="suit-name"><span>The Frog · Pets</span></div>
-        <div class="card-rank bottom" aria-hidden="true"><strong>6</strong></div>
-      </article>
-      <div class="frog-copy">
-        <p class="eyebrow">Special card</p>
-        <h3>One trick. Your choice.</h3>
-        <p>Keep a captured trick containing the Frog face up. At round end, choose whether it counts toward your bid.</p>
-        <span class="rule-chip">Princess → Frog → Round rule</span>
-      </div>
-    </div>
+  <section class="gallery-section" aria-labelledby="playing-title">
+    <header class="section-heading"><div><p class="eyebrow">60-card deck</p><h2 id="playing-title">Every suited card</h2></div><p>Four logical families, each numbered 1–15. The frame, rank, and suit emblem are one reusable UI component; only the source illustration changes.</p></header>
+    {#each suits as suit}
+      <section class="suit-family" aria-labelledby={`${suit.id}-title`} style={`--accent:${suit.accent};--ink:${suit.ink}`}>
+        <header><span class={`large-suit-icon ${suit.id}`} aria-hidden="true">{suit.id === 'villager' ? '⌂' : suit.id === 'pet' ? '●' : suit.id === 'knight' ? '◆' : '♛'}</span><div><p>Ranks 1–15</p><h3 id={`${suit.id}-title`}>{suit.name}</h3></div></header>
+        <div class="playing-grid">
+          {#each suit.cards as card}
+            <article class:the-frog={suit.id === 'pet' && card.rank === 6} class="playing-card" aria-label={`${suit.name} ${card.rank}${suit.id === 'pet' && card.rank === 6 ? ', the Frog' : ''}`}>
+              <img src={card.art} alt="" />
+              <div class="corner"><strong>{card.rank}</strong><span aria-hidden="true">{suit.id === 'villager' ? '⌂' : suit.id === 'pet' ? '●' : suit.id === 'knight' ? '◆' : '♛'}</span></div>
+              <div class="card-name">{suit.id === 'pet' && card.rank === 6 ? 'The Frog' : suit.name}</div>
+            </article>
+          {/each}
+        </div>
+      </section>
+    {/each}
+    <aside class="frog-note"><strong>Pet 6 · The Frog</strong><span>Its captured trick may be counted or ignored at round end.</span><i>Princess → Frog → Round rule</i></aside>
   </section>
 
   <section class="gallery-section" aria-labelledby="princess-title">
-    <header class="section-heading">
-      <div><p class="eyebrow">Player identity</p><h2 id="princess-title">Princess powers</h2></div>
-      <p>Thin quiet edge, portrait-first composition, and rules rendered as live text for legibility at every size.</p>
-    </header>
+    <header class="section-heading"><div><p class="eyebrow">12 identities</p><h2 id="princess-title">Every Princess</h2></div><p>Portrait-first, with a thin white edge and live type. Team-only and always-active powers are labeled rather than forced into a generic once-per-round badge.</p></header>
     <div class="princess-grid">
       {#each princesses as princess}
-        <article class="princess-card">
-          <div class="princess-art"><img src={princess.art} alt={princess.alt} /></div>
-          <div class="princess-copy">
-            <p>{princess.name}</p>
-            <h3>{princess.power}</h3>
-            <span>{princess.text}</span>
-            <i aria-label="Once per round">1×</i>
-          </div>
-        </article>
+        <article class="princess-card"><div class="princess-art"><img src={princess.art} alt={`${princess.name} character art`} /></div><div class="princess-copy"><p>{princess.name}</p><h3>{princess.power}</h3><span>{princess.text}</span><i>{princess.tag}</i></div></article>
       {/each}
     </div>
   </section>
 
   <section class="gallery-section" aria-labelledby="round-title">
-    <header class="section-heading">
-      <div><p class="eyebrow">Four-round arc</p><h2 id="round-title">Round rules</h2></div>
-      <p>A warmer beige frame keeps event cards distinct from the playing deck; the black-hourglass family gets a dark final-round band.</p>
-    </header>
+    <header class="section-heading"><div><p class="eyebrow">26 rules · A–Z</p><h2 id="round-title">Every round card</h2></div><p>Every printed pass was checked across the complete official sheet. Curved arrows now match Rebel Princess: arrow before the count means left; arrow after it means right.</p></header>
     <div class="round-grid">
       {#each rounds as round}
-        <article class:hourglass={round.id === '⧖'} class="round-card">
-          <div class="round-art"><img src={round.art} alt={round.alt} /><strong>{round.id}</strong></div>
-          <div class="round-copy"><span>{round.tag}</span><h3>{round.name}</h3><p>{round.text}</p><div class="pass-strip"><b>PASS</b><i>←</i><i>2</i><i>→</i></div></div>
+        <article class:hourglass={round.hourglass} class="round-card" data-round={round.id}>
+          <div class="round-art"><img src={round.art} alt={`${round.name} round art`} /><strong>{round.id}</strong>{#if round.hourglass}<span class="hourglass-mark" aria-label="Black hourglass round">⧖</span>{/if}</div>
+          <div class="round-copy"><span>{round.hourglass ? 'Black hourglass' : 'Round rule'}</span><h3>{round.name}</h3><p>{round.text}</p><div class="pass-row"><b>PASS</b><div class="pass-icon" aria-label={passLabel(round.passDirection, round.passCount)}>{#if round.passDirection === 'left'}<span aria-hidden="true">&#8635;</span>{/if}<strong>{round.passCount}</strong>{#if round.passDirection === 'right'}<span aria-hidden="true">&#8634;</span>{/if}</div></div></div>
         </article>
       {/each}
     </div>
   </section>
 
-  <section class="gallery-section economy-section" aria-labelledby="economy-title">
-    <header class="section-heading">
-      <div><p class="eyebrow">Bidding and economy</p><h2 id="economy-title">Table components</h2></div>
-      <p>The physical vocabulary carries into compact, readable controls without imitating photographed tokens.</p>
-    </header>
+  <section class="gallery-section" aria-labelledby="economy-title">
+    <header class="section-heading"><div><p class="eyebrow">Bidding and economy</p><h2 id="economy-title">Table components</h2></div><p>Token art and a compact interaction study complete the current component inventory.</p></header>
     <div class="economy-grid">
-      <article class="token-study">
-        <div class="token-image coin"><img src={bidCoin} alt="An embossed oxidized-copper bidding coin with a closed-hand emblem" /></div>
-        <div><p class="eyebrow">Bid coin</p><h3>Predict the tricks</h3><p>Take one coin per expected trick. Team bids combine, but zero bids stay personal.</p></div>
-      </article>
-      <article class="token-study">
-        <div class="token-image skull"><img src={skullToken} alt="A friendly carved bone skull counter with a chartreuse glow" /></div>
-        <div><p class="eyebrow">Skull token</p><h3>Spend or save</h3><p>Buy missing tricks, pay for overtricks, or keep pairs for end-game points.</p></div>
-      </article>
-      <article class="bid-panel" aria-label="Example bidding interface">
-        <div class="bid-head"><span>Your bid</span><strong>3</strong></div>
-        <div class="bid-meter"><button type="button" aria-label="Decrease example bid">−</button><div><i></i><i></i><i></i><span></span><span></span></div><button type="button" aria-label="Increase example bid">+</button></div>
-        <div class="team-line"><span>You <b>3</b></span><span>Partner <b>2</b></span><strong>Team 5</strong></div>
-        <button class="lock-bid" type="button">Lock in 3</button>
-      </article>
+      <article class="token-study"><img src={bidCoin} alt="Oxidized-copper bidding coin" /><div><p class="eyebrow">Bid coin</p><h3>Predict the tricks</h3><p>Take one coin per expected trick. Team bids combine; zero bids stay personal.</p></div></article>
+      <article class="token-study"><img src={skullToken} alt="Carved bone skull counter" /><div><p class="eyebrow">Skull token</p><h3>Spend or save</h3><p>Buy missing tricks, pay for overtricks, or keep pairs for final points.</p></div></article>
+      <article class="bid-panel" aria-label="Example bidding interface"><div class="bid-head"><span>Your bid</span><strong>3</strong></div><div class="bid-meter"><button type="button" aria-label="Decrease example bid">−</button><div><i></i><i></i><i></i><span></span><span></span></div><button type="button" aria-label="Increase example bid">+</button></div><div class="team-line"><span>You <b>3</b></span><span>Partner <b>2</b></span><strong>Team 5</strong></div><button class="lock-bid" type="button">Lock in 3</button></article>
     </div>
   </section>
 
-  <section class="interface-strip" aria-labelledby="interface-title">
-    <div><p class="eyebrow">Shared table shell</p><h2 id="interface-title">Same room. New rhythm.</h2><p>Passing leads into bidding, then tricks. The active phase, team total, Prince-break state, and deferred Frog choice remain visible without crowding the table.</p></div>
-    <div class="phase-demo" aria-label="Example Zombie Princess phase display">
-      <span>Round 2 of 4</span><strong>Bidding</strong><ol><li class="done">Pass</li><li class="active">Bid</li><li>Play</li><li>Score</li></ol><p><b>Princes</b> locked · <b>Frog</b> unresolved</p>
-    </div>
-  </section>
+  <section class="interface-strip" aria-labelledby="interface-title"><div><p class="eyebrow">Shared table shell</p><h2 id="interface-title">Same room. New rhythm.</h2><p>Passing leads into bidding, then tricks. The active phase, team total, Prince-break state, and deferred Frog choice remain visible.</p></div><div class="phase-demo" aria-label="Example Zombie Princess phase display"><span>Round 2 of 4</span><strong>Bidding</strong><ol><li class="done">Pass</li><li class="active">Bid</li><li>Play</li><li>Score</li></ol><p><b>Princes</b> locked · <b>Frog</b> unresolved</p></div></section>
 
-  <footer><p>Concept art only · review color, tone, silhouettes, frames, and component hierarchy before production generation.</p><a href={`${base}/zombie/assets/`}>Zombie component study</a></footer>
+  <footer><p>Complete art-direction set · 98 independent source illustrations in reusable component frames.</p><a href={`${base}/zombie/assets/`}>Zombie asset review</a></footer>
 </main>
 
 <style>
@@ -179,7 +172,7 @@
   :global(html) { color-scheme: dark; background: #0d1718; font-family: 'Atkinson Hyperlegible', sans-serif; }
   :global(body) { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 75% 7%, rgba(131, 163, 79, .16), transparent 31rem), radial-gradient(circle at 8% 30%, rgba(91, 141, 148, .14), transparent 26rem), #0d1718; }
   :global(button), :global(a) { font: inherit; }
-  main { width: min(1480px, calc(100% - clamp(28px, 5vw, 84px))); margin: 0 auto; overflow: hidden; }
+  main { width: min(1580px, calc(100% - clamp(28px, 5vw, 84px))); margin: 0 auto; overflow: hidden; }
   .masthead { min-height: 86px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(222, 202, 149, .24); }
   .wordmark { display: flex; align-items: baseline; gap: 7px; color: #f6e9c4; font-family: 'Cormorant Garamond', serif; font-size: 22px; text-decoration: none; }
   .wordmark strong { color: #d3a653; font-size: 31px; }
@@ -203,53 +196,52 @@
   .section-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 520px); align-items: end; gap: 30px; margin-bottom: 33px; padding-top: 30px; border-top: 1px solid rgba(222, 202, 149, .2); }
   .section-heading h2, .interface-strip h2 { margin: 0; color: #efe1bc; font-family: 'Cormorant Garamond', serif; font-size: clamp(43px, 6vw, 72px); line-height: .86; }
   .section-heading > p { margin: 0; color: #9da9a1; font-size: 15px; line-height: 1.5; }
-  .playing-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(12px, 2vw, 25px); }
-  .playing-card { position: relative; overflow: hidden; aspect-ratio: 3 / 5; padding: clamp(7px, 1vw, 13px); border: clamp(4px, .6vw, 8px) solid var(--accent, #c9a95f); border-radius: clamp(12px, 1.7vw, 22px); background: var(--ink, #17251d); box-shadow: inset 0 0 0 2px rgba(249, 232, 188, .68), inset 0 0 0 6px var(--ink, #17251d), 0 18px 28px rgba(0, 0, 0, .32); }
-  .playing-card::after { position: absolute; inset: 12px; z-index: 2; content: ''; border: 1px solid rgba(249, 232, 188, .55); border-radius: clamp(5px, 1vw, 12px); pointer-events: none; }
-  .playing-art { width: 100%; height: 100%; overflow: hidden; border-radius: clamp(5px, 1vw, 11px); }
-  .playing-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .card-rank { position: absolute; z-index: 3; display: grid; place-items: center; width: clamp(40px, 5vw, 68px); min-height: clamp(60px, 8vw, 101px); color: var(--ink, #17251d); background: var(--accent, #c9a95f); box-shadow: 0 4px 15px rgba(0, 0, 0, .32); }
-  .card-rank.top { top: 0; left: 0; padding: 9px 5px 6px; border-radius: 0 0 15px 0; }
-  .card-rank.bottom { right: 0; bottom: 0; min-height: clamp(40px, 5vw, 66px); transform: rotate(180deg); border-radius: 0 0 15px 0; }
-  .card-rank strong { font-family: 'Cormorant Garamond', serif; font-size: clamp(25px, 4vw, 49px); line-height: .65; }
-  .suit-icon { display: block; width: clamp(17px, 2.6vw, 32px); margin-top: 6px; line-height: 0; }
-  .suit-icon svg { width: 100%; fill: currentColor; }
-  .suit-name { position: absolute; z-index: 3; bottom: clamp(12px, 1.6vw, 23px); left: 50%; min-width: 58%; padding: 5px 11px; transform: translateX(-50%); border: 1px solid rgba(249, 232, 188, .68); border-radius: 999px; color: #fff3ce; background: color-mix(in srgb, var(--ink, #17251d) 88%, transparent); font-family: 'Cormorant Garamond', serif; font-size: clamp(14px, 2vw, 23px); font-weight: 700; text-align: center; }
-  .frog-row { display: grid; grid-template-columns: minmax(190px, 310px) minmax(0, 550px); align-items: center; gap: clamp(28px, 6vw, 80px); margin-top: 55px; padding: clamp(25px, 4vw, 50px); border: 1px solid rgba(183, 215, 99, .25); border-radius: 24px; background: linear-gradient(115deg, rgba(69, 102, 42, .18), rgba(15, 30, 29, .65)); }
-  .frog-card { --accent: #c5d873; --ink: #213e2c; width: 100%; }
-  .frog-mark { color: #73a05a; }
-  .frog-copy h3 { margin: 0; color: #eef4cf; font-family: 'Cormorant Garamond', serif; font-size: clamp(36px, 5vw, 62px); line-height: .95; }
-  .frog-copy > p:not(.eyebrow) { max-width: 510px; margin: 20px 0; color: #b9c5b7; font-size: 17px; line-height: 1.5; }
-  .rule-chip { display: inline-block; padding: 7px 11px; border: 1px solid rgba(197, 216, 115, .35); border-radius: 999px; color: #cfe189; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
-  .princess-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2.5vw, 31px); }
-  .princess-card { overflow: hidden; border: 2px solid rgba(247, 244, 228, .78); border-radius: 12px; background: #eae5d5; box-shadow: 0 19px 42px rgba(0, 0, 0, .34); }
-  .princess-art { aspect-ratio: 4 / 4.2; overflow: hidden; }
-  .princess-art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 29%; }
-  .princess-copy { position: relative; min-height: 172px; padding: 20px 50px 20px 20px; color: #1d2a28; }
-  .princess-copy p { margin: 0; color: #6d735c; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-  .princess-copy h3 { margin: 3px 0 9px; color: #273a31; font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 2.8vw, 35px); line-height: .95; }
+  .suit-family { margin-bottom: 48px; padding: clamp(14px, 2vw, 24px); border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent); border-radius: 22px; background: color-mix(in srgb, var(--ink) 52%, transparent); }
+  .suit-family > header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; color: var(--accent); }
+  .suit-family > header p { margin: 0; color: #8fa097; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+  .suit-family > header h3 { margin: -2px 0 0; color: #f0e3c2; font-family: 'Cormorant Garamond', serif; font-size: 36px; }
+  .large-suit-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; color: var(--ink); background: var(--accent); font-size: 27px; }
+  .playing-grid { display: grid; grid-template-columns: repeat(15, minmax(0, 1fr)); gap: clamp(4px, .55vw, 9px); }
+  .playing-card { position: relative; overflow: hidden; aspect-ratio: 3 / 5; padding: 4px; border: 3px solid var(--accent); border-radius: clamp(6px, .7vw, 11px); background: var(--ink); box-shadow: inset 0 0 0 1px rgba(249, 232, 188, .75), 0 8px 14px rgba(0, 0, 0, .3); }
+  .playing-card img { display: block; width: 100%; height: 100%; border-radius: 4px; object-fit: cover; }
+  .corner { position: absolute; top: 0; left: 0; display: grid; min-width: 35%; padding: 4px 2px; border-radius: 0 0 8px; color: var(--ink); background: var(--accent); line-height: .8; text-align: center; }
+  .corner strong { font-family: 'Cormorant Garamond', serif; font-size: clamp(15px, 1.5vw, 24px); }
+  .corner span { font-size: clamp(8px, .8vw, 12px); }
+  .card-name { position: absolute; right: 7px; bottom: 7px; left: 7px; overflow: hidden; padding: 3px; border-radius: 999px; color: #fff0c9; background: color-mix(in srgb, var(--ink) 88%, transparent); font-family: 'Cormorant Garamond', serif; font-size: clamp(8px, .72vw, 12px); font-weight: 700; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+  .playing-card.the-frog { box-shadow: 0 0 0 3px #d9ed7d, 0 0 22px rgba(217, 237, 125, .6); }
+  .frog-note { display: flex; align-items: center; gap: 16px; margin-top: -22px; padding: 16px 20px; border: 1px solid rgba(196, 222, 112, .3); border-radius: 16px; color: #b6c4b8; background: rgba(50, 78, 42, .23); }
+  .frog-note strong { color: #e8f0bc; }
+  .frog-note i { margin-left: auto; color: #cde37d; font-size: 11px; font-style: normal; font-weight: 700; }
+  .princess-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(12px, 1.8vw, 25px); }
+  .princess-card { overflow: hidden; border: 2px solid rgba(247, 244, 228, .85); border-radius: 12px; background: #eae5d5; box-shadow: 0 19px 42px rgba(0, 0, 0, .34); }
+  .princess-art { aspect-ratio: 1; overflow: hidden; }
+  .princess-art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; }
+  .princess-copy { min-height: 190px; padding: 18px; color: #1d2a28; }
+  .princess-copy p { margin: 0; color: #6d735c; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  .princess-copy h3 { margin: 3px 0 9px; color: #273a31; font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 2.5vw, 34px); line-height: .95; }
   .princess-copy span { display: block; color: #4a554f; font-size: 13px; line-height: 1.35; }
-  .princess-copy i { position: absolute; top: 18px; right: 17px; display: grid; place-items: center; width: 31px; height: 31px; border-radius: 50%; color: #e7ecc7; background: #506641; font-size: 11px; font-style: normal; font-weight: 700; }
-  .round-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2.5vw, 30px); }
-  .round-card { overflow: hidden; padding: 9px; border: 5px solid #bca678; border-radius: 16px; background: #e8ddbf; box-shadow: inset 0 0 0 2px #6f6042, 0 20px 40px rgba(0, 0, 0, .35); }
+  .princess-copy i { display: inline-block; margin-top: 13px; padding: 4px 7px; border-radius: 999px; color: #e7ecc7; background: #506641; font-size: 9px; font-style: normal; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .round-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(12px, 1.8vw, 24px); }
+  .round-card { overflow: hidden; padding: 8px; border: 5px solid #bca678; border-radius: 16px; background: #e8ddbf; box-shadow: inset 0 0 0 2px #6f6042, 0 20px 40px rgba(0, 0, 0, .35); }
   .round-art { position: relative; aspect-ratio: 1.18; overflow: hidden; border-radius: 7px 7px 2px 2px; }
   .round-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .round-art strong { position: absolute; top: 9px; left: 10px; display: grid; place-items: center; min-width: 38px; height: 38px; padding: 0 8px; border: 1px solid #eadba9; border-radius: 50%; color: #f6e8bf; background: #263a34; font-family: 'Cormorant Garamond', serif; font-size: 25px; }
-  .round-copy { min-height: 191px; padding: 17px 14px 10px; color: #29342f; }
-  .round-copy > span { color: #776a4e; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-  .round-copy h3 { margin: 2px 0 8px; font-family: 'Cormorant Garamond', serif; font-size: clamp(27px, 3vw, 38px); line-height: .95; }
-  .round-copy p { min-height: 2.7em; margin: 0; color: #535b52; font-size: 13px; line-height: 1.35; }
-  .pass-strip { display: flex; align-items: center; gap: 6px; margin-top: 16px; padding-top: 10px; border-top: 1px solid rgba(83, 71, 45, .3); }
-  .pass-strip b { margin-right: auto; color: #6f6042; font-size: 9px; letter-spacing: .1em; }
-  .pass-strip i { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: #f4e8c8; background: #59684e; font-size: 11px; font-style: normal; font-weight: 700; }
+  .round-art > strong, .hourglass-mark { position: absolute; top: 8px; display: grid; place-items: center; height: 35px; border: 1px solid #eadba9; border-radius: 50%; color: #f6e8bf; background: #263a34; font-family: 'Cormorant Garamond', serif; }
+  .round-art > strong { left: 9px; width: 35px; font-size: 23px; }
+  .hourglass-mark { right: 9px; width: 35px; font-size: 19px; }
+  .round-copy { min-height: 230px; padding: 15px 12px 9px; color: #29342f; }
+  .round-copy > span { color: #776a4e; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  .round-copy h3 { margin: 2px 0 8px; font-family: 'Cormorant Garamond', serif; font-size: clamp(24px, 2.4vw, 34px); line-height: .95; }
+  .round-copy p { min-height: 4.1em; margin: 0; color: #535b52; font-size: 12px; line-height: 1.35; }
+  .pass-row { display: flex; align-items: center; margin-top: 14px; padding-top: 9px; border-top: 1px solid rgba(83, 71, 45, .3); }
+  .pass-row > b { margin-right: auto; color: #6f6042; font-size: 9px; letter-spacing: .1em; }
+  .pass-icon { display: flex; justify-content: center; align-items: center; gap: 3px; color: #59684e; font-size: clamp(20px, 2vw, 27px); line-height: 1; }
+  .pass-icon strong { font-size: .72em; }
   .round-card.hourglass { border-color: #5c5a5a; background: #d8d0bd; box-shadow: inset 0 0 0 2px #242525, 0 20px 40px rgba(0, 0, 0, .35); }
-  .round-card.hourglass .round-copy { background: linear-gradient(#d8d0bd 65%, #252a28 65%); }
+  .round-card.hourglass .round-copy { border-bottom: 11px solid #252a28; }
   .economy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(300px, .9fr); gap: 18px; }
   .token-study, .bid-panel { min-height: 280px; border: 1px solid rgba(222, 202, 149, .22); border-radius: 18px; background: rgba(20, 35, 34, .75); }
   .token-study { display: grid; grid-template-columns: minmax(110px, .7fr) minmax(0, 1fr); align-items: center; gap: 8px; padding: 22px; }
-  .token-image { aspect-ratio: 1; }
-  .token-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
-  .token-image.coin img { transform: scale(1.22); }
+  .token-study > img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }
   .token-study h3 { margin: 0; color: #eadbb0; font-family: 'Cormorant Garamond', serif; font-size: 30px; line-height: 1; }
   .token-study div > p:last-child { margin: 11px 0 0; color: #9daca2; font-size: 13px; line-height: 1.4; }
   .bid-panel { padding: 24px; }
@@ -266,7 +258,7 @@
   .lock-bid { width: 100%; margin-top: 15px; padding: 10px; border: 0; border-radius: 8px; color: #162019; background: #bfd269; font-weight: 700; cursor: pointer; }
   .interface-strip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(330px, .8fr); align-items: center; gap: clamp(35px, 7vw, 100px); margin-bottom: 95px; padding: clamp(30px, 5vw, 62px); border: 1px solid rgba(170, 200, 91, .25); border-radius: 25px; background: linear-gradient(120deg, rgba(75, 102, 50, .17), rgba(18, 36, 36, .78)); }
   .interface-strip > div > p:last-child { max-width: 650px; color: #9ead9f; line-height: 1.5; }
-  .phase-demo { padding: 22px; border: 1px solid rgba(222, 202, 149, .25); border-radius: 15px; background: rgba(8, 22, 21, .78); box-shadow: 0 20px 35px rgba(0, 0, 0, .25); }
+  .phase-demo { padding: 22px; border: 1px solid rgba(222, 202, 149, .25); border-radius: 15px; background: rgba(8, 22, 21, .78); }
   .phase-demo > span { color: #86978c; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
   .phase-demo > strong { display: block; margin: 3px 0 15px; color: #c9de78; font-family: 'Cormorant Garamond', serif; font-size: 37px; }
   .phase-demo ol { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; padding: 0; list-style: none; }
@@ -278,10 +270,9 @@
   footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 30px 0 46px; border-top: 1px solid rgba(222, 202, 149, .17); color: #71847a; font-size: 11px; }
   footer a { color: #b8cb76; text-decoration: none; }
 
-  @media (max-width: 980px) {
-    .playing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .princess-grid, .round-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .princess-card:last-child, .round-card:last-child { grid-column: 1 / -1; width: calc(50% - 8px); justify-self: center; }
+  @media (max-width: 1100px) {
+    .playing-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    .princess-grid, .round-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .economy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .bid-panel { grid-column: 1 / -1; }
   }
@@ -296,25 +287,16 @@
     .hero-art { width: min(78vw, 350px); margin-top: 20px; }
     .section-heading { display: block; }
     .section-heading > p { margin-top: 15px; }
-    .playing-grid { gap: 10px; }
-    .playing-card { border-width: 4px; border-radius: 12px; }
-    .playing-card::after { inset: 7px; }
-    .card-rank { width: 42px; min-height: 62px; }
-    .card-rank.bottom { min-height: 42px; }
-    .card-rank strong { font-size: 27px; }
-    .suit-icon { width: 17px; }
-    .frog-row { grid-template-columns: minmax(130px, .72fr) 1fr; gap: 18px; padding: 17px; }
-    .frog-copy h3 { font-size: 30px; }
-    .frog-copy > p:not(.eyebrow) { font-size: 12px; }
-    .rule-chip { display: none; }
+    .playing-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+    .playing-card { border-width: 2px; }
+    .corner { min-width: 38%; }
+    .frog-note { align-items: flex-start; flex-direction: column; gap: 5px; }
+    .frog-note i { margin-left: 0; }
     .princess-grid, .round-grid, .economy-grid { grid-template-columns: 1fr; }
-    .princess-card:last-child, .round-card:last-child { grid-column: auto; width: 100%; }
     .princess-card { display: grid; grid-template-columns: 43% 57%; }
     .princess-art { height: 100%; aspect-ratio: auto; }
-    .princess-copy { min-height: 215px; padding: 17px 38px 17px 14px; }
-    .princess-copy h3 { font-size: 27px; }
-    .round-copy { min-height: 170px; }
-    .token-study { min-height: 230px; }
+    .princess-copy { min-height: 230px; padding: 16px; }
+    .round-copy { min-height: 210px; }
     .bid-panel { grid-column: auto; }
     .interface-strip { display: block; padding: 26px 19px; }
     .phase-demo { margin-top: 28px; }
@@ -323,8 +305,7 @@
   @media (max-width: 410px) {
     .masthead nav a:first-child { display: none; }
     .status span { display: none; }
-    .frog-row { grid-template-columns: 125px 1fr; }
-    .frog-copy .eyebrow { display: none; }
+    .playing-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .token-study { grid-template-columns: 105px 1fr; padding: 15px; }
   }
 </style>

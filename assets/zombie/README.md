@@ -1,18 +1,28 @@
-# Zombie Princess concept art
+# Zombie Princess art set
 
-These are original, AI-generated art-direction studies for the proposed Zombie Princess variant. They are not extracted from, and do not attempt to reproduce, the published game’s component art.
+These are original, AI-generated assets for the proposed Zombie Princess variant. They are not extracted from, and do not attempt to reproduce, the published game’s component art.
 
 ## Direction
 
 The shared direction was “storybook resistance after dark”: painterly fantasy illustration, moonlit teal shadows, sickly chartreuse zombie accents, oxidized copper, bruised plum, theatrical lighting, adventurous rather than gory. Existing Rebel Princess atlases were supplied only as a reference for the project’s warmth, readable silhouettes, and handcrafted storybook finish.
 
-Art is generated borderless and without typography. The review page supplies dimensions, borders, ranks, names, suit emblems, and rules in HTML/CSS so an approved production set can be assembled into uniform deterministic atlases.
+Art is generated borderless and without typography. The review page supplies dimensions, borders, ranks, names, suit emblems, pass arrows, and rules in HTML/CSS. All playing cards use one shared component frame; all Princesses use one portrait frame; all round cards use one beige event frame.
+
+## Inventory
+
+- `playing/` — 60 suited illustrations, ranks 1–15 for Villagers, Pets, Knights, and Princes. Pet 6 is the Frog.
+- `princesses/` — all 12 Princess portraits.
+- `rounds/` — all 26 A–Z round illustrations.
+- `tokens/` — the bidding coin and skull counter.
+- `concepts/` — the initial 13-image direction study retained as generation provenance.
+
+The complete review set contains 98 card illustrations. Independent files are used at this stage so every source can be reviewed before any deterministic atlas packaging.
 
 ## Generation record
 
-Mode: built-in OpenAI image generation, one source image per prompt, followed by resizing to a maximum dimension of 1000px for the repository. Opaque illustrations use quality-85 JPEG derivatives; the transparent tokens remain PNGs. Full-resolution PNG originals remain in the local generation output.
+Mode: built-in OpenAI image generation, one source image per prompt. Repository derivatives are normalized to 600×900 JPEG for playing cards, 666×1000 JPEG for Princesses, and 800×800 JPEG for rounds. The transparent tokens remain PNGs. Full-resolution PNG originals remain in the local generation output.
 
-Every prompt included the shared direction above, asked for a single borderless illustration with no text, numbers, card frame, watermark, or cropped subject, and used the existing local artwork as a visual reference. Asset-specific prompt subjects were:
+Every prompt included the shared direction above and asked for a single borderless illustration with no text, numbers, card frame, watermark, or cropped subject. The initial 13 direction-study prompts were:
 
 - `suit-villager.jpg` — friendly zombie village baker, warm ochre market, vertical playing-card composition.
 - `suit-pet.jpg` — scrappy zombie rabbit companion in an overgrown moonlit garden, green palette.
@@ -28,4 +38,4 @@ Every prompt included the shared direction above, asked for a single borderless 
 - `bid-coin.png` — embossed oxidized-copper coin with a raised closed-hand emblem, isolated transparent token.
 - `skull-token.png` — friendly carved bone skull counter with chartreuse glow, isolated transparent token.
 
-The gallery deliberately shows only a representative concept set. After art direction is approved, production generation should use fixed composition templates, validate every source dimension, and assemble complete uniform atlases with one shared crop path.
+The gallery renders the entire inventory. Generated illustrations deliberately contain no ranks, suit marks, pass instructions, rules, or borders; those deterministic layers are owned by reusable UI components.

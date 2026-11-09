@@ -9,6 +9,8 @@ This document follows the current 32-page deluxe rulebook (version 5.3.1) as wri
 - [Bézier Games product page](https://beziergames.com/products/zombie-princess) — official overview, player count, modes, and component premise.
 - [Current deluxe rulebook PDF](https://madeincamelot.co.uk/cdn/shop/files/Zombie-Princess-board-game-rulebook.pdf?v=10086332508213666987) — setup, turn order, powers, scoring, and all round-card effects.
 - [Made in Camelot product listing](https://madeincamelot.co.uk/products/zombie-princess) — component inventory and link to the current rulebook.
+- [Official complete prototype round-card sheet](https://boardgamegeek.com/image/9188093/zombie-princess) — printed A–Z pass counts and directions, uploaded by Bézier Games.
+- [Production round-card sample](https://pbs.twimg.com/media/HL70XdZXAAEvyOm.jpg) — production cross-check for A, M, O, and Z.
 
 ## Game at a glance
 
@@ -86,36 +88,36 @@ Unless noted as always active, a Princess power is used once per round and the P
 
 ## Round cards
 
-The printed pass/exchange instruction is part of every round card in addition to the effect below.
+The printed pass/exchange instruction is part of every round card in addition to the effect below. “Half” means half the dealt hand. In team play, players exchange the printed number with their partner instead of passing in the printed direction.
 
-| ID | Round | Effect |
-| --- | --- | --- |
-| A | Opening Night (of Living Dead) | No additional rule. |
-| B | Ah One and Ah Two | A captured 1 grants 1 skull and a captured 2 grants 2 skulls. Canceled tricks do not grant them. |
-| C | Dead Last | Before the first trick, set one card aside face down and use it in the last trick. |
-| D | Dead Set on Winning ⧖ | Every trick won by a player or team not currently in the lead grants 1 skull. |
-| E | Triple Tap | Every captured 3 grants 1 skull. Canceled tricks do not grant it. |
-| F | Shambler Swap | After every trick, pass one card face down to your partner in teams or to the right in individual play. |
-| G | Brain Drain | Tricks containing a Villager do not count. Keep them face up as reminders. The Frog may make one count; Rapunzel can still gain skulls from its Villagers. |
-| H | Headhunters ⧖ | A nonleader may wager all current skulls on matching their bid exactly. Success gains the same number; failure loses the wager. Later power skulls are outside the wager but may help the bid. |
-| I | Brainpan Bonanza | Gain skulls equal to the lowest printed card value among the cards you won. |
-| J | Necro Narcissism | Before the first trick, choose a suit you hold and place all of your cards in that suit face up. |
-| K | Conspiratorial Corpse Crusade | Before the first trick, secretly show all cards of one suit to your partner in teams or the player on your right individually. |
-| L | Revenge of the Living ⧖ | A leading player or team that fails to make its bid exactly after optional purchases loses all skulls. |
-| M | Ultimate Won Knight | Gain one skull for every captured Knight. Canceled tricks do not grant it. |
-| N | Grave New World | Set aside half your hand face down. Play the other half first, then pick up the set-aside cards. |
-| O | Decomposing Duos | Before each trick, nonleaders select two cards and may play only one of them. The leader still cannot lead Princes before they are broken. |
-| P | A View to a Kill ⧖ | After the pass and before the first trick, nonleaders inspect—but do not reorder—the player to their right’s hand. |
-| Q | Skull Smashers | Double the normal skull cost for every overtrick. |
-| R | We the Villagers | Villagers are wild and count as the led suit; play one when void if possible. Equal value/suit ties go to the first played. They remain Villagers for Rapunzel. |
-| S | Divide and Conquer | Before bidding, set aside half your hand. After playing the first half, give the set-aside cards to your partner or the player on your right. |
-| T | High Cost of Living ⧖ | Each trick in which a leading player or team plays a Prince adds one skull to the round card. Use the supply if they have none. The lowest player or team takes the pot at round end. |
-| U | His Majesty’s Last Groan | Give the final trick to the player on the winner’s left; that recipient decides the Frog. Dorothy and Rapunzel cannot affect the final trick. |
-| V | Undead on Arrival | Stop taking turns after matching your bid exactly; the player to your left becomes leader. Zero bids follow the printed exceptions. |
-| W | Fester Feast | Before bidding, everyone discards one card. Shuffle and total their values. During play, the first card exceeding that total wins its trick—even over a Prince; otherwise resolve normally. |
-| X | Revenge of the Reanimated ⧖ | After the pass, the current leader or leaders give cards to the players in last place as printed. Unequal hand sizes near round end are allowed. |
-| Y | Undead Uprising | Every newly played suit becomes the led suit. Princes remain trump. |
-| Z | Ghoulfriends | Each player plays a second card. Compare each player’s combined led-suit or Prince values. The winner divides the pile into two captured tricks. |
+| ID | Round | Printed pass | Effect |
+| --- | --- | --- | --- |
+| A | Opening Night (of Living Dead) | 4 left | No additional rule. |
+| B | Ah One and Ah Two | 1 right | A captured 1 grants 1 skull and a captured 2 grants 2 skulls. Canceled tricks do not grant them. |
+| C | Dead Last | 2 right | Before the first trick, set one card aside face down and use it in the last trick. |
+| D | Dead Set on Winning ⧖ | 5 left | Every trick won by a player or team not currently in the lead grants 1 skull. |
+| E | Triple Tap | 5 left | Every captured 3 grants 1 skull. Canceled tricks do not grant it. |
+| F | Shambler Swap | 1 right | After every trick, pass one card face down to your partner in teams or to the right in individual play. |
+| G | Brain Drain | 5 right | Tricks containing a Villager do not count. Keep them face up as reminders. The Frog may make one count; Rapunzel can still gain skulls from its Villagers. |
+| H | Headhunters ⧖ | 1 left | A nonleader may wager all current skulls on matching their bid exactly. Success gains the same number; failure loses the wager. Later power skulls are outside the wager but may help the bid. |
+| I | Brainpan Bonanza | 4 right | Gain skulls equal to the lowest printed card value among the cards you won. |
+| J | Necro Narcissism | 2 left | Before the first trick, choose a suit you hold and place all of your cards in that suit face up. |
+| K | Conspiratorial Corpse Crusade | 3 right | Before the first trick, secretly show all cards of one suit to your partner in teams or the player on your right individually. |
+| L | Revenge of the Living ⧖ | 5 right | A leading player or team that fails to make its bid exactly after optional purchases loses all skulls. |
+| M | Ultimate Won Knight | 2 left | Gain one skull for every captured Knight. Canceled tricks do not grant it. |
+| N | Grave New World | Half left | Set aside half your hand face down. Play the other half first, then pick up the set-aside cards. |
+| O | Decomposing Duos | 2 right | Before each trick, nonleaders select two cards and may play only one of them. The leader still cannot lead Princes before they are broken. |
+| P | A View to a Kill ⧖ | 4 right | After the pass and before the first trick, nonleaders inspect—but do not reorder—the player to their right’s hand. |
+| Q | Skull Smashers | 4 left | Double the normal skull cost for every overtrick. |
+| R | We the Villagers | 1 left | Villagers are wild and count as the led suit; play one when void if possible. Equal value/suit ties go to the first played. They remain Villagers for Rapunzel. |
+| S | Divide and Conquer | Half right | Before bidding, set aside half your hand. After playing the first half, give the set-aside cards to your partner or the player on your right. |
+| T | High Cost of Living ⧖ | 3 right | Each trick in which a leading player or team plays a Prince adds one skull to the round card. Use the supply if they have none. The lowest player or team takes the pot at round end. |
+| U | His Majesty’s Last Groan | 3 left | Give the final trick to the player on the winner’s left; that recipient decides the Frog. Dorothy and Rapunzel cannot affect the final trick. |
+| V | Undead on Arrival | 1 left | Stop taking turns after matching your bid exactly; the player to your left becomes leader. Zero bids follow the printed exceptions. |
+| W | Fester Feast | 4 right | Before bidding, everyone discards one card. Shuffle and total their values. During play, the first card exceeding that total wins its trick—even over a Prince; otherwise resolve normally. |
+| X | Revenge of the Reanimated ⧖ | 3 left | After the pass, the current leader or leaders give cards to the players in last place as printed. Unequal hand sizes near round end are allowed. |
+| Y | Undead Uprising | 2 right | Every newly played suit becomes the led suit. Princes remain trump. |
+| Z | Ghoulfriends | 4 left | Each player plays a second card. Compare each player’s combined led-suit or Prince values. The winner divides the pile into two captured tricks. |
 
 ## Interface and engine implications
 
@@ -135,7 +137,6 @@ The safest implementation boundary is a common table shell around two variant ru
 
 ## Questions to settle before implementation
 
-- Transcribe each round card’s printed pass direction/count into machine-readable data during implementation; the summary above records effects, not every pass icon.
 - Decide whether the UI exposes the rulebook’s optional online tie-breaker or ends with a shared win after score and skull ties.
 - Validate scoring against the physical edition in hand if its reference card differs from rulebook v5.3.1. This design intentionally follows the current rulebook’s “bid at most tricks won” wording and its separate overtrick penalty.
-- Keep all art as replaceable original work. The concept gallery is an art-direction proposal, not a production atlas or a claim to reproduce the publisher’s illustrations.
+- Keep all art as replaceable original work. The complete gallery is an art-direction proposal, not a claim to reproduce the publisher’s illustrations.

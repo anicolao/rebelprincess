@@ -1,17 +1,18 @@
-# Zombie Princess component study
+# Zombie Princess complete asset review
 
-Review the proposed playing suits, Frog, Princesses, round cards, tokens, bidding controls, and shared-table phase language before production art or game logic is implemented.
+Review all 60 suited cards, 12 Princesses, 26 round cards, tokens, bidding controls, and shared-table phase language before game logic is implemented.
 
-## The complete concept set remains readable in the desktop viewport
+## The complete asset set remains readable in the desktop viewport
 
-![The complete concept set remains readable in the desktop viewport](./screenshots/000-complete-concept-set-desktop.png)
+![The complete asset set remains readable in the desktop viewport](./screenshots/000-complete-asset-set-desktop.png)
 
 **Verifications:**
-- [x] The route identifies all 13 concept images as a non-production set
-- [x] All four playing suits use the shared playing-card frame
+- [x] The route identifies all 98 card illustrations
+- [x] All 60 suited cards use the shared playing-card frame
 - [x] The Frog is correctly identified as the special Pet 6
-- [x] Three Princess powers and three round-card treatments are visible
+- [x] All 12 Princesses and all 26 round cards are present
+- [x] All 26 verified pass instructions match the printed A–Z sequence
 - [x] Bidding, skull economy, and phase-order UI studies are present
-- [x] Every concept image has loaded at its intrinsic dimensions
+- [x] Every asset has loaded at its intrinsic dimensions
 
 ---
