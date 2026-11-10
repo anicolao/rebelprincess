@@ -8,6 +8,8 @@
   import { goto, replaceState } from '$app/navigation';
   import GameLobby from '$lib/components/GameLobby.svelte';
   import GameCardFace from '$lib/components/GameCardFace.svelte';
+  import GameHand from '$lib/components/GameHand.svelte';
+  import GameHandCard from '$lib/components/GameHandCard.svelte';
   import GameMasthead from '$lib/components/GameMasthead.svelte';
   import GameRoundDisplay from '$lib/components/GameRoundDisplay.svelte';
   import GameTableSurface from '$lib/components/GameTableSurface.svelte';
@@ -1036,25 +1038,32 @@
                   </div>
                 {/if}
               </details>{/if}
-              <div class="hand" role="region" aria-label="Your hand">
+              <GameHand>
                 {#each game.hands[currentUid] ?? [] as card}
                   {@const committed = !game.passComplete && game.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card))}
                   {@const roundActionAvailable = Boolean(game.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit' && game.awaitingRoundAction !== 'split-hand' && !game.roundActionSubmissions[currentUid])}
                   {@const splitAvailable = game.awaitingRoundAction === 'split-hand' && !game.roundCardSubmissions[currentUid]}
                   {@const haggleAvailable = game.awaitingRoundAction === 'haggle' && game.haggleWinnerUid === currentUid}
                   {@const turnBlocked = game.passComplete && game.currentTurnUid === currentUid && !game.awaitingRoundAction && !game.pendingPower && !game.pendingMulanUid && !playable(card)}
-                  <button
-                    type="button"
-                    class={`playing-card${selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card)) || selectedHaggleOffer === cardLabel(card) ? ' selected' : ''}${committed ? ' committed' : ''}${game.passComplete && playable(card) ? ' playable' : ''}${turnBlocked ? ' turn-blocked' : ''}${roundActionAvailable || splitAvailable || haggleAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid)) ? ' contributable' : ''}`}
+                  <GameHandCard
+                    artwork={{ kind: 'sprite', sprite: cardSpriteProps(card) }}
+                    rank={card.rank}
+                    suit={card.suit}
+                    badge={committed ? `To ${passRecipient(card)}` : ''}
+                    badgeAlign={committed ? 'left' : 'center'}
+                    muted
+                    selected={selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card)) || selectedHaggleOffer === cardLabel(card)}
+                    {committed}
+                    playable={game.passComplete && playable(card)}
+                    {turnBlocked}
+                    contributable={roundActionAvailable || splitAvailable || haggleAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))}
                     disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !splitAvailable && !haggleAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)}
-                    aria-label={cardLabel(card)}
-                    aria-describedby={turnBlocked ? 'card-block-explanation' : undefined}
+                    ariaLabel={cardLabel(card)}
+                    ariaDescribedby={turnBlocked ? 'card-block-explanation' : undefined}
                     on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}
-                  >
-                    <GameCardFace artwork={{ kind: 'sprite', sprite: cardSpriteProps(card) }} rank={card.rank} suit={card.suit} badge={committed ? `To ${passRecipient(card)}` : ''} badgeAlign={committed ? 'left' : 'center'} muted />
-                  </button>
+                  />
                 {/each}
-              </div>
+              </GameHand>
               {#if localCardBlockExplanation()}<p id="card-block-explanation" class="card-block-explanation">{localCardBlockExplanation()}</p>{/if}
               <div class="pass-controls">
                 {#if game.roundComplete}
@@ -1449,17 +1458,6 @@
   .power-choice { position: fixed; z-index: 30; top: 56%; left: 50%; width: min(90vw, 720px); max-height: 26vh; flex-wrap: wrap; overflow-y: auto; padding: 8px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 8px; background: rgba(20, 13, 30, .97); transform: translate(-50%, -50%); }
   .power-choice button.chosen { color: #211329; background: #ffc75f; }
   .power-prompt { margin: 0 0 3px; color: #ffc75f; font-size: clamp(10px, 1.5cqh, 13px); font-weight: 700; text-align: center; }
-  .playing-card.contributable { border-color: #7de2a7; box-shadow: 0 0 0 2px #7de2a7, 0 0 18px rgba(125, 226, 167, .38); transform: translateY(-5px); }
-  .hand { display: flex; justify-content: center; align-items: flex-end; min-height: clamp(96px, 18cqh, 180px); padding-top: 10px; }
-  .playing-card { position: relative; width: var(--hand-card-width); height: auto; min-height: 0; aspect-ratio: 3 / 5; padding: 0; overflow: hidden; flex: 0 0 auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: clamp(5px, .7cqh, 8px); background: #150d1d; transition: transform .15s ease, filter .15s ease, box-shadow .15s ease; }
-  .playing-card + .playing-card { margin-left: calc(-1 * var(--hand-card-overlap)); }
-  .playing-card:not(:disabled) { cursor: pointer; }
-  .playing-card.selected, .playing-card.committed { border: 3px solid #ffc75f; transform: translateY(-9px); box-shadow: 0 7px 18px rgba(0, 0, 0, .45); }
-  .playing-card.committed { border-color: #7de2a7; }
-  .playing-card.playable { z-index: 1; border: 3px solid #ffc75f; box-shadow: 0 0 0 2px rgba(255, 199, 95, .38), 0 0 22px rgba(255, 199, 95, .55), 0 9px 18px rgba(0, 0, 0, .45); transform: translateY(-8px); }
-  .playing-card.playable:focus-visible, .playing-card.contributable:focus-visible { outline: 3px solid #fff4d0; outline-offset: 3px; }
-  .playing-card.turn-blocked { filter: saturate(.25) brightness(.52); }
-  .playing-card:disabled { opacity: 1; color: inherit; }
   .card-block-explanation { width: max-content; max-width: calc(100% - 150px); margin: 2px auto 0; color: #e8dcae; font-size: clamp(9px, 1.3cqh, 11px); line-height: 1.2; text-align: center; }
   .card-art { position: absolute; inset: 0; opacity: .72; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; }
   .pass-controls { min-height: 37px; display: flex; justify-content: center; align-items: center; }
@@ -1657,10 +1655,6 @@
 
     .variant-choice { grid-template-columns: 1fr; }
     .actions input { width: 118px; }
-    .hand { grid-template-columns: repeat(4, minmax(44px, 1fr)); }
-    .playing-card { min-height: 92px; }
-    main.gameplay .hand { min-height: clamp(92px, 17cqh, 138px); }
-    main.gameplay .playing-card { height: auto; min-height: 0; }
     main.gameplay .local-princess { bottom: clamp(116px, 18cqh, 150px); left: 4px; width: 62px; }
     main.gameplay .local-princess .princess-card { width: 52px; }
     main.gameplay .local-princess > span { width: 64px; font-size: 8px; }
@@ -1737,6 +1731,5 @@
     .power-sparkles,
     .seat-princess.power-active .princess-card { animation: none; }
     .trick-card { animation: none; }
-    .playing-card { transition: none; }
   }
 </style>

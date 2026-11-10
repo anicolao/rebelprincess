@@ -8,6 +8,8 @@
   import { goto } from '$app/navigation';
   import GameLobby from '$lib/components/GameLobby.svelte';
   import GameCardFace from '$lib/components/GameCardFace.svelte';
+  import GameHand from '$lib/components/GameHand.svelte';
+  import GameHandCard from '$lib/components/GameHandCard.svelte';
   import GameMasthead from '$lib/components/GameMasthead.svelte';
   import GameRoundDisplay from '$lib/components/GameRoundDisplay.svelte';
   import GameTableSurface from '$lib/components/GameTableSurface.svelte';
@@ -392,15 +394,28 @@
           {/if}
           {#if actionError}<p class="error" role="alert">{actionError}</p>{/if}
           </aside>
-          <div class="hand" aria-label="Your hand">
+          <GameHand>
             {#each localHand() as card}
               {@const selected = selectedPassCards.includes(cardLabel(card)) || redOffer === cardLabel(card)}
               {@const playable = legal(card)}
-              <button type="button" class={`z-card ${card.suit}`} class:selected class:playable disabled={handCardDisabled(card)} on:click={() => handleHandCard(card)}>
-                <GameCardFace artwork={{ kind: 'image', src: cardArt(card), alt: zombieCardLabel(card) }} rank={card.rank} suit={zombieSuitName(card.suit)} badge={card.suit === 'pets' && card.rank === 6 ? 'Frog' : ''} aspect={2 / 3} />
-              </button>
+              <GameHandCard
+                artwork={{ kind: 'image', src: cardArt(card), alt: zombieCardLabel(card) }}
+                rank={card.rank}
+                suit={zombieSuitName(card.suit)}
+                badge={card.suit === 'pets' && card.rank === 6 ? 'Frog' : ''}
+                aspect={2 / 3}
+                accent={card.suit === 'fairies' ? '#d29a43' : card.suit === 'pets' ? '#7f9f4d' : card.suit === 'queens' ? '#6c9eae' : '#a36a9a'}
+                frameBorderWidth="2px"
+                framePadding="3px"
+                elevated
+                {selected}
+                {playable}
+                disabled={handCardDisabled(card)}
+                ariaLabel={zombieCardLabel(card)}
+                on:click={() => handleHandCard(card)}
+              />
             {/each}
-          </div>
+          </GameHand>
         </section>
         {:else}
           <aside class="spectator-panel" role="status"><strong>Watching room {gameId}</strong><span>{spectatorStatus()}</span></aside>
@@ -454,8 +469,6 @@
   .local-player > header { display: flex; justify-content: center; align-items: center; gap: 9px; margin-bottom: 3px; color: #fff4d0; }.local-player > header img { width: clamp(36px, 4.5cqh, 46px); aspect-ratio: 2 / 3; object-fit: cover; border: 1px solid #fff4d0; border-radius: 5px; }.local-player > header span, .local-player > header strong { display: block; }.local-player > header span { color: #b88cdf; font-size: clamp(9px, 1.2cqh, 11px); }
   .spectator-panel { position: absolute; z-index: 5; right: 8px; bottom: 8px; left: 8px; display: flex; justify-content: center; align-items: baseline; gap: 10px; padding: 9px 12px; border: 1px solid rgba(184, 140, 223, .35); border-radius: 10px; color: #fff4d0; background: rgba(20, 13, 30, .9); text-align: center; }.spectator-panel span { color: #b88cdf; font-size: 12px; }
   .phase-panel { width: max-content; max-width: min(90%, 720px); min-height: 34px; margin: 0 auto 3px; padding: 4px 10px; border: 1px solid rgba(184, 140, 223, .35); border-radius: 10px; background: rgba(20, 13, 30, .9); color: #fff4d0; font-size: clamp(9px, 1.3cqh, 12px); text-align: center; }.phase-panel p { display: inline; margin: 0 6px 0 0; }.phase-panel label { display: inline-flex; align-items: center; gap: 6px; margin-right: 5px; }.phase-panel input { width: 58px; padding: 4px; border: 1px solid rgba(255, 226, 163, .3); border-radius: 6px; color: #fff4d0; background: #21152d; }.phase-panel button { min-height: 28px; margin: 1px 2px; padding: 0 9px; font-size: 10px; }.phase-panel button.armed { color: #211329; background: #ffc75f; }.phase-panel details { margin-top: 4px; }.buy-options { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
-  .hand { display: flex; justify-content: center; align-items: flex-end; min-height: clamp(96px, 18cqh, 180px); padding-top: 6px; }.hand button { width: var(--hand-card-width); min-height: 0; padding: 0; flex: 0 0 auto; border-width: 2px; border-radius: clamp(5px, .7cqh, 8px); transition: transform .15s ease, filter .15s ease; }.hand button + button { margin-left: calc(-1 * var(--hand-card-overlap)); }.hand button.playable { z-index: 1; transform: translateY(-8px); filter: drop-shadow(0 0 8px rgba(255, 199, 95, .7)); }.hand button.selected { transform: translateY(-12px); box-shadow: 0 0 0 3px #ffc75f, 0 13px 28px rgba(0,0,0,.4); }
-  .hand .z-card:disabled { opacity: 1; color: inherit; }
   .results { position: absolute; z-index: 20; inset: 8% 12%; overflow: auto; padding: 24px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 12px; color: #fff4d0; background: #140d1e; box-shadow: 0 18px 60px rgba(0, 0, 0, .7); }.results h2 { font-size: 36px; }.result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 18px 0; }.result-grid article { display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1px solid rgba(255, 226, 163, .15); border-radius: 12px; }.result-grid article.winner { border-color: #ffc75f; }.result-grid b { color: #ffc75f; }.result-grid small { color: #a99dac; }.result-grid em { color: #fff4d0; font-style: normal; font-weight: 700; }.link-button { display: inline-block; text-decoration: none; }
   .error { color: #f3a3a3; }
   @media (max-width: 800px) {
@@ -467,7 +480,6 @@
     .trick { top: 56%; gap: 4px; }.trick figure { width: 46px; }
     .local-player { bottom: 1px; }.local-player > header img { width: 34px; }.local-player > header span { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .phase-panel { max-width: 96%; }
-    .hand { min-height: clamp(92px, 17cqh, 138px); }
     .results { inset: 8% 5%; }
   }
 </style>
