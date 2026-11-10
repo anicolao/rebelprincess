@@ -6,11 +6,17 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { goto } from '$app/navigation';
+  import GameLobby from '$lib/components/GameLobby.svelte';
+  import GameCardFace from '$lib/components/GameCardFace.svelte';
+  import GameMasthead from '$lib/components/GameMasthead.svelte';
+  import GameRoundDisplay from '$lib/components/GameRoundDisplay.svelte';
+  import GameTableSurface from '$lib/components/GameTableSurface.svelte';
   import { choiceCommitment, princessChoiceScope } from '$lib/choice-commitment';
   import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
   import { appendGameEvent, normalizeGameId } from '$lib/game-events';
   import { cardLabel, type Card } from '$lib/setup';
   import { subscribeToZombieGame, type ZombieProjection } from '$lib/zombie-game-events';
+  import type { LobbyPlayer, LobbyPrincess } from '$lib/game-ui';
   import {
     ZOMBIE_ROUND_IDS,
     zombieCardLabel,
@@ -253,6 +259,27 @@
   function winnerNames() {
     return game?.winnerUids.map((uid) => playerName(uid)).join(' and ') ?? '';
   }
+
+  function lobbyPlayers(): LobbyPlayer[] {
+    return game?.players.map((player) => ({
+      ...player,
+      committed: Boolean(game?.princessCommitments[player.uid]),
+      princessName: zombiePrincess(player.princessId)?.name
+    })) ?? [];
+  }
+
+  function lobbyPrincesses(): LobbyPrincess[] {
+    return (game?.princessOptions[currentUid] ?? []).map((id) => {
+      const princess = zombiePrincess(id)!;
+      return {
+        id,
+        name: princess.name,
+        power: princess.power,
+        text: princess.text,
+        artwork: { kind: 'image' as const, src: princessArt(id), alt: princess.name }
+      };
+    });
+  }
 </script>
 
 <svelte:head>
@@ -261,53 +288,34 @@
 </svelte:head>
 
 <main class:gameplay={Boolean(game?.hands)} data-e2e-layout>
-  <header class="masthead">
-    <a class="wordmark" href={`${base}/`} aria-label="Rebel Princess home"><span>Zombie</span><strong>Princess</strong></a>
-    <div class="header-tools">
-      <a href={`${base}/zombie/assets/`}>Assets</a>
-      <div class="status" role="status" data-status={connection}><i></i>{connectionLabel}</div>
-    </div>
-  </header>
+  <GameMasthead homeHref={`${base}/`} brand="Zombie Princess" assetsHref={`${base}/zombie/assets/`} assetsLabel="Asset review" {connection} {connectionLabel} compact={Boolean(game?.hands)} />
 
   {#if !game}
     <section class="loading"><h1>Opening the room…</h1>{#if actionError}<p role="alert">{actionError}</p>{/if}</section>
   {:else if game.phase === 'lobby'}
-    <section class="lobby">
-      <div class="lobby-copy"><p>Room {gameId}</p><h1>Choose your Princess.</h1><span>Individual play · recommended A–D rounds</span></div>
-      <div class="room-panel">
-        <ul aria-label="Players">
-          {#each game.players as player}
-            <li><span>{player.displayName}</span><small>{player.host ? 'Host · ' : ''}{player.ready || game.princessCommitments[player.uid] ? 'Ready' : 'Choosing'}</small></li>
-          {/each}
-        </ul>
-        {#if !localPlayer()?.ready && !game.princessCommitments[currentUid]}
-          <div class="princess-options" aria-label="Choose a Princess">
-            {#each game.princessOptions[currentUid] ?? [] as id}
-              {@const princess = zombiePrincess(id)}
-              <button class:chosen={selectedPrincess === id} type="button" on:click={() => selectedPrincess = id}>
-                <img src={princessArt(id)} alt="" /><span><strong>{princess?.name}</strong><b>{princess?.power}</b><small>{princess?.text}</small></span>
-              </button>
-            {/each}
-          </div>
-          <button class="primary" type="button" disabled={!selectedPrincess} on:click={choosePrincess}>Lock Princess</button>
-        {:else if !localPlayer()?.ready}
-          <p>Princess locked. Waiting for every player.</p>
-        {/if}
-        {#if game.players.length < 3}
-          <p class="minimum-player-note">{game.players.length} of 3 minimum players joined. You can lock your Princess now; dealing starts once the room has three players.</p>
-        {/if}
-        {#if game.players[0]?.uid === currentUid}
-          <button class="primary" type="button" disabled={dealPending || game.players.length < 3 || !game.players.every((player) => player.ready)} on:click={dealRound}>{dealPending ? 'Dealing…' : 'Deal round 1'}</button>
-        {/if}
-        {#if actionError}<p class="error" role="alert">{actionError}</p>{/if}
-      </div>
-    </section>
+    <div class="shared-lobby">
+      <GameLobby
+        {gameId}
+        gameName="Zombie Princess"
+        players={lobbyPlayers()}
+        {currentUid}
+        princessOptions={lobbyPrincesses()}
+        {selectedPrincess}
+        {dealPending}
+        lockLabel="Lock Princess"
+        dealLabel={`Deal round ${game.roundIndex + 1}`}
+        automaticText="Individual play · recommended A–D rounds"
+        {actionError}
+        onSelect={(id) => selectedPrincess = id}
+        onLock={choosePrincess}
+        onDeal={dealRound}
+      />
+    </div>
   {:else}
     <section class="game-shell">
-      <header class="round-head">
-        <div><p>Room {gameId} · Round {game.roundIndex + 1} of 4</p><h1>{activeRound().name}</h1><span>{activeRound().text}</span></div>
-        <img src={roundArt()} alt={`${activeRound().name} round card`} />
-      </header>
+      <div class="round-head">
+        <GameRoundDisplay name={activeRound().name} rule={activeRound().text} artwork={{ kind: 'image', src: roundArt(), alt: `${activeRound().name} round card` }} current={game.roundIndex + 1} total={4} mode="banner" />
+      </div>
 
       <div class="score-strip" aria-label="Scoreboard">
         {#each game.players as player}
@@ -319,7 +327,8 @@
         {/each}
       </div>
 
-      <section class="table" aria-label="Zombie Princess table">
+      <GameTableSurface playerCount={game.players.length} ariaLabel="Zombie Princess table">
+        <div class="zombie-table-content">
         <div class="opponents">
           {#each game.players.filter((player) => player.uid !== currentUid) as player}
             <article class:active={game.currentTurnUid === player.uid || game.currentBidderUid === player.uid}>
@@ -329,7 +338,7 @@
         </div>
         <div class="trick" aria-label="Current trick">
           {#each game.trick?.plays ?? [] as play}
-            <figure><div class={`z-card ${play.card.suit}`}><img src={cardArt(play.card)} alt={zombieCardLabel(play.card)} /><strong>{play.effectiveRank ?? play.card.rank}</strong><span>{zombieSuitName(play.card.suit)}</span></div><figcaption>{playerName(play.uid)}</figcaption></figure>
+            <figure><div class={`z-card ${play.card.suit}`}><GameCardFace artwork={{ kind: 'image', src: cardArt(play.card), alt: zombieCardLabel(play.card) }} rank={play.effectiveRank ?? play.card.rank} suit={zombieSuitName(play.card.suit)} aspect={2 / 3} display="trick" /></div><figcaption>{playerName(play.uid)}</figcaption></figure>
           {/each}
           {#if !game.trick?.plays.length}<p>Trick {game.completedTricks + 1}</p>{/if}
         </div>
@@ -373,12 +382,13 @@
               {@const selected = selectedPassCards.includes(cardLabel(card)) || redOffer === cardLabel(card)}
               {@const playable = legal(card)}
               <button type="button" class={`z-card ${card.suit}`} class:selected class:playable disabled={handCardDisabled(card)} on:click={() => handleHandCard(card)}>
-                <img src={cardArt(card)} alt="" /><strong>{card.rank}</strong><span>{zombieSuitName(card.suit)}</span>{#if card.suit === 'pets' && card.rank === 6}<em>Frog</em>{/if}
+                <GameCardFace artwork={{ kind: 'image', src: cardArt(card), alt: zombieCardLabel(card) }} rank={card.rank} suit={zombieSuitName(card.suit)} badge={card.suit === 'pets' && card.rank === 6 ? 'Frog' : ''} aspect={2 / 3} />
               </button>
             {/each}
           </div>
         </section>
-      </section>
+        </div>
+      </GameTableSurface>
 
       {#if game.phase === 'round-complete' || game.phase === 'game-complete'}
         <section class="results">
@@ -394,34 +404,29 @@
 
 <style>
   :global(*) { box-sizing: border-box; }
-  :global(html) { color-scheme: dark; background: #081513; font-family: 'Atkinson Hyperlegible', sans-serif; }
-  :global(body) { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 85% 10%, rgba(107, 131, 60, .2), transparent 32rem), linear-gradient(145deg, #081412, #102321 50%, #15131b); }
+  :global(html) { color-scheme: dark; background: #140d1e; font-family: 'Atkinson Hyperlegible', sans-serif; }
+  :global(body) { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 77% 9%, rgba(149, 91, 184, .25), transparent 31rem), linear-gradient(145deg, #160e22 0%, #251638 48%, #101c24 100%); }
+  main { display: flex; flex-direction: column; width: min(1180px, calc(100% - 48px)); min-height: 100vh; margin: 0 auto; }
   button, input { font: inherit; }
-  button, .link-button { border: 1px solid rgba(226, 208, 155, .35); border-radius: 999px; padding: 9px 14px; color: #eee1bd; background: #172824; cursor: pointer; }
+  button, .link-button { border: 1px solid rgba(255, 226, 163, .38); border-radius: 6px; padding: 9px 14px; color: #fff4d0; background: #604077; cursor: pointer; }
   button:disabled { opacity: .45; cursor: not-allowed; }
-  button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #b8d65d; outline-offset: 3px; }
-  .primary { border-color: #b8d65d; color: #132010; background: #b8d65d; font-weight: 700; }
-  .masthead { display: flex; align-items: center; justify-content: space-between; width: min(1600px, calc(100% - 40px)); margin: 0 auto; padding: 18px 0; border-bottom: 1px solid rgba(222, 202, 149, .24); }
-  .wordmark { color: #f0dfb5; font-family: 'Cormorant Garamond', serif; line-height: .75; text-decoration: none; }
-  .wordmark span, .wordmark strong { display: block; font-size: 24px; }.wordmark span { color: #b8d65d; font-size: 15px; }
-  .header-tools { display: flex; align-items: center; gap: 12px; }.header-tools a { color: #d9c99d; font-size: 13px; text-decoration: none; }
-  .status { display: flex; align-items: center; gap: 7px; color: #9eada4; font-size: 12px; }.status i { width: 7px; height: 7px; border-radius: 50%; background: #b8d65d; }.status[data-status='error'] i { background: #d86d6d; }
-  .loading, .lobby, .game-shell { width: min(1600px, calc(100% - 40px)); margin: 0 auto; }
-  .loading { padding: 14vh 0; }.loading h1, .lobby h1, .round-head h1, .results h2 { margin: 0; color: #f0dfb5; font-family: 'Cormorant Garamond', serif; }
-  .lobby { display: grid; grid-template-columns: .7fr 1.3fr; gap: clamp(30px, 8vw, 120px); align-items: start; padding: clamp(60px, 9vw, 130px) 0; }
-  .lobby-copy p, .round-head p { margin: 0 0 8px; color: #b8d65d; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }.lobby-copy h1 { max-width: 560px; font-size: clamp(60px, 8vw, 112px); line-height: .78; }.lobby-copy span { display: block; margin-top: 28px; color: #98aaa0; }
-  .room-panel { padding: clamp(20px, 3vw, 34px); border: 1px solid rgba(222, 202, 149, .25); border-radius: 22px; background: rgba(5, 16, 14, .72); }.room-panel ul { margin: 0 0 24px; padding: 0; list-style: none; }.room-panel li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(222, 202, 149, .1); }.room-panel small { color: #92a39a; }
-  .princess-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }.princess-options button { display: grid; grid-template-columns: 42% 1fr; gap: 12px; padding: 5px; border-radius: 14px; text-align: left; overflow: hidden; }.princess-options button.chosen { border-color: #b8d65d; box-shadow: 0 0 0 2px rgba(184, 214, 93, .3); }.princess-options img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 9px; }.princess-options span { display: flex; flex-direction: column; padding: 8px 7px 8px 0; }.princess-options strong { font-family: 'Cormorant Garamond', serif; font-size: 25px; }.princess-options b { margin: 5px 0; color: #b8d65d; font-size: 12px; }.princess-options small { line-height: 1.35; }
-  .game-shell { padding: 34px 0 80px; }.round-head { display: grid; grid-template-columns: 1fr 190px; gap: 30px; align-items: center; margin-bottom: 24px; }.round-head h1 { font-size: clamp(45px, 6vw, 76px); line-height: .9; }.round-head span { display: block; max-width: 760px; margin-top: 12px; color: #aebbb3; }.round-head img { width: 100%; border: 7px solid #d6c69a; border-radius: 14px; }
-  .score-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 12px; }.score-strip article { display: grid; grid-template-columns: 44px 1fr auto auto; gap: 4px 9px; align-items: center; padding: 8px; border: 1px solid rgba(222, 202, 149, .16); border-radius: 12px; background: rgba(7, 20, 18, .8); }.score-strip article.active { border-color: #b8d65d; box-shadow: 0 0 18px rgba(184, 214, 93, .2); }.score-strip img { grid-row: span 2; width: 44px; height: 58px; object-fit: cover; border-radius: 6px; }.score-strip span { display: flex; flex-direction: column; }.score-strip small, .score-strip i { color: #91a098; font-size: 10px; font-style: normal; }.score-strip b { color: #f0dfb5; }.score-strip em { color: #b8d65d; font-style: normal; }.score-strip i { grid-column: 2 / -1; }
-  .table { position: relative; min-height: 670px; padding: 18px; border: 1px solid rgba(222, 202, 149, .25); border-radius: 34px; background: radial-gradient(ellipse at center, rgba(46, 75, 56, .65), rgba(8, 27, 24, .95) 70%); box-shadow: inset 0 0 0 8px rgba(3, 13, 11, .45); }.opponents { display: flex; justify-content: center; gap: 10px; }.opponents article { min-width: 150px; padding: 9px 12px; border: 1px solid rgba(222, 202, 149, .18); border-radius: 12px; background: #10201d; text-align: center; }.opponents article.active { border-color: #b8d65d; }.opponents strong, .opponents span, .opponents small { display: block; }.opponents span, .opponents small { color: #8fa097; font-size: 11px; }
-  .trick { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 280px; padding: 28px 0; }.trick > p { color: #71857a; font-family: 'Cormorant Garamond', serif; font-size: 32px; }.trick figure { width: min(120px, 16vw); margin: 0; transform: rotate(var(--rotate, 0deg)); }.trick figcaption { margin-top: 5px; color: #d8dcca; font-size: 11px; text-align: center; }
-  .z-card { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border: 4px solid var(--suit); border-radius: 12px; padding: 4px; background: #17211d; box-shadow: inset 0 0 0 1px #f4e9c8, 0 12px 24px rgba(0, 0, 0, .3); }.z-card.fairies { --suit: #d29a43; }.z-card.pets { --suit: #7f9f4d; }.z-card.queens { --suit: #6c9eae; }.z-card.princes { --suit: #a36a9a; }.z-card img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 7px; }.z-card > strong { position: absolute; top: 8px; left: 8px; display: grid; place-items: center; min-width: 27px; height: 27px; padding: 0 5px; border-radius: 50%; color: #16231e; background: #f2e4ba; font-size: 16px; }.z-card > span { position: absolute; right: 6px; bottom: 7px; left: 6px; padding: 3px; border-radius: 5px; color: #f2e4ba; background: rgba(8, 18, 16, .8); font-size: 8px; font-weight: 700; text-align: center; text-transform: uppercase; }.z-card > em { position: absolute; top: 40px; left: 8px; color: #e8f6b3; font-size: 9px; font-style: normal; font-weight: 700; }
-  .phase-panel { width: min(680px, calc(100% - 28px)); min-height: 72px; margin: 0 auto 18px; padding: 13px 16px; border: 1px solid rgba(184, 214, 93, .3); border-radius: 16px; background: rgba(5, 16, 14, .88); text-align: center; }.phase-panel p { margin: 0 0 9px; }.phase-panel label { display: inline-flex; align-items: center; gap: 9px; margin-right: 8px; }.phase-panel input { width: 66px; padding: 7px; border: 1px solid rgba(222, 202, 149, .3); border-radius: 8px; color: #f3e6c4; background: #0d1b18; }.phase-panel button { margin: 3px; }.phase-panel button.armed { color: #17210f; background: #b8d65d; }.phase-panel details { margin-top: 8px; }.buy-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-  .local-player { margin-top: auto; }.local-player > header { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 10px; }.local-player > header img { width: 42px; height: 55px; object-fit: cover; border: 1px solid #efe6cc; border-radius: 5px; }.local-player > header span, .local-player > header strong { display: block; }.local-player > header span { color: #9aaba1; font-size: 11px; }.hand { display: flex; justify-content: center; align-items: flex-end; min-height: 188px; padding: 0 8px; }.hand button { width: clamp(72px, 8.5vw, 118px); margin-left: clamp(-32px, -2.3vw, -12px); transition: transform .15s ease, filter .15s ease; }.hand button:first-child { margin-left: 0; }.hand button.playable { transform: translateY(-15px); filter: drop-shadow(0 0 8px rgba(184, 214, 93, .7)); }.hand button.selected { transform: translateY(-26px); box-shadow: 0 0 0 3px #b8d65d, 0 13px 28px rgba(0,0,0,.4); }
-  .results { margin-top: 24px; padding: 24px; border: 1px solid rgba(222, 202, 149, .25); border-radius: 22px; background: rgba(5, 16, 14, .82); }.results h2 { font-size: 48px; }.result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 18px 0; }.result-grid article { display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1px solid rgba(222, 202, 149, .15); border-radius: 12px; }.result-grid article.winner { border-color: #b8d65d; }.result-grid b { color: #b8d65d; }.result-grid small { color: #91a098; }.result-grid em { color: #f0dfb5; font-style: normal; font-weight: 700; }.link-button { display: inline-block; text-decoration: none; }
+  button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #ffc75f; outline-offset: 3px; }
+  .primary { border-color: #ffc75f; color: #211329; background: #ffc75f; font-weight: 700; }
+  .loading, .game-shell { width: 100%; }
+  .loading { padding: 14vh 0; }.loading h1, .results h2 { margin: 0; color: #fff4d0; font-family: 'Cormorant Garamond', serif; }
+  .shared-lobby { display: grid; flex: 1; place-items: center; padding: clamp(36px, 7vw, 80px) 0; }
+  .game-shell { padding: 24px 0 80px; }.round-head { margin-bottom: 24px; }
+  .score-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 12px; }.score-strip article { display: grid; grid-template-columns: 44px 1fr auto auto; gap: 4px 9px; align-items: center; padding: 8px; border: 1px solid rgba(255, 226, 163, .16); border-radius: 12px; background: rgba(20, 13, 30, .78); }.score-strip article.active { border-color: #ffc75f; box-shadow: 0 0 18px rgba(255, 199, 95, .22); }.score-strip img { grid-row: span 2; width: 44px; height: 58px; object-fit: cover; border-radius: 6px; }.score-strip span { display: flex; flex-direction: column; }.score-strip small, .score-strip i { color: #a99dac; font-size: 10px; font-style: normal; }.score-strip b { color: #fff4d0; }.score-strip em { color: #ffc75f; font-style: normal; }.score-strip i { grid-column: 2 / -1; }
+  .zombie-table-content { display: flex; flex-direction: column; min-height: 670px; padding: 18px; }
+  .opponents { display: flex; justify-content: center; gap: 10px; }.opponents article { min-width: 150px; padding: 9px 12px; border: 1px solid rgba(255, 226, 163, .18); border-radius: 12px; background: #21152d; text-align: center; }.opponents article.active { border-color: #ffc75f; }.opponents strong, .opponents span, .opponents small { display: block; }.opponents span, .opponents small { color: #a99dac; font-size: 11px; }
+  .trick { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 280px; padding: 28px 0; }.trick > p { color: #8d7c96; font-family: 'Cormorant Garamond', serif; font-size: 32px; }.trick figure { width: min(120px, 16vw); margin: 0; transform: rotate(var(--rotate, 0deg)); }.trick figcaption { margin-top: 5px; color: #d9cedd; font-size: 11px; text-align: center; }
+  .z-card { position: relative; overflow: hidden; display: block; aspect-ratio: 2 / 3; border: 4px solid var(--suit); border-radius: 12px; padding: 3px; background: #150d1d; box-shadow: 0 12px 24px rgba(0, 0, 0, .3); }.z-card.fairies { --suit: #d29a43; }.z-card.pets { --suit: #7f9f4d; }.z-card.queens { --suit: #6c9eae; }.z-card.princes { --suit: #a36a9a; }
+  .phase-panel { width: min(680px, calc(100% - 28px)); min-height: 72px; margin: 0 auto 18px; padding: 13px 16px; border: 1px solid rgba(184, 140, 223, .35); border-radius: 16px; background: rgba(20, 13, 30, .88); text-align: center; }.phase-panel p { margin: 0 0 9px; }.phase-panel label { display: inline-flex; align-items: center; gap: 9px; margin-right: 8px; }.phase-panel input { width: 66px; padding: 7px; border: 1px solid rgba(255, 226, 163, .3); border-radius: 8px; color: #fff4d0; background: #21152d; }.phase-panel button { margin: 3px; }.phase-panel button.armed { color: #211329; background: #ffc75f; }.phase-panel details { margin-top: 8px; }.buy-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .local-player { margin-top: auto; }.local-player > header { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 10px; }.local-player > header img { width: 42px; height: 55px; object-fit: cover; border: 1px solid #fff4d0; border-radius: 5px; }.local-player > header span, .local-player > header strong { display: block; }.local-player > header span { color: #a99dac; font-size: 11px; }.hand { display: flex; justify-content: center; align-items: flex-end; min-height: 188px; padding: 0 8px; }.hand button { width: clamp(72px, 8.5vw, 118px); margin-left: clamp(-32px, -2.3vw, -12px); transition: transform .15s ease, filter .15s ease; }.hand button:first-child { margin-left: 0; }.hand button.playable { transform: translateY(-15px); filter: drop-shadow(0 0 8px rgba(255, 199, 95, .7)); }.hand button.selected { transform: translateY(-26px); box-shadow: 0 0 0 3px #ffc75f, 0 13px 28px rgba(0,0,0,.4); }
+  .results { margin-top: 24px; padding: 24px; border: 1px solid rgba(255, 226, 163, .25); border-radius: 22px; background: rgba(20, 13, 30, .82); }.results h2 { font-size: 48px; }.result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 18px 0; }.result-grid article { display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1px solid rgba(255, 226, 163, .15); border-radius: 12px; }.result-grid article.winner { border-color: #ffc75f; }.result-grid b { color: #ffc75f; }.result-grid small { color: #a99dac; }.result-grid em { color: #fff4d0; font-style: normal; font-weight: 700; }.link-button { display: inline-block; text-decoration: none; }
   .error { color: #f3a3a3; }
   @media (max-width: 800px) {
-    .masthead, .loading, .lobby, .game-shell { width: min(100% - 24px, 1600px); }.lobby { display: block; padding: 45px 0; }.lobby-copy { margin-bottom: 30px; }.lobby-copy h1 { font-size: 64px; }.princess-options { grid-template-columns: 1fr; }.round-head { grid-template-columns: 1fr 100px; }.round-head h1 { font-size: 42px; }.score-strip { display: flex; overflow-x: auto; }.score-strip article { min-width: 190px; }.table { min-height: 600px; padding: 10px; border-radius: 22px; }.opponents { justify-content: flex-start; overflow-x: auto; }.opponents article { min-width: 125px; }.trick { min-height: 210px; gap: 5px; }.trick figure { width: min(95px, 23vw); }.hand { justify-content: flex-start; overflow-x: auto; padding: 24px 8px 12px; }.hand button { flex: 0 0 88px; margin-left: -25px; }.hand button:first-child { margin-left: 0; }
+    main { width: min(100% - 28px, 520px); }
+    .score-strip { display: flex; overflow-x: auto; }.score-strip article { min-width: 190px; }.zombie-table-content { min-height: 600px; padding: 10px; }.opponents { justify-content: flex-start; overflow-x: auto; }.opponents article { min-width: 125px; }.trick { min-height: 210px; gap: 5px; }.trick figure { width: min(95px, 23vw); }.hand { justify-content: flex-start; overflow-x: auto; padding: 24px 8px 12px; }.hand button { flex: 0 0 88px; margin-left: -25px; }.hand button:first-child { margin-left: 0; }
   }
 </style>

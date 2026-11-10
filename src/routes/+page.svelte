@@ -6,8 +6,13 @@
   import { onMount } from 'svelte';
   import { base } from '$app/paths';
   import { goto, replaceState } from '$app/navigation';
+  import GameLobby from '$lib/components/GameLobby.svelte';
+  import GameCardFace from '$lib/components/GameCardFace.svelte';
+  import GameMasthead from '$lib/components/GameMasthead.svelte';
+  import GameRoundDisplay from '$lib/components/GameRoundDisplay.svelte';
+  import GameTableSurface from '$lib/components/GameTableSurface.svelte';
   import SpriteCard from '$lib/components/SpriteCard.svelte';
-  import { cardSpriteProps, princessSpriteProps, roundSpriteProps, roundTargetAspect } from '$lib/asset-sprites';
+  import { cardSpriteProps, princessSpriteProps, roundSpriteProps } from '$lib/asset-sprites';
   import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
   import { gameAudio } from '$lib/game-audio';
   import {
@@ -28,6 +33,7 @@
   import { LiveBotController, type LiveBotState } from '$lib/live-bot';
   import { isBotSeat, readBotControllerRecords, writeBotControllerRecords, type BotControllerRecord } from '$lib/bot-controller-registry';
   import { BOT_DIFFICULTIES, BOT_DIFFICULTY_LABELS, type BotDifficulty } from '$lib/bot-policies';
+  import type { LobbyPlayer, LobbyPrincess } from '$lib/game-ui';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -309,7 +315,7 @@
   }
 
   async function becomeReady() {
-    if (princessCommitPending || !selectedPrincess || !game || game.players.length < 3 || game.princessCommitments[currentUid] || !game.princessOptions[currentUid]?.includes(selectedPrincess)) return;
+    if (princessCommitPending || !selectedPrincess || !game || game.princessCommitments[currentUid] || !game.princessOptions[currentUid]?.includes(selectedPrincess)) return;
     princessCommitPending = true;
     connection = 'checking';
     connectionLabel = 'Sealing your Princess…';
@@ -486,10 +492,23 @@
 
   function princessName(id?: string) { return PRINCESSES.find(([key]) => key === id)?.[1] ?? 'Choosing…'; }
 
-  function roundParentStyle(id: string) {
-    return `aspect-ratio: ${roundTargetAspect(id)};`;
-  }
   function localPlayer() { return game?.players.find((player) => player.uid === currentUid); }
+  function lobbyPlayers(): LobbyPlayer[] {
+    return game?.players.map((player) => ({
+      ...player,
+      committed: Boolean(game?.princessCommitments[player.uid]),
+      princessName: princessName(player.princessId),
+      removable: game?.players[0]?.uid === currentUid && isBotSeat(player) && !Object.keys(game.princessCommitments).length
+    })) ?? [];
+  }
+  function lobbyPrincesses(): LobbyPrincess[] {
+    return (game?.princessOptions[currentUid] ?? []).map((id) => ({
+      id,
+      name: princessName(id),
+      text: PRINCESS_POWER_TEXT[id] ?? 'Power coming in a later increment.',
+      artwork: { kind: 'sprite' as const, sprite: princessSpriteProps(id) }
+    }));
+  }
   function playerName(uid?: string | null) { return game?.players.find((player) => player.uid === uid)?.displayName ?? 'the active player'; }
   function localCardBlockExplanation() {
     if (game?.beforeTrickWindow) return game.beforeTrickWindow.priorityUid === currentUid ? 'Choose whether to use your before-trick power or decline.' : `Waiting for ${playerName(game.beforeTrickWindow.priorityUid)} to decide on a before-trick power.`;
@@ -810,13 +829,8 @@
 </svelte:head>
 
 <main class:gameplay={Boolean(game?.hands)} data-e2e-layout>
-  <header class="masthead">
-    <a class="wordmark" href="./" aria-label="Rebel Princess home">
-      <span>Rebel</span>
-      <strong>Princess</strong>
-    </a>
-    <div class="header-tools">
-      {#if !game?.hands}<a class="asset-review-link" href={`${base}/assets/`}>Asset review</a>{/if}
+  <GameMasthead homeHref={`${base}/`} brand="Rebel Princess" assetsHref={`${base}/assets/`} showAssets={!game?.hands} {connection} {connectionLabel} compact={Boolean(game?.hands)}>
+    <svelte:fragment slot="tools">
       <div class="audio-controls">
         <button
           class="audio-toggle"
@@ -854,12 +868,8 @@
           </section>
         {/if}
       </div>
-      <div class="status" role="status" aria-live="polite" data-status={connection}>
-        <span class="status-dot" aria-hidden="true"></span>
-        {connectionLabel}
-      </div>
-    </div>
-  </header>
+    </svelte:fragment>
+  </GameMasthead>
 
   <section class="hero" class:dealt={Boolean(game?.hands)} aria-labelledby="hero-title">
     <div class="copy">
@@ -870,8 +880,7 @@
         Create a room, invite the court, and keep those princes at arm's length.
       </p>
       {#if activeGameId && game?.hands}
-        <section class="table" aria-label="Dealt game">
-          <div class="table-board" class:power-flash={showPrincessBurst} data-player-count={game.players.length}>
+        <GameTableSurface playerCount={game.players.length} powerFlash={showPrincessBurst}>
             <div class="opponents" aria-label="Opponents">
               {#each clockwiseOpponents() as player, index}
                 {@const ownership = actionOwnership(game, player.uid)}
@@ -913,22 +922,24 @@
               {/each}
             </div>
 
-            <article class="round-center" aria-label="Current Round card">
-              <h2>{roundName(activeRoundId())}</h2>
-              <div class="round-art" style={roundParentStyle(activeRoundId())}>
-                <SpriteCard {...roundSpriteProps(activeRoundId())} />
-              </div>
-              <p class="round-rule">{roundRule(activeRoundId())}</p>
-              <div class="pass-icon" aria-label={`Pass ${passInstruction(activeRoundId()).count} ${passInstruction(activeRoundId()).direction}`}>
-                {#if passInstruction(activeRoundId()).direction === 'left' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
-                <strong>{passInstruction(activeRoundId()).direction === 'split' ? passInstruction(activeRoundId()).count / 2 : passInstruction(activeRoundId()).count}</strong>
-                {#if passInstruction(activeRoundId()).direction === 'right' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
-              </div>
-              <p class="round-count">Round {game.roundIndex + 1} of 5</p>
+            <GameRoundDisplay
+              name={roundName(activeRoundId())}
+              rule={roundRule(activeRoundId())}
+              artwork={{ kind: 'sprite', sprite: roundSpriteProps(activeRoundId()) }}
+              current={game.roundIndex + 1}
+              total={5}
+            >
+              <svelte:fragment slot="details">
+                <div class="pass-icon" aria-label={`Pass ${passInstruction(activeRoundId()).count} ${passInstruction(activeRoundId()).direction}`}>
+                  {#if passInstruction(activeRoundId()).direction === 'left' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
+                  <strong>{passInstruction(activeRoundId()).direction === 'split' ? passInstruction(activeRoundId()).count / 2 : passInstruction(activeRoundId()).count}</strong>
+                  {#if passInstruction(activeRoundId()).direction === 'right' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
+                </div>
+              </svelte:fragment>
               {#if game.blindTransferComplete}<p class="active-power" role="status">Blind Man’s Bluff · second hands passed right</p>{/if}
               {#if activeRoundId() === 'upside-down' && game.trick?.reversed}<p class="active-power" role="status">Upside Down · low cards currently win</p>{/if}
               {#if game.powerIdsThisTrick.length}<p class="active-power" role="status">Princess power: {game.powerIdsThisTrick.map(princessName).join(', ')}</p>{/if}
-            </article>
+            </GameRoundDisplay>
 
             {#if celebratedPrincessId && showPrincessBurst}
               {#key celebrationKey}
@@ -956,9 +967,7 @@
                       <div class="trick-card face-down" style={playOrigin(play.uid)}></div>
                     {:else}
                       <div class="trick-card" style={playOrigin(play.uid)}>
-                        <SpriteCard {...cardSpriteProps(play.card)} />
-                        <strong>{play.card.rank}</strong><small>{play.card.suit}</small>
-                        {#if play.effectiveRank === 0}<em>Counts as 0</em>{/if}
+                        <GameCardFace artwork={{ kind: 'sprite', sprite: cardSpriteProps(play.card) }} rank={play.card.rank} suit={play.card.suit} badge={play.effectiveRank === 0 ? 'Counts as 0' : ''} display="trick" />
                       </div>
                     {/if}
                   </article>
@@ -1042,9 +1051,7 @@
                     aria-describedby={turnBlocked ? 'card-block-explanation' : undefined}
                     on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}
                   >
-                    <SpriteCard {...cardSpriteProps(card)} style="opacity: 0.72;" />
-                    <strong>{card.rank}</strong><small>{card.suit}</small>
-                    {#if committed}<em>To {passRecipient(card)}</em>{/if}
+                    <GameCardFace artwork={{ kind: 'sprite', sprite: cardSpriteProps(card) }} rank={card.rank} suit={card.suit} badge={committed ? `To ${passRecipient(card)}` : ''} badgeAlign={committed ? 'left' : 'center'} muted />
                   </button>
                 {/each}
               </div>
@@ -1129,87 +1136,46 @@
                 {/if}
               </section>
             {/if}
-          </div>
           <span class="sr-only" data-testid="stream-card-count">Shared stream contains {Object.values(game.hands).flat().length} cards</span>
           <span class="sr-only" data-testid="bot-controller-count">{liveBots.length} bot controllers loaded</span>
-        </section>
+        </GameTableSurface>
       {:else if activeGameId}
-        <section class="room" aria-label="Game room">
-          <p class="room-label">Room code</p>
-          <div class="room-code" data-testid="invite-code">{activeGameId}</div>
-          <h2>Players · {game?.players.length ?? 0}</h2>
-          <ul aria-label="Players">
-            {#each game?.players ?? [] as player (player.uid)}
-              <li>
-                <span>{player.displayName}{#if game?.players.every((candidate) => candidate.ready)}{' · '}{princessName(player.princessId)}{:else}{' · Princess hidden'}{/if}</span>
-                <span>
-                  {#if player.host}<small>Host</small>{/if} {player.ready || game?.princessCommitments[player.uid] ? 'Ready' : 'Choosing'}
-                  {#if game?.players[0]?.uid === currentUid && isBotSeat(player) && !game.hands && !Object.keys(game.princessCommitments).length}
-                    <button class="remove-bot" type="button" disabled={Boolean(removingBotUid)} aria-label={`Remove ${player.displayName}`} on:click={() => removeBot(player.uid)}>Remove</button>
-                  {/if}
-                </span>
-              </li>
-            {/each}
-          </ul>
-          {#if !game?.players.find((player) => player.uid === currentUid)?.ready && !game?.princessCommitments[currentUid]}
-            <fieldset class="choice-grid" aria-label="Choose one of your two Princesses">
-              <legend>Choose one of your two dealt Princesses</legend>
-              {#each game?.princessOptions[currentUid] ?? [] as princessId}
-                {@const princess = PRINCESSES.find(([id]) => id === princessId)}
-                <button
-                  type="button"
-                  class="princess-choice"
-                  class:chosen={selectedPrincess === princessId}
-                  aria-label={princess?.[1] ?? princessId}
-                  aria-pressed={selectedPrincess === princessId}
-                  data-princess-name={princess?.[1] ?? princessId}
-                  on:click={() => selectedPrincess = princessId}
-                >
-                  <strong class="princess-choice-name">{princess?.[1] ?? princessId}</strong>
-                   <span class="princess-choice-art" aria-hidden="true">
-                     <SpriteCard {...princessSpriteProps(princessId)} />
-                   </span>
-                  <span class="princess-choice-copy">
-                    <small>{PRINCESS_POWER_TEXT[princessId] ?? 'Power coming in a later increment.'}</small>
-                  </span>
-                  <span class="princess-choice-mark" aria-hidden="true">✓</span>
-                </button>
-              {/each}
-            </fieldset>
-            <button type="button" disabled={princessCommitPending || !selectedPrincess || (game?.players.length ?? 0) < 3} on:click={becomeReady}>{princessCommitPending ? 'Sealing Princess…' : 'Ready for the ball'}</button>
-          {:else if !game?.players.find((player) => player.uid === currentUid)?.ready}
-            <p class="waiting" role="status">Your Princess is sealed · waiting for every player to lock a choice</p>
-          {/if}
-
-          {#if game?.players[0]?.uid === currentUid}
-            <p class="automatic-rounds">Five Round powers will be drawn automatically when the game is dealt.</p>
-            {#if !Object.keys(game.princessCommitments).length && game.players.length < 6}
+        <GameLobby
+          gameId={activeGameId}
+          gameName="Rebel Princess"
+          players={lobbyPlayers()}
+          {currentUid}
+          princessOptions={lobbyPrincesses()}
+          {selectedPrincess}
+          lockPending={princessCommitPending}
+          {dealPending}
+          lockLabel="Ready for the ball"
+          waitingText="Three to six players. The guest list updates live."
+          automaticText="Five Round powers will be drawn automatically when the game is dealt."
+          {actionError}
+          onSelect={(id) => selectedPrincess = id}
+          onLock={becomeReady}
+          onDeal={dealCards}
+          onRemove={removeBot}
+          removingUid={removingBotUid}
+        >
+          <svelte:fragment slot="host-controls">
+            {#if game && !Object.keys(game.princessCommitments).length && game.players.length < 6}
               <div class="bot-controls">
                 <label for="bot-difficulty">Bot difficulty</label>
                 <select id="bot-difficulty" bind:value={botDifficulty} disabled={addingBot}>
-                  {#each BOT_DIFFICULTIES as difficulty}
-                    <option value={difficulty}>{BOT_DIFFICULTY_LABELS[difficulty]}</option>
-                  {/each}
+                  {#each BOT_DIFFICULTIES as difficulty}<option value={difficulty}>{BOT_DIFFICULTY_LABELS[difficulty]}</option>{/each}
                 </select>
                 <button class="secondary add-bot" type="button" disabled={addingBot} on:click={addBot}>{addingBot ? 'Adding bot…' : `Add ${BOT_DIFFICULTY_LABELS[botDifficulty]} bot`}</button>
               </div>
             {/if}
             {#if liveBots.length}
               <ul class="bot-status" aria-label="Bot status">
-                {#each liveBots as bot}
-                  <li><strong>{bot.displayName}</strong><span>{BOT_DIFFICULTY_LABELS[bot.difficulty]} · {bot.status === 'error' ? bot.detail : bot.status}</span></li>
-                {/each}
+                {#each liveBots as bot}<li><strong>{bot.displayName}</strong><span>{BOT_DIFFICULTY_LABELS[bot.difficulty]} · {bot.status === 'error' ? bot.detail : bot.status}</span></li>{/each}
               </ul>
             {/if}
-            {#if dealPending}
-              <p class="waiting" role="status">Shuffling and dealing…</p>
-            {:else}
-              <button type="button" disabled={game.players.length < 3 || !game.players.every((player) => player.ready)} on:click={dealCards}>Shuffle and deal</button>
-            {/if}
-          {/if}
-          {#if actionError}<p class="form-error" role="alert">{actionError}</p>{/if}
-          <p class="waiting">Three to six players. The guest list updates live.</p>
-        </section>
+          </svelte:fragment>
+        </GameLobby>
       {:else}
         <form class="room-form" on:submit|preventDefault={createGame}>
           <label for="display-name">Your name</label>
@@ -1308,41 +1274,6 @@
     flex-direction: column;
   }
 
-  .masthead {
-    min-height: 104px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid rgba(255, 239, 199, 0.22);
-  }
-
-  .wordmark {
-    color: #fff4d0;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 26px;
-    text-decoration: none;
-    letter-spacing: 0.01em;
-  }
-
-  .wordmark strong {
-    color: #ffc75f;
-    font-size: 35px;
-  }
-
-  .status {
-    color: #d8d1dc;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-size: 14px;
-  }
-
-  .header-tools { position: relative; display: flex; align-items: center; gap: 16px; }
-  .asset-review-link { padding: 7px 10px; border: 1px solid rgba(255, 226, 163, .28); border-radius: 999px; color: #d9cedd; font-size: 11px; text-decoration: none; }
-  .asset-review-link:hover, .asset-review-link:focus-visible { border-color: #ffc75f; color: #ffc75f; }
   .audio-controls { position: relative; }
   .audio-toggle { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; gap: 5px; border-color: rgba(184, 140, 223, .5); border-radius: 999px; color: #f3e9f5; background: rgba(50, 31, 62, .65); font-size: 12px; }
   .audio-icon { width: 13px; height: 13px; flex: 0 0 13px; fill: currentColor; }
@@ -1357,23 +1288,6 @@
   .mixer-channel label { grid-column: 1 / -1; display: flex; justify-content: space-between; color: #d9cedd; font-size: 11px; }
   .mixer-channel output { color: #b88cdf; font-variant-numeric: tabular-nums; }
   .mixer-channel input[type='range'] { width: 100%; min-height: 18px; height: 18px; padding: 0; accent-color: #ffc75f; }
-
-  .status-dot {
-    width: 9px;
-    height: 9px;
-    border: 1px solid #ffe2a3;
-    border-radius: 50%;
-    background: #816f8d;
-  }
-
-  [data-status='synced'] .status-dot {
-    background: #7de2a7;
-    box-shadow: 0 0 0 4px rgba(125, 226, 167, 0.12);
-  }
-
-  [data-status='error'] .status-dot {
-    background: #ff7b75;
-  }
 
   .hero {
     flex: 1;
@@ -1464,32 +1378,8 @@
   .form-error { color: #ffaaa5; font-size: 13px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
-  .room { max-width: 560px; margin-top: 28px; padding: clamp(20px, 3vw, 28px); border: 1px solid rgba(255, 226, 163, 0.32); background: rgba(13, 8, 20, 0.5); }
-  .room-label { margin: 0; color: #b6a7ba; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
-  .room-code { margin: 2px 0 16px; color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: 38px; font-weight: 700; letter-spacing: .12em; }
-  .room h2 { border-bottom: 1px solid rgba(255, 239, 199, 0.16); padding-bottom: 8px; }
-  .room ul { margin: 0; padding: 0; list-style: none; }
-  .room li { display: flex; justify-content: space-between; padding: 7px 0; color: #fff5dc; }
-  .room small { color: #b88cdf; text-transform: uppercase; letter-spacing: .1em; }
-  .waiting { margin: 12px 0 0; color: #9f93a5; font-size: 13px; }
-
   fieldset { min-width: 0; margin: 18px 0; padding: 0; border: 0; }
   legend { margin-bottom: 8px; color: #ffc75f; font-size: 13px; font-weight: 700; }
-  .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-  .choice-grid legend { grid-column: 1 / -1; }
-  .choice-grid button { min-height: 34px; padding: 5px 7px; color: #d9cedd; background: rgba(50, 31, 62, .7); font-size: 11px; }
-  .choice-grid button.chosen { border-color: #ffc75f; color: #211329; background: #ffc75f; }
-  .choice-grid button:disabled { opacity: .35; }
-  .choice-grid .princess-choice { position: relative; min-height: clamp(178px, 24vw, 220px); padding: 12px; display: grid; grid-template-columns: clamp(76px, 9vw, 96px) minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: center; column-gap: 14px; row-gap: 10px; color: #f8edfa; text-align: left; }
-  .princess-choice-name { grid-column: 1 / -1; width: 100%; padding: 0 18px; color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: clamp(19px, 2.2vw, 24px); line-height: 1; text-align: center; overflow-wrap: anywhere; }
-  .princess-choice-art { display: block; width: clamp(76px, 9vw, 96px); aspect-ratio: 3 / 5; border: 1px solid rgba(255, 226, 163, .65); border-radius: 7px; background-color: #150d1d; box-shadow: 0 10px 22px rgba(0, 0, 0, .48); }
-  .princess-choice-copy { display: grid; gap: 5px; }
-  .princess-choice-copy small { color: #d9cedd; font-size: clamp(11px, 1.35vw, 14px); font-weight: 400; line-height: 1.35; }
-  .princess-choice-mark { position: absolute; top: 7px; right: 8px; display: none; font-size: 16px; }
-  .choice-grid .princess-choice.chosen { color: #211329; background: rgba(255, 199, 95, .18); box-shadow: inset 0 0 0 1px #ffc75f; }
-  .choice-grid .princess-choice.chosen .princess-choice-copy small { color: #f4e8f5; }
-  .choice-grid .princess-choice.chosen .princess-choice-mark { display: block; color: #ffc75f; }
-  .automatic-rounds { margin: 18px 0 10px; padding: 10px 12px; border-left: 3px solid #b88cdf; color: #d9cedd; background: rgba(50, 31, 62, .45); font-size: 12px; line-height: 1.35; }
   .add-bot { margin: 0 0 8px; }
   .bot-controls { display: grid; grid-template-columns: auto minmax(105px, 1fr) minmax(140px, auto); align-items: center; gap: 8px; margin: 0 0 8px; }
   .bot-controls label { color: #d9cedd; font-size: 12px; font-weight: 700; }
@@ -1499,22 +1389,13 @@
   .bot-status { display: grid; gap: 4px; margin: 0 0 10px; padding: 0; list-style: none; }
   .bot-status li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border: 1px solid rgba(184, 140, 223, .3); border-radius: 5px; color: #d9cedd; background: rgba(20, 13, 30, .45); font-size: 11px; }
   .bot-status span { color: #b88cdf; text-transform: capitalize; }
-  .review-card, .card-art, .trick-card, .princess-card, .princess-choice-art, .round-art {
+  .review-card, .trick-card, .princess-card {
     position: relative;
     overflow: hidden;
   }
 
-  .table { width: 100%; height: 100%; }
-  .table-board { --hand-card-width: clamp(54px, min(8cqw, 11cqh), 108px); --hand-card-overlap: clamp(22px, 4cqw, 36px); position: relative; width: 100%; height: 100%; overflow: hidden; container-type: size; border: 1px solid rgba(255, 226, 163, .2); border-radius: 18px; background: radial-gradient(ellipse at center, rgba(75, 44, 91, .72), rgba(19, 25, 35, .88) 70%); box-shadow: inset 0 0 90px rgba(0, 0, 0, .35); }
-  .table-board.power-flash::after { content: ''; position: absolute; z-index: 19; inset: 0; pointer-events: none; background: radial-gradient(circle, rgba(255, 246, 194, .62), rgba(184, 140, 223, .28) 38%, transparent 72%); animation: princess-table-flash 1.25s ease-out both; }
-  .round-center { position: absolute; top: 43%; left: 50%; width: clamp(210px, min(24cqw, 31cqh), 300px); margin: 0; transform: translate(-50%, -50%); text-align: center; }
-  .round-art { width: clamp(106px, 58%, 160px); aspect-ratio: .855; margin: clamp(6px, 1cqh, 10px) auto; border: 1px solid rgba(255, 226, 163, .5); border-radius: 9px; box-shadow: 0 12px 28px rgba(0, 0, 0, .48); }
-  .round-center p { margin: 0; color: #b88cdf; font-size: clamp(11px, 1.45cqh, 14px); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-  .round-center h2 { margin: 0; font-size: clamp(20px, 3cqh, 30px); line-height: 1; }
-  .round-center .round-rule { margin: 7px auto 0; max-width: 260px; color: #eee4f0; font-size: clamp(11px, 1.6cqh, 15px); font-weight: 400; line-height: 1.22; letter-spacing: 0; text-transform: none; }
   .pass-icon { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 4px; color: #ffc75f; font-size: clamp(17px, 2.5vh, 24px); line-height: 1; }
   .pass-icon strong { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: .72em; }
-  .round-center .round-count { margin-top: 4px; }
   .princess-power-burst { position: absolute; z-index: 25; top: 46%; left: 50%; display: grid; grid-template-columns: 76px minmax(0, 220px); grid-template-rows: auto auto auto 1fr; column-gap: 13px; width: min(86%, 340px); padding: 12px 16px 12px 12px; border: 2px solid #ffe2a3; border-radius: 13px; color: #fff5dc; background: linear-gradient(135deg, rgba(82, 47, 100, .98), rgba(20, 31, 43, .98)); box-shadow: 0 0 0 5px rgba(184, 140, 223, .22), 0 0 45px rgba(255, 226, 163, .45), 0 18px 50px rgba(0, 0, 0, .72); pointer-events: none; transform: translate(-50%, -50%); animation: princess-power-arrives .75s cubic-bezier(.2, .9, .25, 1.15) both; }
   .princess-power-burst .princess-card { grid-row: 1 / -1; width: 76px; aspect-ratio: 3 / 5; border: 1px solid rgba(255, 226, 163, .8); border-radius: 7px; background-color: #150d1d; background-position: var(--princess-x) var(--princess-y); background-size: var(--princess-size); box-shadow: 0 8px 20px rgba(0, 0, 0, .48); }
   .princess-power-burst > span:not(.power-sparkles) { align-self: end; color: #ffc75f; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
@@ -1579,9 +1460,6 @@
   .playing-card.playable:focus-visible, .playing-card.contributable:focus-visible { outline: 3px solid #fff4d0; outline-offset: 3px; }
   .playing-card.turn-blocked { filter: saturate(.25) brightness(.52); }
   .playing-card:disabled { opacity: 1; color: inherit; }
-  .playing-card strong { position: absolute; top: 5px; left: 8px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: clamp(25px, 4cqh, 36px); text-shadow: 0 1px 3px #000; }
-  .playing-card small { position: absolute; inset: auto 5px 5px; color: #fff4d0; font-size: clamp(9px, 1.4cqh, 12px); text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
-  .playing-card em { position: absolute; z-index: 2; inset: auto 0 0; padding: 3px 1px 3px 4px; color: #102019; background: #7de2a7; font-size: 8px; font-style: normal; text-align: left; white-space: nowrap; }
   .card-block-explanation { width: max-content; max-width: calc(100% - 150px); margin: 2px auto 0; color: #e8dcae; font-size: clamp(9px, 1.3cqh, 11px); line-height: 1.2; text-align: center; }
   .card-art { position: absolute; inset: 0; opacity: .72; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; }
   .pass-controls { min-height: 37px; display: flex; justify-content: center; align-items: center; }
@@ -1592,9 +1470,6 @@
   .trick-play { display: grid; justify-items: center; gap: 2px; }
   .trick-card { position: relative; width: clamp(48px, min(6.5cqw, 10cqh), 78px); aspect-ratio: 3 / 5; overflow: hidden; border: 1px solid rgba(255, 226, 163, .7); border-radius: 6px; background-color: #150d1d; box-shadow: 0 9px 20px rgba(0, 0, 0, .52); animation: play-to-table .35s ease-out both; }
   .trick-card.face-down { background: repeating-linear-gradient(135deg, #251638 0 7px, #604077 7px 10px); }
-  .trick-card strong { position: absolute; top: 2px; left: 5px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 20px; text-shadow: 0 1px 3px #000; }
-  .trick-card small { position: absolute; inset: auto 3px 3px; color: #fff4d0; font-size: 7px; text-align: center; text-transform: capitalize; text-shadow: 0 1px 3px #000; }
-  .trick-card em { position: absolute; inset: auto 0 14px; color: #211329; background: #ffc75f; font-size: 8px; font-style: normal; font-weight: 700; text-align: center; }
   .live-trick.collecting .trick-play { animation: collect-trick 3s ease-in-out forwards; }
   .live-trick.double-trick.collecting .trick-play { animation: none; }
   @keyframes play-to-table { from { opacity: .3; transform: translate(var(--play-x), var(--play-y)) scale(1.15); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
@@ -1602,7 +1477,6 @@
     0%, 62% { opacity: 1; transform: translate(0, 0) scale(1); }
     100% { opacity: 0; transform: translate(var(--collect-x), var(--collect-y)) scale(.65); }
   }
-  @keyframes princess-table-flash { from { opacity: 1; } to { opacity: 0; } }
   @keyframes princess-power-arrives { from { opacity: 0; transform: translate(-50%, -50%) scale(.55) rotate(-5deg); } to { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); } }
   @keyframes power-sparkles { from { opacity: .55; transform: translateY(2px) scale(.92); } to { opacity: 1; transform: translateY(-3px) scale(1.08); } }
   @keyframes active-princess-card { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
@@ -1634,9 +1508,6 @@
   .results-ready { min-height: 34px; margin-top: 5px; padding: 0 16px; font-size: 12px; }
 
   main.gameplay { width: calc(100% - 24px); height: 100dvh; min-height: 0; overflow: hidden; }
-  main.gameplay .masthead { min-height: 54px; height: 54px; }
-  main.gameplay .wordmark { font-size: 18px; }
-  main.gameplay .wordmark strong { font-size: 24px; }
   main.gameplay .hero.dealt { height: calc(100dvh - 54px); min-height: 0; padding: 8px 0 10px; }
   main.gameplay .copy { height: 100%; }
   main.gameplay .eyebrow, main.gameplay h1, main.gameplay .lede, main.gameplay .promise, main.gameplay footer { display: none; }
@@ -1750,27 +1621,6 @@
       width: min(100% - 28px, 520px);
     }
 
-    .masthead {
-      min-height: 76px;
-      align-items: flex-start;
-      padding-top: 14px;
-    }
-
-    .wordmark {
-      flex-direction: column;
-      gap: 0;
-      font-size: 16px;
-      line-height: 0.85;
-    }
-
-    .wordmark strong {
-      font-size: 27px;
-    }
-
-    .status {
-      font-size: 12px;
-    }
-    .header-tools { align-items: flex-end; flex-direction: column-reverse; gap: 3px; }
     .audio-toggle { min-height: 27px; padding: 0 8px; font-size: 10px; }
     .audio-mixer { width: min(310px, calc(100vw - 28px)); }
 
@@ -1807,20 +1657,14 @@
 
     .variant-choice { grid-template-columns: 1fr; }
     .actions input { width: 118px; }
-    .room { max-width: none; padding: 15px; }
-    .choice-grid .princess-choice { min-height: 168px; grid-template-columns: 68px minmax(0, 1fr); padding: 9px; column-gap: 9px; }
-    .princess-choice-art { width: 68px; }
-    .princess-choice-copy small { font-size: 10px; }
     .hand { grid-template-columns: repeat(4, minmax(44px, 1fr)); }
     .playing-card { min-height: 92px; }
-    main.gameplay .table-board { --hand-card-width: clamp(42px, 13cqw, 50px); --hand-card-overlap: clamp(19px, 5cqw, 21px); }
     main.gameplay .hand { min-height: clamp(92px, 17cqh, 138px); }
     main.gameplay .playing-card { height: auto; min-height: 0; }
     main.gameplay .local-princess { bottom: clamp(116px, 18cqh, 150px); left: 4px; width: 62px; }
     main.gameplay .local-princess .princess-card { width: 52px; }
     main.gameplay .local-princess > span { width: 64px; font-size: 8px; }
     main.gameplay .local-seat { bottom: 2px; }
-    main.gameplay .round-center { top: 42%; }
     main.gameplay .round-results { inset: 8% 5%; }
     main.gameplay .opponent-seat { width: 118px; min-height: 82px; }
     main.gameplay .seat-princess { top: 28px; width: 52px; }
@@ -1828,31 +1672,8 @@
     main.gameplay .seat-princess > span { width: 60px; font-size: 8px; }
     main.gameplay .card-backs { height: 54px; margin-left: 42px; }
     main.gameplay .card-backs i { width: 34px; height: 50px; margin-left: -21px; }
-    main.gameplay .round-center .round-rule { max-width: 220px; }
     main.gameplay .card-block-explanation { max-width: calc(100% - 84px); }
 
-    main.gameplay .table-board[data-player-count='4'] .opponent-seat { width: 100px; }
-    main.gameplay .table-board[data-player-count='4'] .opponent-seat[data-clockwise-seat='1'] { --seat-x: 16% !important; --seat-y: 28% !important; }
-    main.gameplay .table-board[data-player-count='4'] .opponent-seat[data-clockwise-seat='3'] { --seat-x: 84% !important; --seat-y: 28% !important; }
-    main.gameplay .table-board[data-player-count='5'] .opponent-seat,
-    main.gameplay .table-board[data-player-count='6'] .opponent-seat { width: 88px; }
-    main.gameplay .table-board[data-player-count='5'] .opponent-seat[data-clockwise-seat='1'],
-    main.gameplay .table-board[data-player-count='6'] .opponent-seat[data-clockwise-seat='1'] { --seat-x: 14% !important; --seat-y: 28% !important; }
-    main.gameplay .table-board[data-player-count='5'] .opponent-seat[data-clockwise-seat='2'] { --seat-x: 37% !important; --seat-y: 3% !important; }
-    main.gameplay .table-board[data-player-count='5'] .opponent-seat[data-clockwise-seat='3'] { --seat-x: 63% !important; --seat-y: 3% !important; }
-    main.gameplay .table-board[data-player-count='5'] .opponent-seat[data-clockwise-seat='4'],
-    main.gameplay .table-board[data-player-count='6'] .opponent-seat[data-clockwise-seat='5'] { --seat-x: 86% !important; --seat-y: 28% !important; }
-    main.gameplay .table-board[data-player-count='6'] .opponent-seat[data-clockwise-seat='2'] { --seat-x: 25% !important; --seat-y: 3% !important; }
-    main.gameplay .table-board[data-player-count='6'] .opponent-seat[data-clockwise-seat='3'] { --seat-x: 50% !important; --seat-y: 1% !important; }
-    main.gameplay .table-board[data-player-count='6'] .opponent-seat[data-clockwise-seat='4'] { --seat-x: 75% !important; --seat-y: 3% !important; }
-    main.gameplay .table-board[data-player-count='5'] .seat-princess,
-    main.gameplay .table-board[data-player-count='6'] .seat-princess { width: 38px; left: 0; }
-    main.gameplay .table-board[data-player-count='5'] .seat-princess .princess-card,
-    main.gameplay .table-board[data-player-count='6'] .seat-princess .princess-card { width: 34px; }
-    main.gameplay .table-board[data-player-count='5'] .seat-princess > span,
-    main.gameplay .table-board[data-player-count='6'] .seat-princess > span { width: 44px; font-size: 6px; }
-    main.gameplay .table-board[data-player-count='5'] .card-backs,
-    main.gameplay .table-board[data-player-count='6'] .card-backs { margin-left: 30px; }
     .score-card th, .score-card td { padding: 5px 2px; }
     .score-card thead i, .score-card thead small { display: none; }
     .score-card tbody th { font-size: 9px; }
@@ -1912,7 +1733,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .table-board.power-flash::after,
     .princess-power-burst,
     .power-sparkles,
     .seat-princess.power-active .princess-card { animation: none; }
