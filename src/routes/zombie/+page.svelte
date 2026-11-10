@@ -142,6 +142,20 @@
   function playerName(uid?: string | null) { return game?.players.find((player) => player.uid === uid)?.displayName ?? 'another player'; }
   function localHand() { return game?.hands?.[currentUid] ?? []; }
   function activeRound() { return zombieRound(game?.activeRoundId ?? 'a'); }
+  function clockwiseOpponents() {
+    if (!game) return [];
+    const localIndex = game.players.findIndex((player) => player.uid === currentUid);
+    if (localIndex < 0) return game.players;
+    return Array.from({ length: game.players.length - 1 }, (_, offset) => game!.players[(localIndex + offset + 1) % game!.players.length]);
+  }
+  function seatStyle(index: number, count: number) {
+    const layouts: Record<number, Array<[number, number]>> = {
+      2: [[28, 3], [72, 3]], 3: [[16, 34], [50, 3], [84, 34]],
+      4: [[8, 35], [30, 3], [70, 3], [92, 35]], 5: [[8, 35], [27, 5], [50, 1], [73, 5], [92, 35]]
+    };
+    const [x, y] = layouts[count]?.[index] ?? [50, 3];
+    return `--seat-x: ${x}%; --seat-y: ${y}%`;
+  }
 
   function cardArt(card: Card) {
     return art(`playing/${zombieSuitFolder(card.suit)}/${String(card.rank).padStart(2, '0')}.jpg`);
@@ -260,6 +274,17 @@
     return game?.winnerUids.map((uid) => playerName(uid)).join(' and ') ?? '';
   }
 
+  function spectatorStatus() {
+    if (!game) return 'Opening the room…';
+    if (game.phase === 'bid') return `Waiting for ${playerName(game.currentBidderUid)} to bid.`;
+    if (game.phase === 'play') return `Waiting for ${playerName(game.currentTurnUid)} to play.`;
+    if (game.phase === 'frog') return `${playerName(game.frogOwnerUid)} is deciding whether the Frog counts.`;
+    if (game.phase === 'score') return 'Waiting for scoring choices.';
+    if (game.phase === 'round-complete') return `Round ${game.roundIndex + 1} complete.`;
+    if (game.phase === 'game-complete') return `${winnerNames()} ${game.winnerUids.length > 1 ? 'share the win' : 'wins'}.`;
+    return 'Waiting for the players.';
+  }
+
   function lobbyPlayers(): LobbyPlayer[] {
     return game?.players.map((player) => ({
       ...player,
@@ -287,8 +312,8 @@
   <meta name="description" content="Play the Zombie Princess variant in a synchronized room." />
 </svelte:head>
 
-<main class:gameplay={Boolean(game?.hands)} data-e2e-layout>
-  <GameMasthead homeHref={`${base}/`} brand="Zombie Princess" assetsHref={`${base}/zombie/assets/`} assetsLabel="Asset review" {connection} {connectionLabel} compact={Boolean(game?.hands)} />
+<main class:gameplay={Boolean(game && game.phase !== 'lobby')} data-e2e-layout>
+  <GameMasthead homeHref={`${base}/`} brand="Zombie Princess" assetsHref={`${base}/zombie/assets/`} assetsLabel="Asset review" {connection} {connectionLabel} compact={Boolean(game && game.phase !== 'lobby')} />
 
   {#if !game}
     <section class="loading"><h1>Opening the room…</h1>{#if actionError}<p role="alert">{actionError}</p>{/if}</section>
@@ -313,37 +338,30 @@
     </div>
   {:else}
     <section class="game-shell">
-      <div class="round-head">
-        <GameRoundDisplay name={activeRound().name} rule={activeRound().text} artwork={{ kind: 'image', src: roundArt(), alt: `${activeRound().name} round card` }} current={game.roundIndex + 1} total={4} mode="banner" />
-      </div>
-
-      <div class="score-strip" aria-label="Scoreboard">
-        {#each game.players as player}
-          <article class:active={game.currentTurnUid === player.uid || game.currentBidderUid === player.uid}>
-            <img src={princessArt(player.princessId)} alt="" />
-            <span><strong>{player.displayName}</strong><small>{zombiePrincess(player.princessId)?.name}</small></span>
-            <b>{game.totalPoints[player.uid]} pts</b><em>☠ {game.skulls[player.uid]}</em><i>Bid {game.effectiveBids[player.uid] ?? '—'} · Tricks {game.countedTricks[player.uid] ?? 0}</i>
-          </article>
-        {/each}
-      </div>
-
       <GameTableSurface playerCount={game.players.length} ariaLabel="Zombie Princess table">
-        <div class="zombie-table-content">
         <div class="opponents">
-          {#each game.players.filter((player) => player.uid !== currentUid) as player}
-            <article class:active={game.currentTurnUid === player.uid || game.currentBidderUid === player.uid}>
-              <strong>{player.displayName}</strong><span>{game.hands?.[player.uid]?.length ?? 0} cards</span><small>{zombiePrincess(player.princessId)?.power}</small>
+          {#each clockwiseOpponents() as player, index}
+            <article class="opponent-seat" class:active={game.currentTurnUid === player.uid || game.currentBidderUid === player.uid} style={seatStyle(index, clockwiseOpponents().length)} data-clockwise-seat={index + 1}>
+              <strong>{player.displayName} · {game.hands?.[player.uid]?.length ?? 0}</strong>
+              <span>Bid {game.effectiveBids[player.uid] ?? '—'} · {game.countedTricks[player.uid] ?? 0} tricks · ☠ {game.skulls[player.uid]}</span>
+              <div class="seat-princess"><img src={princessArt(player.princessId)} alt="" /><b>{zombiePrincess(player.princessId)?.name}</b><small>{zombiePrincess(player.princessId)?.power}</small></div>
+              <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
             </article>
           {/each}
         </div>
-        <div class="trick" aria-label="Current trick">
+
+        <GameRoundDisplay name={activeRound().name} rule={activeRound().text} artwork={{ kind: 'image', src: roundArt(), alt: `${activeRound().name} round card` }} current={game.roundIndex + 1} total={4} />
+
+        <div class="trick live-trick" aria-label="Current trick">
           {#each game.trick?.plays ?? [] as play}
             <figure><div class={`z-card ${play.card.suit}`}><GameCardFace artwork={{ kind: 'image', src: cardArt(play.card), alt: zombieCardLabel(play.card) }} rank={play.effectiveRank ?? play.card.rank} suit={zombieSuitName(play.card.suit)} aspect={2 / 3} display="trick" /></div><figcaption>{playerName(play.uid)}</figcaption></figure>
           {/each}
-          {#if !game.trick?.plays.length}<p>Trick {game.completedTricks + 1}</p>{/if}
         </div>
 
-        <aside class="phase-panel">
+        {#if localPlayer()}
+        <section class="local-player">
+          <header><img src={princessArt(localPlayer()?.princessId)} alt="" /><div><strong>{localPlayer()?.displayName} · You</strong><span>{zombiePrincess(localPlayer()?.princessId)?.name} · {zombiePrincess(localPlayer()?.princessId)?.power} · {game.totalPoints[currentUid]} pts · ☠ {game.skulls[currentUid]}</span></div></header>
+          <aside class="phase-panel">
           {#if game.phase === 'pass'}
             {@const instruction = zombiePassInstruction(game.activeRoundId)}
             {#if game.passSubmissions[currentUid]}
@@ -373,10 +391,7 @@
             <p>{game.phase === 'game-complete' ? `${winnerNames()} ${game.winnerUids.length > 1 ? 'share the win' : 'wins'}.` : `Round ${game.roundIndex + 1} complete.`}</p>
           {/if}
           {#if actionError}<p class="error" role="alert">{actionError}</p>{/if}
-        </aside>
-
-        <section class="local-player">
-          <header><img src={princessArt(localPlayer()?.princessId)} alt="" /><div><strong>{localPlayer()?.displayName}</strong><span>{zombiePrincess(localPlayer()?.princessId)?.power}</span></div></header>
+          </aside>
           <div class="hand" aria-label="Your hand">
             {#each localHand() as card}
               {@const selected = selectedPassCards.includes(cardLabel(card)) || redOffer === cardLabel(card)}
@@ -387,17 +402,19 @@
             {/each}
           </div>
         </section>
-        </div>
-      </GameTableSurface>
+        {:else}
+          <aside class="spectator-panel" role="status"><strong>Watching room {gameId}</strong><span>{spectatorStatus()}</span></aside>
+        {/if}
 
-      {#if game.phase === 'round-complete' || game.phase === 'game-complete'}
-        <section class="results">
-          <h2>{game.phase === 'game-complete' ? 'Final score' : `Round ${game.roundIndex + 1}`}</h2>
-          <div class="result-grid">{#each game.players as player}{@const score = game.roundScores[player.uid]}<article class:winner={game.winnerUids.includes(player.uid)}><strong>{player.displayName}</strong><span>Bid {score.bid} · {score.tricks} tricks{score.bought ? ` + ${score.bought} bought` : ''}</span><b>+{score.points} points</b><small>{score.skullsGained} skulls gained · {score.skullsSpent} spent · {score.skullsRemaining} remain</small><em>{game.totalPoints[player.uid]} total</em></article>{/each}</div>
-          {#if game.phase === 'round-complete' && game.players[0]?.uid === currentUid}<button class="primary" type="button" on:click={dealRound}>Deal round {game.roundIndex + 2}</button>{/if}
-          {#if game.phase === 'game-complete'}<a class="primary link-button" href={`${base}/`}>New room</a>{/if}
-        </section>
-      {/if}
+        {#if game.phase === 'round-complete' || game.phase === 'game-complete'}
+          <section class="results">
+            <h2>{game.phase === 'game-complete' ? 'Final score' : `Round ${game.roundIndex + 1}`}</h2>
+            <div class="result-grid">{#each game.players as player}{@const score = game.roundScores[player.uid]}<article class:winner={game.winnerUids.includes(player.uid)}><strong>{player.displayName}</strong><span>Bid {score.bid} · {score.tricks} tricks{score.bought ? ` + ${score.bought} bought` : ''}</span><b>+{score.points} points</b><small>{score.skullsGained} skulls gained · {score.skullsSpent} spent · {score.skullsRemaining} remain</small><em>{game.totalPoints[player.uid]} total</em></article>{/each}</div>
+            {#if game.phase === 'round-complete' && game.players[0]?.uid === currentUid}<button class="primary" type="button" on:click={dealRound}>Deal round {game.roundIndex + 2}</button>{/if}
+            {#if game.phase === 'game-complete'}<a class="primary link-button" href={`${base}/`}>New room</a>{/if}
+          </section>
+        {/if}
+      </GameTableSurface>
     </section>
   {/if}
 </main>
@@ -415,18 +432,41 @@
   .loading, .game-shell { width: 100%; }
   .loading { padding: 14vh 0; }.loading h1, .results h2 { margin: 0; color: #fff4d0; font-family: 'Cormorant Garamond', serif; }
   .shared-lobby { display: grid; flex: 1; place-items: center; padding: clamp(36px, 7vw, 80px) 0; }
-  .game-shell { padding: 24px 0 80px; }.round-head { margin-bottom: 24px; }
-  .score-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 12px; }.score-strip article { display: grid; grid-template-columns: 44px 1fr auto auto; gap: 4px 9px; align-items: center; padding: 8px; border: 1px solid rgba(255, 226, 163, .16); border-radius: 12px; background: rgba(20, 13, 30, .78); }.score-strip article.active { border-color: #ffc75f; box-shadow: 0 0 18px rgba(255, 199, 95, .22); }.score-strip img { grid-row: span 2; width: 44px; height: 58px; object-fit: cover; border-radius: 6px; }.score-strip span { display: flex; flex-direction: column; }.score-strip small, .score-strip i { color: #a99dac; font-size: 10px; font-style: normal; }.score-strip b { color: #fff4d0; }.score-strip em { color: #ffc75f; font-style: normal; }.score-strip i { grid-column: 2 / -1; }
-  .zombie-table-content { display: flex; flex-direction: column; min-height: 670px; padding: 18px; }
-  .opponents { display: flex; justify-content: center; gap: 10px; }.opponents article { min-width: 150px; padding: 9px 12px; border: 1px solid rgba(255, 226, 163, .18); border-radius: 12px; background: #21152d; text-align: center; }.opponents article.active { border-color: #ffc75f; }.opponents strong, .opponents span, .opponents small { display: block; }.opponents span, .opponents small { color: #a99dac; font-size: 11px; }
-  .trick { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 280px; padding: 28px 0; }.trick > p { color: #8d7c96; font-family: 'Cormorant Garamond', serif; font-size: 32px; }.trick figure { width: min(120px, 16vw); margin: 0; transform: rotate(var(--rotate, 0deg)); }.trick figcaption { margin-top: 5px; color: #d9cedd; font-size: 11px; text-align: center; }
+  main.gameplay { width: calc(100% - 24px); height: 100dvh; min-height: 0; overflow: hidden; }
+  main.gameplay .game-shell { height: calc(100dvh - 54px); min-height: 0; padding: 8px 0 10px; }
+  :global(body:has(main.gameplay)) { height: 100dvh; overflow: hidden; }
+  .opponent-seat { position: absolute; z-index: 2; top: var(--seat-y); left: var(--seat-x); width: clamp(118px, min(14cqw, 19cqh), 170px); min-height: clamp(78px, 13cqh, 118px); color: #e9deeb; text-align: center; transform: translateX(-50%); }
+  .opponent-seat::before { content: ''; position: absolute; z-index: -1; inset: -7px -9px -8px; border: 2px solid transparent; border-radius: 10px; background: rgba(20, 13, 30, .32); pointer-events: none; }
+  .opponent-seat.active::before { border-color: #ffc75f; background: rgba(255, 199, 95, .08); box-shadow: 0 0 0 3px rgba(255, 199, 95, .12), 0 0 20px rgba(255, 199, 95, .4); }
+  .opponent-seat > strong { display: block; margin-bottom: 3px; font-size: clamp(12px, 1.7cqh, 15px); }
+  .opponent-seat > span { display: block; color: #b88cdf; font-size: clamp(8px, 1.2cqh, 10px); }
+  .seat-princess { position: absolute; top: clamp(34px, 5cqh, 44px); left: 2px; display: grid; justify-items: center; width: clamp(54px, 5.5cqw, 76px); color: #e9deeb; font-size: clamp(8px, 1.15cqh, 10px); line-height: 1.12; }
+  .seat-princess img { display: block; width: clamp(44px, min(4.6cqw, 7cqh), 62px); aspect-ratio: 2 / 3; object-fit: cover; border: 1px solid rgba(255, 226, 163, .65); border-radius: 5px; box-shadow: 0 7px 16px rgba(0, 0, 0, .45); }
+  .seat-princess b { max-width: 82px; margin-top: 3px; color: #ffc75f; }
+  .seat-princess small { display: block; width: clamp(68px, 7cqw, 96px); margin-top: 2px; color: #d9cedd; }
+  .card-backs { display: flex; justify-content: center; height: clamp(52px, 8cqh, 70px); margin: 8px 0 0 clamp(45px, 5cqw, 66px); }
+  .card-backs i { width: clamp(34px, min(3.4cqw, 5.5cqh), 46px); height: clamp(50px, min(5.2cqw, 8cqh), 68px); margin-left: clamp(-28px, -2.2cqw, -19px); border: 1px solid #b88cdf; border-radius: 4px; background: repeating-linear-gradient(135deg, #251638 0 4px, #604077 4px 6px); box-shadow: 0 4px 9px rgba(0, 0, 0, .38); }
+  .card-backs i:first-child { margin-left: 0; }
+  .trick { position: absolute; z-index: 4; top: 58%; left: 50%; display: flex; justify-content: center; align-items: flex-end; gap: clamp(5px, 1cqw, 10px); width: min(92%, 560px); pointer-events: none; transform: translateX(-50%); }
+  .trick figure { width: clamp(48px, min(6.5cqw, 10cqh), 78px); margin: 0; }.trick figcaption { margin-top: 3px; color: #d9cedd; font-size: clamp(8px, 1.2cqh, 11px); text-align: center; }
   .z-card { position: relative; overflow: hidden; display: block; aspect-ratio: 2 / 3; border: 4px solid var(--suit); border-radius: 12px; padding: 3px; background: #150d1d; box-shadow: 0 12px 24px rgba(0, 0, 0, .3); }.z-card.fairies { --suit: #d29a43; }.z-card.pets { --suit: #7f9f4d; }.z-card.queens { --suit: #6c9eae; }.z-card.princes { --suit: #a36a9a; }
-  .phase-panel { width: min(680px, calc(100% - 28px)); min-height: 72px; margin: 0 auto 18px; padding: 13px 16px; border: 1px solid rgba(184, 140, 223, .35); border-radius: 16px; background: rgba(20, 13, 30, .88); text-align: center; }.phase-panel p { margin: 0 0 9px; }.phase-panel label { display: inline-flex; align-items: center; gap: 9px; margin-right: 8px; }.phase-panel input { width: 66px; padding: 7px; border: 1px solid rgba(255, 226, 163, .3); border-radius: 8px; color: #fff4d0; background: #21152d; }.phase-panel button { margin: 3px; }.phase-panel button.armed { color: #211329; background: #ffc75f; }.phase-panel details { margin-top: 8px; }.buy-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-  .local-player { margin-top: auto; }.local-player > header { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 10px; }.local-player > header img { width: 42px; height: 55px; object-fit: cover; border: 1px solid #fff4d0; border-radius: 5px; }.local-player > header span, .local-player > header strong { display: block; }.local-player > header span { color: #a99dac; font-size: 11px; }.hand { display: flex; justify-content: center; align-items: flex-end; min-height: 188px; padding: 0 8px; }.hand button { width: clamp(72px, 8.5vw, 118px); margin-left: clamp(-32px, -2.3vw, -12px); transition: transform .15s ease, filter .15s ease; }.hand button:first-child { margin-left: 0; }.hand button.playable { transform: translateY(-15px); filter: drop-shadow(0 0 8px rgba(255, 199, 95, .7)); }.hand button.selected { transform: translateY(-26px); box-shadow: 0 0 0 3px #ffc75f, 0 13px 28px rgba(0,0,0,.4); }
-  .results { margin-top: 24px; padding: 24px; border: 1px solid rgba(255, 226, 163, .25); border-radius: 22px; background: rgba(20, 13, 30, .82); }.results h2 { font-size: 48px; }.result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 18px 0; }.result-grid article { display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1px solid rgba(255, 226, 163, .15); border-radius: 12px; }.result-grid article.winner { border-color: #ffc75f; }.result-grid b { color: #ffc75f; }.result-grid small { color: #a99dac; }.result-grid em { color: #fff4d0; font-style: normal; font-weight: 700; }.link-button { display: inline-block; text-decoration: none; }
+  .local-player { position: absolute; z-index: 5; inset: auto 8px 2px; }
+  .local-player > header { display: flex; justify-content: center; align-items: center; gap: 9px; margin-bottom: 3px; color: #fff4d0; }.local-player > header img { width: clamp(36px, 4.5cqh, 46px); aspect-ratio: 2 / 3; object-fit: cover; border: 1px solid #fff4d0; border-radius: 5px; }.local-player > header span, .local-player > header strong { display: block; }.local-player > header span { color: #b88cdf; font-size: clamp(9px, 1.2cqh, 11px); }
+  .spectator-panel { position: absolute; z-index: 5; right: 8px; bottom: 8px; left: 8px; display: flex; justify-content: center; align-items: baseline; gap: 10px; padding: 9px 12px; border: 1px solid rgba(184, 140, 223, .35); border-radius: 10px; color: #fff4d0; background: rgba(20, 13, 30, .9); text-align: center; }.spectator-panel span { color: #b88cdf; font-size: 12px; }
+  .phase-panel { width: max-content; max-width: min(90%, 720px); min-height: 34px; margin: 0 auto 3px; padding: 4px 10px; border: 1px solid rgba(184, 140, 223, .35); border-radius: 10px; background: rgba(20, 13, 30, .9); color: #fff4d0; font-size: clamp(9px, 1.3cqh, 12px); text-align: center; }.phase-panel p { display: inline; margin: 0 6px 0 0; }.phase-panel label { display: inline-flex; align-items: center; gap: 6px; margin-right: 5px; }.phase-panel input { width: 58px; padding: 4px; border: 1px solid rgba(255, 226, 163, .3); border-radius: 6px; color: #fff4d0; background: #21152d; }.phase-panel button { min-height: 28px; margin: 1px 2px; padding: 0 9px; font-size: 10px; }.phase-panel button.armed { color: #211329; background: #ffc75f; }.phase-panel details { margin-top: 4px; }.buy-options { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+  .hand { display: flex; justify-content: center; align-items: flex-end; min-height: clamp(96px, 18cqh, 180px); padding-top: 6px; }.hand button { width: var(--hand-card-width); min-height: 0; padding: 0; flex: 0 0 auto; border-width: 2px; border-radius: clamp(5px, .7cqh, 8px); transition: transform .15s ease, filter .15s ease; }.hand button + button { margin-left: calc(-1 * var(--hand-card-overlap)); }.hand button.playable { z-index: 1; transform: translateY(-8px); filter: drop-shadow(0 0 8px rgba(255, 199, 95, .7)); }.hand button.selected { transform: translateY(-12px); box-shadow: 0 0 0 3px #ffc75f, 0 13px 28px rgba(0,0,0,.4); }
+  .results { position: absolute; z-index: 20; inset: 8% 12%; overflow: auto; padding: 24px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 12px; color: #fff4d0; background: #140d1e; box-shadow: 0 18px 60px rgba(0, 0, 0, .7); }.results h2 { font-size: 36px; }.result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 18px 0; }.result-grid article { display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1px solid rgba(255, 226, 163, .15); border-radius: 12px; }.result-grid article.winner { border-color: #ffc75f; }.result-grid b { color: #ffc75f; }.result-grid small { color: #a99dac; }.result-grid em { color: #fff4d0; font-style: normal; font-weight: 700; }.link-button { display: inline-block; text-decoration: none; }
   .error { color: #f3a3a3; }
   @media (max-width: 800px) {
     main { width: min(100% - 28px, 520px); }
-    .score-strip { display: flex; overflow-x: auto; }.score-strip article { min-width: 190px; }.zombie-table-content { min-height: 600px; padding: 10px; }.opponents { justify-content: flex-start; overflow-x: auto; }.opponents article { min-width: 125px; }.trick { min-height: 210px; gap: 5px; }.trick figure { width: min(95px, 23vw); }.hand { justify-content: flex-start; overflow-x: auto; padding: 24px 8px 12px; }.hand button { flex: 0 0 88px; margin-left: -25px; }.hand button:first-child { margin-left: 0; }
+    main.gameplay { width: calc(100% - 24px); }
+    .opponent-seat { width: 112px; min-height: 82px; }
+    .seat-princess { top: 34px; width: 48px; }.seat-princess img { width: 40px; }.seat-princess small { width: 58px; font-size: 7px; }
+    .card-backs { height: 50px; margin-left: 40px; }.card-backs i { width: 32px; height: 47px; margin-left: -20px; }
+    .trick { top: 56%; gap: 4px; }.trick figure { width: 46px; }
+    .local-player { bottom: 1px; }.local-player > header img { width: 34px; }.local-player > header span { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .phase-panel { max-width: 96%; }
+    .hand { min-height: clamp(92px, 17cqh, 138px); }
+    .results { inset: 8% 5%; }
   }
 </style>
