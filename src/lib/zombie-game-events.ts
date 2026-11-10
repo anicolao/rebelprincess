@@ -421,6 +421,8 @@ export function deriveZombieGame(events: GameEvent[]): ZombieProjection {
   const usesCommitments = ordered.some((event) => event.type === 'player/princess-committed');
   for (const event of ordered) {
     if (event.type === 'player/princess-committed' && players.has(event.actorUid) && event.payload.commitment) princessCommitments[event.actorUid] = event.payload.commitment;
+  }
+  for (const event of ordered) {
     if (event.type !== 'player/configured' || !players.has(event.actorUid)) continue;
     if (!usesCommitments && event.payload.ready) reveals[event.actorUid] = event.payload.princessId ?? '';
     if (usesCommitments && event.payload.ready && event.payload.princessId && event.payload.nonce && playerUids.every((uid) => princessCommitments[uid])) {

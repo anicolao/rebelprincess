@@ -83,7 +83,7 @@
   function choiceKey(uid: string) { return `zombie-princess:choice:${gameId}:${uid}`; }
 
   async function revealPrincess(projection: ZombieProjection) {
-    if (!currentUid || projection.players.find((player) => player.uid === currentUid)?.ready || !projection.princessCommitments[currentUid] || !projection.players.every((player) => projection.princessCommitments[player.uid])) return;
+    if (!currentUid || projection.players.length < 3 || projection.players.find((player) => player.uid === currentUid)?.ready || !projection.princessCommitments[currentUid] || !projection.players.every((player) => projection.princessCommitments[player.uid])) return;
     const key = choiceKey(currentUid);
     if (submittedReveals.has(key)) return;
     let stored: StoredChoice | null = null;
@@ -101,7 +101,7 @@
   }
 
   async function choosePrincess() {
-    if (!game || !selectedPrincess || game.players.length < 3 || game.princessCommitments[currentUid]) return;
+    if (!game || !selectedPrincess || game.princessCommitments[currentUid]) return;
     const nonce = `${crypto.randomUUID()}${crypto.randomUUID()}`;
     localStorage.setItem(choiceKey(currentUid), JSON.stringify({ choice: selectedPrincess, nonce } satisfies StoredChoice));
     await act('player/princess-committed', {
@@ -289,9 +289,12 @@
               </button>
             {/each}
           </div>
-          <button class="primary" type="button" disabled={!selectedPrincess || game.players.length < 3} on:click={choosePrincess}>Lock Princess</button>
+          <button class="primary" type="button" disabled={!selectedPrincess} on:click={choosePrincess}>Lock Princess</button>
         {:else if !localPlayer()?.ready}
           <p>Princess locked. Waiting for every player.</p>
+        {/if}
+        {#if game.players.length < 3}
+          <p class="minimum-player-note">{game.players.length} of 3 minimum players joined. You can lock your Princess now; dealing starts once the room has three players.</p>
         {/if}
         {#if game.players[0]?.uid === currentUid}
           <button class="primary" type="button" disabled={dealPending || game.players.length < 3 || !game.players.every((player) => player.ready)} on:click={dealRound}>{dealPending ? 'Dealing…' : 'Deal round 1'}</button>
