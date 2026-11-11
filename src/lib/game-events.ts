@@ -21,9 +21,11 @@ import { completeBeforeTrickPower, createBeforeTrickWindow, declineBeforeTrickPr
 export const SCHEMA_VERSION = 1;
 export const REDUCER_VERSION = 1;
 
-export type GameEventType = 'game/created' | 'game/rematched' | 'player/joined' | 'player/princess-committed' | 'player/configured' | 'bot/controller-claimed' | 'bot/removed' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played' | 'power/hand-raised' | 'power/hand-lowered' | 'power/priority-declined' | 'power/activation-started' | 'power/activated' | 'power/contributed' | 'power/declined' | 'round/card-set-aside' | 'round/pass-submitted' | 'round/suit-committed' | 'round/suit-revealed' | 'round/half-selected' | 'round/gift-submitted' | 'round/haggle-swapped' | 'round/haggle-declined';
+export type GameVariant = 'rebel' | 'zombie';
+export type GameEventType = 'game/created' | 'game/rematched' | 'player/joined' | 'player/princess-committed' | 'player/configured' | 'bot/controller-claimed' | 'bot/removed' | 'game/dealt' | 'pass/submitted' | 'pass/retracted' | 'card/played' | 'power/hand-raised' | 'power/hand-lowered' | 'power/priority-declined' | 'power/activation-started' | 'power/activated' | 'power/contributed' | 'power/declined' | 'round/card-set-aside' | 'round/pass-submitted' | 'round/suit-committed' | 'round/suit-revealed' | 'round/half-selected' | 'round/gift-submitted' | 'round/haggle-swapped' | 'round/haggle-declined' | 'zombie/bid-placed' | 'zombie/frog-decided' | 'zombie/score-decided';
 export type GameEventPayload = {
   gameId: string;
+  variant?: GameVariant;
   displayName?: string;
   princessId?: string;
   ready?: boolean;
@@ -44,6 +46,9 @@ export type GameEventPayload = {
   controllerUid?: string;
   targetTrickIndex?: number;
   windowId?: string;
+  bid?: number;
+  counts?: boolean;
+  buyTricks?: number;
 };
 
 export interface GameEvent {
@@ -61,6 +66,7 @@ export type RoundScore = { princes: number; frog: number; roundRule: number; tot
 
 export interface GameProjection {
   gameId: string;
+  variant?: GameVariant;
   players: Array<{ uid: string; displayName: string; host: boolean; princessId?: string; ready: boolean; bot?: boolean }>;
   roundIds: string[];
   hands: Record<string, Card[]> | null;
@@ -144,7 +150,7 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   const event = value as Record<string, unknown>;
   const payload = event.payload as Record<string, unknown> | undefined;
   const common = (
-    ['game/created', 'game/rematched', 'player/joined', 'player/princess-committed', 'player/configured', 'bot/controller-claimed', 'bot/removed', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/hand-raised', 'power/hand-lowered', 'power/priority-declined', 'power/activation-started', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-committed', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted', 'round/haggle-swapped', 'round/haggle-declined'].includes(String(event.type)) &&
+    ['game/created', 'game/rematched', 'player/joined', 'player/princess-committed', 'player/configured', 'bot/controller-claimed', 'bot/removed', 'game/dealt', 'pass/submitted', 'pass/retracted', 'card/played', 'power/hand-raised', 'power/hand-lowered', 'power/priority-declined', 'power/activation-started', 'power/activated', 'power/contributed', 'power/declined', 'round/card-set-aside', 'round/pass-submitted', 'round/suit-committed', 'round/suit-revealed', 'round/half-selected', 'round/gift-submitted', 'round/haggle-swapped', 'round/haggle-declined', 'zombie/bid-placed', 'zombie/frog-decided', 'zombie/score-decided'].includes(String(event.type)) &&
     typeof event.actorUid === 'string' &&
     Number.isInteger(event.clientSeq) &&
     event.schemaVersion === SCHEMA_VERSION &&
@@ -153,12 +159,12 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
     typeof payload.gameId === 'string'
   );
   if (!common) return false;
-  if (event.type === 'game/created' || event.type === 'player/joined') return typeof payload.displayName === 'string' && (payload.bot === undefined || typeof payload.bot === 'boolean');
+  if (event.type === 'game/created' || event.type === 'player/joined') return typeof payload.displayName === 'string' && (payload.bot === undefined || typeof payload.bot === 'boolean') && (payload.variant === undefined || payload.variant === 'rebel' || payload.variant === 'zombie');
   if (event.type === 'player/princess-committed' || event.type === 'round/suit-committed') return typeof payload.commitment === 'string' && /^[a-f0-9]{64}$/.test(payload.commitment);
   if (event.type === 'player/configured') return (payload.princessId === undefined || typeof payload.princessId === 'string') && (payload.nonce === undefined || typeof payload.nonce === 'string') && typeof payload.ready === 'boolean';
   if (event.type === 'bot/controller-claimed') return typeof payload.seatUid === 'string' && typeof payload.controllerUid === 'string';
   if (event.type === 'bot/removed') return typeof payload.targetUid === 'string';
-  if (event.type === 'game/dealt') return typeof payload.seed === 'string' && Array.isArray(payload.roundIds) && payload.roundIds.length === 5 && !!payload.hands && typeof payload.hands === 'object';
+  if (event.type === 'game/dealt') return typeof payload.seed === 'string' && Array.isArray(payload.roundIds) && (payload.roundIds.length === 4 || payload.roundIds.length === 5) && !!payload.hands && typeof payload.hands === 'object';
   if (event.type === 'pass/submitted') return Array.isArray(payload.cards) && payload.cards.length > 0;
   if (event.type === 'card/played') return !!payload.card && typeof payload.card === 'object';
   if (event.type === 'power/hand-raised' || event.type === 'power/hand-lowered') return Number.isInteger(payload.targetTrickIndex) && Number(payload.targetTrickIndex) >= 0;
@@ -172,6 +178,9 @@ export function isGameEvent(value: unknown): value is Omit<GameEvent, 'id'> {
   if (event.type === 'round/half-selected') return Array.isArray(payload.cards) && payload.cards.length > 0;
   if (event.type === 'round/haggle-swapped') return Array.isArray(payload.cards) && payload.cards.length === 2;
   if (event.type === 'round/haggle-declined') return Object.keys(payload).length === 1;
+  if (event.type === 'zombie/bid-placed') return Number.isInteger(payload.bid) && Number(payload.bid) >= 0 && Number(payload.bid) <= 15;
+  if (event.type === 'zombie/frog-decided') return Number.isInteger(payload.targetTrickIndex) && typeof payload.counts === 'boolean';
+  if (event.type === 'zombie/score-decided') return Number.isInteger(payload.buyTricks) && Number(payload.buyTricks) >= 0;
   return Object.keys(payload).length === 1;
 }
 
@@ -190,6 +199,7 @@ export function eventCursor(events: GameEvent[]): EventCursor | null {
 
 export function deriveGame(events: GameEvent[]): GameProjection {
   const rawOrdered = orderEvents(events);
+  const variant = rawOrdered.find((event) => event.type === 'game/created')?.payload.variant;
   const hostUid = rawOrdered.find((event) => event.type === 'game/created')?.actorUid ?? '';
   const botSeatUids = new Set(rawOrdered
     .filter((event) => event.type === 'player/joined' && (event.payload.bot === true || /^RL Bot \d+$/.test(event.payload.displayName ?? '')))
@@ -726,7 +736,7 @@ export function deriveGame(events: GameEvent[]): GameProjection {
   let winnerUids: string[] = [];
   if (gameComplete) winnerUids = gameWinners(playerList.map((player) => player.uid), totalScores, zeroRounds);
   const { lastWinnerUid: _lastWinnerUid, ...activeProjection } = active;
-  return { gameId, players: playerList, roundIds, seed, ...activeProjection, roundScoreHistory, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions, princessCommitments, gameNumber, gameComplete, zeroRounds, winnerUids, artworkOption };
+  return { gameId, ...(variant ? { variant } : {}), players: playerList, roundIds, seed, ...activeProjection, roundScoreHistory, totalScores, roundIndex, nextLeaderUid: leaderUid || null, princessOptions, princessCommitments, gameNumber, gameComplete, zeroRounds, winnerUids, artworkOption };
 }
 
 export function replayCacheKey(gameId: string): string {
