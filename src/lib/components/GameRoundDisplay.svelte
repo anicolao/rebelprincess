@@ -8,6 +8,8 @@
   export let current: number;
   export let total: number;
   export let mode: 'center' | 'banner' = 'center';
+  export let passCount: number | undefined = undefined;
+  export let passDirection: 'left' | 'right' | 'split' | 'none' | undefined = undefined;
 </script>
 
 <article class="round-display" class:center={mode === 'center'} class:round-center={mode === 'center'} class:banner={mode === 'banner'} aria-label="Current Round card">
@@ -15,6 +17,13 @@
     <h2>{name}</h2>
     <div class="round-art"><GameArtwork {artwork} /></div>
     <span class="round-rule">{rule}</span>
+    {#if passCount !== undefined && passDirection && passDirection !== 'none'}
+      <div class="pass-icon" aria-label={`Pass ${passCount} ${passDirection}`}>
+        {#if passDirection === 'left' || passDirection === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
+        <strong>{passDirection === 'split' ? passCount / 2 : passCount}</strong>
+        {#if passDirection === 'right' || passDirection === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
+      </div>
+    {/if}
     <slot name="details" />
     <p class="round-count">Round {current} of {total}</p>
     <slot />
@@ -42,6 +51,8 @@
   .center .round-rule { display: block; max-width: 260px; margin: 7px auto 0; color: #eee4f0; font-size: clamp(11px, 1.6cqh, 15px); line-height: 1.22; }
   .center .round-art { width: clamp(106px, 58%, 160px); aspect-ratio: 1; margin: clamp(6px, 1cqh, 10px) auto; }
   .center .round-count { margin: 4px 0 0; color: #b88cdf; font-size: clamp(11px, 1.45cqh, 14px); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .pass-icon { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 4px; color: #ffc75f; font-size: clamp(17px, 2.5vh, 24px); line-height: 1; }
+  .pass-icon strong { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: .72em; }
   .center :global(.active-power) { margin: 0; color: #b88cdf; font-size: clamp(11px, 1.45cqh, 14px); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
   .banner { display: grid; grid-template-columns: 1fr clamp(100px, 14vw, 190px); gap: 30px; align-items: center; }
   .banner h2 { font-size: clamp(45px, 6vw, 76px); line-height: .9; }

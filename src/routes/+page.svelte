@@ -7,12 +7,10 @@
   import { base } from '$app/paths';
   import { goto, replaceState } from '$app/navigation';
   import GameLobby from '$lib/components/GameLobby.svelte';
-  import GameCardFace from '$lib/components/GameCardFace.svelte';
-  import GameHand from '$lib/components/GameHand.svelte';
-  import GameHandCard from '$lib/components/GameHandCard.svelte';
   import GameMasthead from '$lib/components/GameMasthead.svelte';
-  import GameRoundDisplay from '$lib/components/GameRoundDisplay.svelte';
-  import GameTableSurface from '$lib/components/GameTableSurface.svelte';
+  import GameResultsOverlay from '$lib/components/GameResultsOverlay.svelte';
+  import GameRoomEntry from '$lib/components/GameRoomEntry.svelte';
+  import GameTable from '$lib/components/GameTable.svelte';
   import SpriteCard from '$lib/components/SpriteCard.svelte';
   import { cardSpriteProps, princessSpriteProps, roundSpriteProps } from '$lib/asset-sprites';
   import { ensureAnonymousIdentity, firebaseDatabase, probeFirebase } from '$lib/firebase';
@@ -35,7 +33,7 @@
   import { LiveBotController, type LiveBotState } from '$lib/live-bot';
   import { isBotSeat, readBotControllerRecords, writeBotControllerRecords, type BotControllerRecord } from '$lib/bot-controller-registry';
   import { BOT_DIFFICULTIES, BOT_DIFFICULTY_LABELS, type BotDifficulty } from '$lib/bot-policies';
-  import type { LobbyPlayer, LobbyPrincess } from '$lib/game-ui';
+  import type { HandCard, LobbyPlayer, LobbyPrincess, LocalSeat, OpponentSeat, ReviewCard, SeatPrincess, TableRound, TrickPlay } from '$lib/game-ui';
 
   let connection: 'checking' | 'synced' | 'error' = 'checking';
   let connectionLabel = 'Checking Firebase…';
@@ -98,7 +96,9 @@
     window.addEventListener('keydown', beginAudio, { once: true });
     void (async () => {
       try {
-        const e2eUid = new URL(location.href).searchParams.get('e2eUid') ?? undefined;
+        const pageUrl = new URL(location.href);
+        if (pageUrl.searchParams.get('variant') === 'zombie') selectedVariant = 'zombie';
+        const e2eUid = pageUrl.searchParams.get('e2eUid') ?? undefined;
         const target = await probeFirebase(e2eUid);
         currentUid = (await ensureAnonymousIdentity(e2eUid)).uid;
         connection = 'synced';
@@ -526,14 +526,6 @@
     const localIndex = game.players.findIndex((player) => player.uid === currentUid);
     return Array.from({ length: game.players.length - 1 }, (_, offset) => game!.players[(localIndex + offset + 1) % game!.players.length]);
   }
-  function seatStyle(index: number, count: number) {
-    const layouts: Record<number, Array<[number, number]>> = {
-      2: [[28, 3], [72, 3]], 3: [[9, 34], [50, 3], [91, 34]],
-      4: [[8, 35], [30, 3], [70, 3], [92, 35]], 5: [[8, 35], [27, 5], [50, 1], [73, 5], [92, 35]]
-    };
-    const [x, y] = layouts[count]?.[index] ?? [50, 3];
-    return `--seat-x: ${x}%; --seat-y: ${y}%; --seat-snap-x: calc(round(nearest, ${x}cqw, 1px) - ${x}cqw)`;
-  }
   function powerAvailable(id?: string) { return Boolean(id && game?.passComplete && !game.roundComplete && !game.exhaustedPrincessUids.includes(currentUid)); }
   function canSignalBeforeTrick(id?: string) {
     return Boolean(id && isBeforeTrickPower(id) && game?.batPriorityEnabled && !game.roundComplete && !game.exhaustedPrincessUids.includes(currentUid) && game.batSignalTargetTrick !== null);
@@ -821,6 +813,163 @@
     selectedPassCards = [];
   }
 
+  function reviewCard(card: Card): ReviewCard {
+    return {
+      id: cardLabel(card),
+      label: cardLabel(card),
+      artwork: { kind: 'sprite', sprite: cardSpriteProps(card) },
+      rank: card.rank,
+      suit: card.suit,
+      muted: true
+    };
+  }
+
+  function tablePrincess(uid: string, id?: string): SeatPrincess {
+    return {
+      id,
+      name: princessName(id),
+      power: PRINCESS_POWER_TEXT[id ?? ''] ?? 'Power coming in a later increment.',
+      artwork: { kind: 'sprite', sprite: princessSpriteProps(id) },
+      exhausted: Boolean(game?.exhaustedPrincessUids.includes(uid)),
+      active: celebratedPrincessId === id,
+      aspect: 3 / 5
+    };
+  }
+
+  function opponentSeatsModel(): OpponentSeat[] {
+    if (!game?.hands) return [];
+    return clockwiseOpponents().map((player) => {
+      const ownership = actionOwnership(game!, player.uid);
+      const revealedSuit = game?.revealedSuits[player.uid];
+      return {
+        uid: player.uid,
+        name: player.displayName,
+        handCount: game?.hands?.[player.uid]?.length ?? 0,
+        active: ownership.state === 'active',
+        complete: ownership.state === 'complete',
+        actionLabel: ownership.state === 'idle' ? undefined : ownership.label,
+        leader: game?.trick?.leaderUid === player.uid,
+        princess: tablePrincess(player.uid, player.princessId),
+        revealedCards: revealedSuit ? game?.hands?.[player.uid]?.filter((card) => card.suit === revealedSuit).map(reviewCard) : undefined,
+        revealedLabel: revealedSuit ? `${player.displayName}'s revealed ${revealedSuit} cards` : undefined,
+        capturedCount: game?.capturedTricks[player.uid]?.length ?? 0,
+        capturedCardCount: game?.capturedCounts[player.uid] ?? 0,
+        lastCaptured: lastCaptured(player.uid).map((play) => reviewCard(play.card)),
+        showCaptured: game?.passComplete
+      };
+    });
+  }
+
+  function tableRoundModel(): TableRound {
+    const instruction = passInstruction(activeRoundId());
+    return {
+      name: roundName(activeRoundId()),
+      rule: roundRule(activeRoundId()),
+      artwork: { kind: 'sprite', sprite: roundSpriteProps(activeRoundId()) },
+      current: (game?.roundIndex ?? 0) + 1,
+      total: 5,
+      passCount: instruction.count,
+      passDirection: instruction.direction
+    };
+  }
+
+  function collectingTrick() {
+    return Boolean(game?.passComplete && !game.trick?.plays.length && game.lastCompletedTrick);
+  }
+
+  function tableTrickModel(): TrickPlay[] {
+    if (!game?.passComplete) return [];
+    const collecting = collectingTrick();
+    const plays = collecting ? game.lastCompletedTrick?.plays ?? [] : game.trick?.plays ?? [];
+    return plays.map((play) => {
+      const hidden = !collecting && play.uid !== currentUid && isMasqueradeHidden(activeRoundId(), game!.trick!, play.uid, game!.players.length);
+      return {
+        id: `${play.uid}:${cardLabel(play.card)}`,
+        label: cardLabel(play.card),
+        playerName: playerName(play.uid),
+        artwork: { kind: 'sprite', sprite: cardSpriteProps(play.card) },
+        rank: play.card.rank,
+        suit: play.card.suit,
+        badge: play.effectiveRank === 0 ? 'Counts as 0' : '',
+        faceDown: hidden,
+        originStyle: playOrigin(play.uid),
+        collectStyle: collectDestination(game?.lastCompletedTrick?.winnerUid ?? play.uid)
+      };
+    });
+  }
+
+  function localSeatModel(_snowWhiteArmed = snowWhiteArmed, _thumbelinaArmed = thumbelinaArmed, _openPrincessPower = openPrincessPower, _handRaised = hasRaisedHand()): LocalSeat | undefined {
+    if (!game?.hands) return undefined;
+    const player = localPlayer();
+    if (!player) return undefined;
+    const ownership = actionOwnership(game, currentUid);
+    const showPrincess = game.passComplete || (game.batPriorityEnabled && isBeforeTrickPower(player.princessId));
+    return {
+      name: player.displayName,
+      handCount: game.hands[currentUid]?.length ?? 0,
+      active: ownership.state === 'active',
+      complete: ownership.state === 'complete',
+      actionLabel: ownership.state === 'idle' ? undefined : ownership.label,
+      leader: game.trick?.leaderUid === currentUid,
+      princess: showPrincess ? {
+        ...tablePrincess(currentUid, player.princessId),
+        armed: snowWhiteArmed || thumbelinaArmed,
+        pressed: snowWhiteArmed || thumbelinaArmed || openPrincessPower === player.princessId || _handRaised,
+        usable: princessUsable(player.princessId),
+        status: _handRaised ? `Hand raised for trick ${(game.batSignalTargetTrick ?? 0) + 1}` : undefined
+      } : undefined,
+      capturedCount: game.capturedTricks[currentUid]?.length ?? 0,
+      capturedCardCount: game.capturedCounts[currentUid] ?? 0,
+      lastCaptured: lastCaptured(currentUid).map((play) => reviewCard(play.card)),
+      showCaptured: game.passComplete
+    };
+  }
+
+  function princessButtonLabel() {
+    const id = localPlayer()?.princessId;
+    return canSignalBeforeTrick(id) ? `${hasRaisedHand() ? 'Lower' : 'Raise'} hand for ${princessName(id)} on the next trick` : `Use ${princessName(id)} power`;
+  }
+
+  function handCardsModel(_snowWhiteArmed = snowWhiteArmed, _thumbelinaArmed = thumbelinaArmed): HandCard[] {
+    if (!game?.hands) return [];
+    return (game.hands[currentUid] ?? []).map((card) => {
+      const committed = !game!.passComplete && game!.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card));
+      const roundActionAvailable = Boolean(game!.awaitingRoundAction && game!.awaitingRoundAction !== 'reveal-suit' && game!.awaitingRoundAction !== 'split-hand' && !game!.roundActionSubmissions[currentUid]);
+      const splitAvailable = game!.awaitingRoundAction === 'split-hand' && !game!.roundCardSubmissions[currentUid];
+      const haggleAvailable = game!.awaitingRoundAction === 'haggle' && game!.haggleWinnerUid === currentUid;
+      const sleepingBeautyContribution = game!.pendingPower?.powerId === 'sleeping-beauty' && !game!.pendingPower.cards.some((entry) => entry.uid === currentUid);
+      const turnBlocked = game!.passComplete && game!.currentTurnUid === currentUid && !game!.awaitingRoundAction && !game!.pendingPower && !game!.pendingMulanUid && !playable(card);
+      return {
+        id: cardLabel(card),
+        label: cardLabel(card),
+        artwork: { kind: 'sprite', sprite: cardSpriteProps(card) },
+        rank: card.rank,
+        suit: card.suit,
+        badge: committed ? `To ${passRecipient(card)}` : '',
+        badgeAlign: committed ? 'left' as const : 'center' as const,
+        muted: true,
+        selected: selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card)) || selectedHaggleOffer === cardLabel(card),
+        committed,
+        playable: game!.passComplete && playable(card),
+        turnBlocked,
+        contributable: roundActionAvailable || splitAvailable || haggleAvailable || sleepingBeautyContribution,
+        disabled: game!.passComplete ? (!playable(card) && !roundActionAvailable && !splitAvailable && !haggleAvailable && !sleepingBeautyContribution) : Boolean(game!.passSubmissions[currentUid] && !committed),
+        describedBy: turnBlocked ? 'card-block-explanation' : undefined
+      };
+    });
+  }
+
+  function handleHandCardId(id: string) {
+    const card = game?.hands?.[currentUid]?.find((candidate) => cardLabel(candidate) === id);
+    if (!card) return;
+    if (game?.pendingPower?.powerId === 'sleeping-beauty') void contributeSleepingBeauty(card);
+    else handleHandCard(card);
+  }
+
+  function powerBurstModel(_celebratedPrincessId = celebratedPrincessId, _showPrincessBurst = showPrincessBurst): SeatPrincess | undefined {
+    return _celebratedPrincessId && _showPrincessBurst ? tablePrincess('', _celebratedPrincessId) : undefined;
+  }
+
   function newGame() {
     location.assign(new URL('./', location.href).pathname);
   }
@@ -882,117 +1031,29 @@
         Create a room, invite the court, and keep those princes at arm's length.
       </p>
       {#if activeGameId && game?.hands}
-        <GameTableSurface playerCount={game.players.length} powerFlash={showPrincessBurst}>
-            <div class="opponents" aria-label="Opponents">
-              {#each clockwiseOpponents() as player, index}
-                {@const ownership = actionOwnership(game, player.uid)}
-                <section class="opponent-seat" class:action-active={ownership.state === 'active'} class:action-complete={ownership.state === 'complete'} style={seatStyle(index, game.players.length - 1)} data-clockwise-seat={index + 1} data-action-state={ownership.state} aria-label={`${player.displayName}'s hand`}>
-                  <strong>{player.displayName} · {game.hands[player.uid]?.length ?? 0} {#if game.trick?.leaderUid === player.uid}<span class="lead-marker">Leads</span>{/if}</strong>
-                  {#if ownership.state !== 'idle'}<span class={`action-marker ${ownership.state}`} aria-label={`${player.displayName}: ${ownership.label}`}>{ownership.state === 'complete' ? '✓ ' : ''}{ownership.label}</span>{/if}
-                  <div class="seat-princess" class:exhausted={game.exhaustedPrincessUids.includes(player.uid)} class:power-active={celebratedPrincessId === player.princessId} aria-label={`${player.displayName}'s Princess: ${princessName(player.princessId)}`}>
-                     <div class="princess-card">
-                       <SpriteCard {...princessSpriteProps(player.princessId)} />
-                     </div>
-                     <strong>{princessName(player.princessId)}</strong>
-                     <span>{PRINCESS_POWER_TEXT[player.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
-                  </div>
-                  <div class="card-backs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-                  {#if game.revealedSuits[player.uid]}
-                    <div class="revealed-cards" role="group" aria-label={`${player.displayName}'s revealed ${game.revealedSuits[player.uid]} cards`}>
-                      {#each game.hands[player.uid]?.filter((card) => card.suit === game?.revealedSuits[player.uid]) ?? [] as card}
-                        <span class="review-card" aria-label={cardLabel(card)}>
-                          <SpriteCard {...cardSpriteProps(card)} />
-                          <strong>{card.rank}</strong>
-                        </span>
-                      {/each}
-                    </div>
-                  {/if}
-                  {#if game.passComplete}<details class="trick-counter">
-                    <summary aria-label={`${player.displayName} tricks`}>{game.capturedTricks[player.uid]?.length ?? 0}</summary>
-                    {#if lastCaptured(player.uid).length}
-                      <div class="trick-review" aria-label={`${player.displayName} last trick`}>
-                        {#each lastCaptured(player.uid) as play}
-                          <span class="review-card" aria-label={cardLabel(play.card)}>
-                            <SpriteCard {...cardSpriteProps(play.card)} />
-                            <strong>{play.card.rank}</strong>
-                          </span>
-                        {/each}
-                      </div>
-                    {/if}
-                  </details>{/if}
-                </section>
-              {/each}
-            </div>
-
-            <GameRoundDisplay
-              name={roundName(activeRoundId())}
-              rule={roundRule(activeRoundId())}
-              artwork={{ kind: 'sprite', sprite: roundSpriteProps(activeRoundId()) }}
-              current={game.roundIndex + 1}
-              total={5}
-            >
-              <svelte:fragment slot="details">
-                <div class="pass-icon" aria-label={`Pass ${passInstruction(activeRoundId()).count} ${passInstruction(activeRoundId()).direction}`}>
-                  {#if passInstruction(activeRoundId()).direction === 'left' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8635;</span>{/if}
-                  <strong>{passInstruction(activeRoundId()).direction === 'split' ? passInstruction(activeRoundId()).count / 2 : passInstruction(activeRoundId()).count}</strong>
-                  {#if passInstruction(activeRoundId()).direction === 'right' || passInstruction(activeRoundId()).direction === 'split'}<span aria-hidden="true">&#8634;</span>{/if}
-                </div>
-              </svelte:fragment>
-              {#if game.blindTransferComplete}<p class="active-power" role="status">Blind Man’s Bluff · second hands passed right</p>{/if}
-              {#if activeRoundId() === 'upside-down' && game.trick?.reversed}<p class="active-power" role="status">Upside Down · low cards currently win</p>{/if}
-              {#if game.powerIdsThisTrick.length}<p class="active-power" role="status">Princess power: {game.powerIdsThisTrick.map(princessName).join(', ')}</p>{/if}
-            </GameRoundDisplay>
-
-            {#if celebratedPrincessId && showPrincessBurst}
-              {#key celebrationKey}
-                <aside class="princess-power-burst" role="status" aria-label={`${princessName(celebratedPrincessId)} power activated`}>
-                  <span class="power-sparkles" aria-hidden="true">✦ · ✧ · ✦</span>
-                  <div class="princess-card" aria-hidden="true">
-                    <SpriteCard {...princessSpriteProps(celebratedPrincessId)} />
-                  </div>
-                  <span>Princess power awakened</span>
-                  <strong>{princessName(celebratedPrincessId)}</strong>
-                  <p>{PRINCESS_POWER_TEXT[celebratedPrincessId]}</p>
-                </aside>
-              {/key}
-            {/if}
-
-            {#if game.passComplete}
-              {@const collecting = !game.trick?.plays.length && Boolean(game.lastCompletedTrick)}
-              {@const visiblePlays = collecting ? game.lastCompletedTrick?.plays ?? [] : game.trick?.plays ?? []}
-              <section class="live-trick" class:collecting class:double-trick={activeRoundId() === 'prince-rings-twice'} aria-label={collecting ? 'Completed trick' : 'Current trick'}>
-                {#each visiblePlays as play}
-                  {@const masqueradeHidden = !collecting && play.uid !== currentUid && isMasqueradeHidden(activeRoundId(), game.trick!, play.uid, game.players.length)}
-                  <article class="trick-play" style={collectDestination(game.lastCompletedTrick?.winnerUid ?? play.uid)} aria-label={`${game.players.find((player) => player.uid === play.uid)?.displayName} played ${masqueradeHidden ? 'a face-down card' : cardLabel(play.card)}`}>
-                    <span>{game.players.find((player) => player.uid === play.uid)?.displayName}</span>
-                    {#if masqueradeHidden}
-                      <div class="trick-card face-down" style={playOrigin(play.uid)}></div>
-                    {:else}
-                      <div class="trick-card" style={playOrigin(play.uid)}>
-                        <GameCardFace artwork={{ kind: 'sprite', sprite: cardSpriteProps(play.card) }} rank={play.card.rank} suit={play.card.suit} badge={play.effectiveRank === 0 ? 'Counts as 0' : ''} display="trick" />
-                      </div>
-                    {/if}
-                  </article>
-                {/each}
-              </section>
-              {#each game.players as player}
-                <span class="sr-only" aria-label={`${player.displayName} captured cards`}>{game.capturedCounts[player.uid] ?? 0}</span>
-              {/each}
-            {/if}
-
-            <section class="local-seat" class:action-active={actionOwnership(game, currentUid).state === 'active'} class:action-complete={actionOwnership(game, currentUid).state === 'complete'} data-action-state={actionOwnership(game, currentUid).state} aria-label="Your seat">
-              <div class="local-heading" class:local-leader={game.trick?.leaderUid === currentUid}><strong>{game.players.find((player) => player.uid === currentUid)?.displayName} · You {#if game.trick?.leaderUid === currentUid}<span class="lead-marker">You lead</span>{/if}</strong><span>{game.hands[currentUid]?.length ?? 0} cards</span></div>
-              {#if actionOwnership(game, currentUid).state !== 'idle'}<span class={`action-marker local-action-marker ${actionOwnership(game, currentUid).state}`} aria-label={`You: ${actionOwnership(game, currentUid).label}`}>{actionOwnership(game, currentUid).state === 'complete' ? '✓ ' : ''}{actionOwnership(game, currentUid).label}</span>{/if}
-              {#if game.passComplete || (game.batPriorityEnabled && isBeforeTrickPower(localPlayer()?.princessId))}
-                <div class="seat-princess local-princess" class:exhausted={game.exhaustedPrincessUids.includes(currentUid)} class:armed={snowWhiteArmed || thumbelinaArmed} class:power-active={celebratedPrincessId === localPlayer()?.princessId}>
-                  <button type="button" class="princess-card" aria-label={canSignalBeforeTrick(localPlayer()?.princessId) ? `${hasRaisedHand() ? 'Lower' : 'Raise'} hand for ${princessName(localPlayer()?.princessId)} on the next trick` : `Use ${princessName(localPlayer()?.princessId)} power`} aria-pressed={hasRaisedHand() || snowWhiteArmed || thumbelinaArmed || openPrincessPower === localPlayer()?.princessId} disabled={!princessUsable(localPlayer()?.princessId)} on:click={usePrincessCard}>
-                    <SpriteCard {...princessSpriteProps(localPlayer()?.princessId)} />
-                  </button>
-                  <strong>{princessName(localPlayer()?.princessId)}</strong>
-                  <span>{PRINCESS_POWER_TEXT[localPlayer()?.princessId ?? ''] ?? 'Power coming in a later increment.'}</span>
-                  {#if hasRaisedHand()}<small class="hand-raised" role="status">Hand raised for trick {(game.batSignalTargetTrick ?? 0) + 1}</small>{/if}
-                </div>
-              {/if}
+        <GameTable
+          playerCount={game.players.length}
+          opponents={opponentSeatsModel()}
+          round={tableRoundModel()}
+          trick={tableTrickModel()}
+          localSeat={localSeatModel(snowWhiteArmed, thumbelinaArmed, openPrincessPower, hasRaisedHand())}
+          handCards={handCardsModel(snowWhiteArmed, thumbelinaArmed)}
+          onHandCard={handleHandCardId}
+          onPrincess={usePrincessCard}
+          princessLabel={princessButtonLabel()}
+          collecting={collectingTrick()}
+          doubleTrick={activeRoundId() === 'prince-rings-twice'}
+          powerFlash={showPrincessBurst}
+          powerBurst={powerBurstModel(celebratedPrincessId, showPrincessBurst)}
+          powerBurstKey={celebrationKey}
+          ariaLabel="Rebel Princess table"
+        >
+          <svelte:fragment slot="round-status">
+            {#if game.blindTransferComplete}<p class="active-power" role="status">Blind Man’s Bluff · second hands passed right</p>{/if}
+            {#if activeRoundId() === 'upside-down' && game.trick?.reversed}<p class="active-power" role="status">Upside Down · low cards currently win</p>{/if}
+            {#if game.powerIdsThisTrick.length}<p class="active-power" role="status">Princess power: {game.powerIdsThisTrick.map(princessName).join(', ')}</p>{/if}
+          </svelte:fragment>
+          <svelte:fragment slot="local-controls">
               {#if game.beforeTrickWindow?.priorityUid === currentUid && !game.pendingPower}
                 <div class="power-controls" role="group" aria-label="Before-trick decision"><strong>You have priority</strong><button type="button" class="secondary" on:click={declineBeforeTrickPriority}>Decline this time</button></div>
               {/if}
@@ -1025,45 +1086,8 @@
               {:else if game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid)}
                 <p class="power-prompt">Sleeping Beauty asks you to contribute one card.</p>
               {/if}
-              {#if game.passComplete}<details class="trick-counter local-counter">
-                <summary aria-label={`${game.players.find((player) => player.uid === currentUid)?.displayName} tricks`}>{game.capturedTricks[currentUid]?.length ?? 0}</summary>
-                {#if lastCaptured(currentUid).length}
-                  <div class="trick-review" aria-label={`${game.players.find((player) => player.uid === currentUid)?.displayName} last trick`}>
-                    {#each lastCaptured(currentUid) as play}
-                      <span class="review-card" aria-label={cardLabel(play.card)}>
-                        <SpriteCard {...cardSpriteProps(play.card)} />
-                        <strong>{play.card.rank}</strong>
-                      </span>
-                    {/each}
-                  </div>
-                {/if}
-              </details>{/if}
-              <GameHand>
-                {#each game.hands[currentUid] ?? [] as card}
-                  {@const committed = !game.passComplete && game.passSubmissions[currentUid]?.some((entry) => cardLabel(entry) === cardLabel(card))}
-                  {@const roundActionAvailable = Boolean(game.awaitingRoundAction && game.awaitingRoundAction !== 'reveal-suit' && game.awaitingRoundAction !== 'split-hand' && !game.roundActionSubmissions[currentUid])}
-                  {@const splitAvailable = game.awaitingRoundAction === 'split-hand' && !game.roundCardSubmissions[currentUid]}
-                  {@const haggleAvailable = game.awaitingRoundAction === 'haggle' && game.haggleWinnerUid === currentUid}
-                  {@const turnBlocked = game.passComplete && game.currentTurnUid === currentUid && !game.awaitingRoundAction && !game.pendingPower && !game.pendingMulanUid && !playable(card)}
-                  <GameHandCard
-                    artwork={{ kind: 'sprite', sprite: cardSpriteProps(card) }}
-                    rank={card.rank}
-                    suit={card.suit}
-                    badge={committed ? `To ${passRecipient(card)}` : ''}
-                    badgeAlign={committed ? 'left' : 'center'}
-                    muted
-                    selected={selectedPassCards.includes(cardLabel(card)) || selectedRoundCards.includes(cardLabel(card)) || selectedHaggleOffer === cardLabel(card)}
-                    {committed}
-                    playable={game.passComplete && playable(card)}
-                    {turnBlocked}
-                    contributable={roundActionAvailable || splitAvailable || haggleAvailable || (game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))}
-                    disabled={game.passComplete ? (!playable(card) && !roundActionAvailable && !splitAvailable && !haggleAvailable && !(game.pendingPower?.powerId === 'sleeping-beauty' && !game.pendingPower.cards.some((entry) => entry.uid === currentUid))) : Boolean(game.passSubmissions[currentUid] && !committed)}
-                    ariaLabel={cardLabel(card)}
-                    ariaDescribedby={turnBlocked ? 'card-block-explanation' : undefined}
-                    on:click={() => game?.pendingPower?.powerId === 'sleeping-beauty' ? contributeSleepingBeauty(card) : handleHandCard(card)}
-                  />
-                {/each}
-              </GameHand>
+          </svelte:fragment>
+          <svelte:fragment slot="local-status">
               {#if localCardBlockExplanation()}<p id="card-block-explanation" class="card-block-explanation">{localCardBlockExplanation()}</p>{/if}
               <div class="pass-controls">
                 {#if game.roundComplete}
@@ -1089,10 +1113,10 @@
                   <button class="pass-submit" type="button" disabled={selectedPassCards.filter(Boolean).length !== instruction.count} on:click={submitPass}>Pass {instruction.count} {instruction.direction} to {passRecipient()}</button>
                 {/if}
               </div>
-            </section>
+          </svelte:fragment>
+          <svelte:fragment slot="overlay">
             {#if game.roundComplete}
-              <section class="round-results" aria-label={`Round ${game.roundIndex + 1} scoring`}>
-                <h2>{game.gameComplete ? 'The ball is over' : 'Proposals received'}</h2>
+              <GameResultsOverlay title={game.gameComplete ? 'The ball is over' : 'Proposals received'} ariaLabel={`Round ${game.roundIndex + 1} scoring`}>
                 {#if game.gameComplete}
                   <p class="victory" role="status">{game.winnerUids.length > 1 ? 'Shared victory' : 'Winner'}: {winnerNames()}</p>
                 {:else}
@@ -1124,7 +1148,7 @@
                     </tbody>
                   </table>
                 </div>
-                <ul>
+                <ul class="round-result-list">
                   {#each game.players as player}
                     <li class:winner={game.winnerUids.includes(player.uid)}><strong>{player.displayName}</strong><span>{game.roundScores[player.uid].princes} Princes + {game.roundScores[player.uid].frog} Frog{#if game.roundScores[player.uid].roundRule} + {game.roundScores[player.uid].roundRule} Round rule{/if} = {game.roundScores[player.uid].total}</span>{#if game.rebelUids.includes(player.uid)}<em role="status">Rebel of the Ball · −10 proposals</em>{/if}{#if game.retainedCards[player.uid]?.length}<small aria-label={`${player.displayName} kept cards`}>Kept: {game.retainedCards[player.uid].map(cardLabel).join(', ')}</small>{/if}<b>{game.totalScores[player.uid]} total · {game.zeroRounds[player.uid]} zero rounds</b></li>
                   {/each}
@@ -1143,11 +1167,12 @@
                     <p>Waiting for the host to deal round {game.roundIndex + 2}</p>
                   {/if}
                 {/if}
-              </section>
+              </GameResultsOverlay>
             {/if}
-          <span class="sr-only" data-testid="stream-card-count">Shared stream contains {Object.values(game.hands).flat().length} cards</span>
-          <span class="sr-only" data-testid="bot-controller-count">{liveBots.length} bot controllers loaded</span>
-        </GameTableSurface>
+            <span class="sr-only" data-testid="stream-card-count">Shared stream contains {Object.values(game.hands).flat().length} cards</span>
+            <span class="sr-only" data-testid="bot-controller-count">{liveBots.length} bot controllers loaded</span>
+          </svelte:fragment>
+        </GameTable>
       {:else if activeGameId}
         <GameLobby
           gameId={activeGameId}
@@ -1186,29 +1211,15 @@
           </svelte:fragment>
         </GameLobby>
       {:else}
-        <form class="room-form" on:submit|preventDefault={createGame}>
-          <label for="display-name">Your name</label>
-          <input id="display-name" bind:value={displayName} maxlength="30" autocomplete="nickname" placeholder="Princess name" />
-          <fieldset class="variant-choice">
-            <legend>Game</legend>
-            <label class:chosen={selectedVariant === 'rebel'}>
-              <input type="radio" bind:group={selectedVariant} value="rebel" />
-              <strong>Rebel Princess</strong><span>Avoid proposals across five rounds.</span>
-            </label>
-            <label class:chosen={selectedVariant === 'zombie'}>
-              <input type="radio" bind:group={selectedVariant} value="zombie" />
-              <strong>Zombie Princess</strong><span>Bid for tricks and manage skulls across four rounds.</span>
-            </label>
-          </fieldset>
-          <div class="actions">
-            <button type="submit" disabled={connection !== 'synced'}>Create a game</button>
-            <span>or</span>
-            <label class="sr-only" for="invite-code">Room code</label>
-            <input id="invite-code" bind:value={inviteCode} maxlength="8" placeholder="ROOM CODE" />
-            <button class="secondary" type="button" disabled={connection !== 'synced'} on:click={joinGame}>Join</button>
-          </div>
-          {#if actionError}<p class="form-error" role="alert">{actionError}</p>{/if}
-        </form>
+        <GameRoomEntry
+          disabled={connection !== 'synced'}
+          {actionError}
+          bind:displayName
+          bind:inviteCode
+          bind:selectedVariant
+          onCreate={createGame}
+          onJoin={joinGame}
+        />
       {/if}
     </div>
 
@@ -1341,13 +1352,6 @@
     line-height: 1.55;
   }
 
-  .actions {
-    margin-top: 34px;
-    display: flex;
-    align-items: center;
-    gap: 18px;
-  }
-
   button {
     min-height: 48px;
     padding: 0 23px;
@@ -1370,117 +1374,27 @@
   }
 
   input:focus { outline: 2px solid #b88cdf; outline-offset: 2px; }
-  .room-form { margin-top: 28px; }
-  .room-form > label { display: block; margin-bottom: 7px; color: #e4d8e5; font-size: 13px; }
-  .room-form > input { width: min(100%, 330px); }
-  .variant-choice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 650px; margin: 22px 0 0; padding: 0; border: 0; }
-  .variant-choice legend { grid-column: 1 / -1; margin-bottom: 3px; color: #e4d8e5; font-size: 13px; }
-  .variant-choice label { position: relative; display: grid; gap: 3px; padding: 14px 16px; border: 1px solid rgba(255, 226, 163, .24); border-radius: 12px; color: #bdb0c4; background: rgba(13, 8, 20, .38); cursor: pointer; }
-  .variant-choice label.chosen { border-color: #ffc75f; color: #fff5dc; background: rgba(112, 66, 119, .3); box-shadow: inset 0 0 0 1px rgba(255, 199, 95, .35); }
-  .variant-choice input { position: absolute; opacity: 0; pointer-events: none; }
-  .variant-choice strong { font-family: 'Cormorant Garamond', serif; font-size: 21px; }
-  .variant-choice span { font-size: 12px; line-height: 1.35; }
-  .actions { flex-wrap: wrap; }
-  .actions input { width: 132px; text-transform: uppercase; }
-  .actions > span { color: #9f93a5; }
   button.secondary { color: #fff4d0; background: transparent; }
-  .form-error { color: #ffaaa5; font-size: 13px; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
-  fieldset { min-width: 0; margin: 18px 0; padding: 0; border: 0; }
-  legend { margin-bottom: 8px; color: #ffc75f; font-size: 13px; font-weight: 700; }
   .add-bot { margin: 0 0 8px; }
   .bot-controls { display: grid; grid-template-columns: auto minmax(105px, 1fr) minmax(140px, auto); align-items: center; gap: 8px; margin: 0 0 8px; }
   .bot-controls label { color: #d9cedd; font-size: 12px; font-weight: 700; }
   .bot-controls select { min-width: 0; padding: 7px 9px; border: 1px solid rgba(184, 140, 223, .45); border-radius: 5px; color: #fff4d0; background: #24162f; }
   .bot-controls .add-bot { margin: 0; }
-  .remove-bot { width: auto; margin-left: 6px; padding: 3px 7px; border: 1px solid rgba(255, 199, 95, .45); color: #ffc75f; background: transparent; font-size: 10px; }
   .bot-status { display: grid; gap: 4px; margin: 0 0 10px; padding: 0; list-style: none; }
   .bot-status li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border: 1px solid rgba(184, 140, 223, .3); border-radius: 5px; color: #d9cedd; background: rgba(20, 13, 30, .45); font-size: 11px; }
   .bot-status span { color: #b88cdf; text-transform: capitalize; }
-  .review-card, .trick-card, .princess-card {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .pass-icon { display: flex; justify-content: center; align-items: center; gap: 3px; margin-top: 4px; color: #ffc75f; font-size: clamp(17px, 2.5vh, 24px); line-height: 1; }
-  .pass-icon strong { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: .72em; }
-  .princess-power-burst { position: absolute; z-index: 25; top: 46%; left: 50%; display: grid; grid-template-columns: 76px minmax(0, 220px); grid-template-rows: auto auto auto 1fr; column-gap: 13px; width: min(86%, 340px); padding: 12px 16px 12px 12px; border: 2px solid #ffe2a3; border-radius: 13px; color: #fff5dc; background: linear-gradient(135deg, rgba(82, 47, 100, .98), rgba(20, 31, 43, .98)); box-shadow: 0 0 0 5px rgba(184, 140, 223, .22), 0 0 45px rgba(255, 226, 163, .45), 0 18px 50px rgba(0, 0, 0, .72); pointer-events: none; transform: translate(-50%, -50%); animation: princess-power-arrives .75s cubic-bezier(.2, .9, .25, 1.15) both; }
-  .princess-power-burst .princess-card { grid-row: 1 / -1; width: 76px; aspect-ratio: 3 / 5; border: 1px solid rgba(255, 226, 163, .8); border-radius: 7px; background-color: #150d1d; background-position: var(--princess-x) var(--princess-y); background-size: var(--princess-size); box-shadow: 0 8px 20px rgba(0, 0, 0, .48); }
-  .princess-power-burst > span:not(.power-sparkles) { align-self: end; color: #ffc75f; font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-  .princess-power-burst > strong { color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 24px; line-height: 1; }
-  .princess-power-burst > p { margin: 5px 0 0; color: #e7dbe9; font-size: 11px; line-height: 1.25; }
-  .power-sparkles { position: absolute; top: -18px; right: 8px; color: #ffe2a3; font-size: 22px; letter-spacing: 6px; text-shadow: 0 0 12px #fff; animation: power-sparkles 1.4s ease-in-out infinite alternate; }
-  .opponent-seat { position: absolute; z-index: 2; top: var(--seat-y); left: var(--seat-x); width: clamp(118px, min(14cqw, 19cqh), 170px); min-height: clamp(78px, 13cqh, 118px); color: #e9deeb; text-align: center; transform: translateX(-50%); }
-  .opponent-seat::before { content: ''; position: absolute; z-index: -1; inset: -7px -9px -8px; border: 2px solid transparent; border-radius: 10px; pointer-events: none; transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
-  .opponent-seat.action-active::before { border-color: #ffc75f; background: rgba(255, 199, 95, .08); box-shadow: 0 0 0 3px rgba(255, 199, 95, .12), 0 0 20px rgba(255, 199, 95, .4); }
-  .opponent-seat > strong { display: block; margin-bottom: 5px; font-size: clamp(12px, 1.7cqh, 15px); }
-  .action-marker { display: flex; align-items: center; width: max-content; max-width: 138px; margin: 0 auto 5px; padding: 3px 8px; border: 1px solid currentColor; border-radius: 999px; color: #ffc75f; background: rgba(33, 19, 41, .88); font-size: clamp(9px, 1.25cqh, 11px); font-weight: 700; line-height: 1.2; white-space: nowrap; }
-  .action-marker.active::before { content: ''; width: 5px; height: 5px; margin-right: 4px; flex: 0 0 5px; border-radius: 50%; background: currentColor; }
-  .opponent-seat.action-active > .action-marker { position: relative; left: var(--seat-snap-x); width: calc-size(max-content, round(nearest, size, 1px)); }
-  .action-marker.complete { color: #7de2a7; }
-  .seat-princess { position: absolute; top: clamp(25px, 4.3cqh, 40px); left: 2px; display: grid; justify-items: center; width: clamp(54px, 5.5cqw, 76px); color: #e9deeb; font-size: clamp(8px, 1.15cqh, 10px); line-height: 1.12; }
-  .seat-princess .princess-card { width: clamp(44px, min(4.6cqw, 7cqh), 62px); aspect-ratio: 3 / 5; min-height: 0; padding: 0; border: 1px solid rgba(255, 226, 163, .65); border-radius: 5px; background-color: #150d1d; box-shadow: 0 7px 16px rgba(0, 0, 0, .45); transform-origin: bottom center; transition: filter .2s ease, transform .2s ease; }
-  .seat-princess > strong { max-width: 82px; margin-top: 3px; color: #ffc75f; font-size: clamp(9px, 1.3cqh, 11px); }
-  .seat-princess > span { display: block; width: clamp(68px, 7cqw, 96px); margin-top: 2px; color: #d9cedd; text-align: center; }
-  .seat-princess.exhausted .princess-card { filter: grayscale(1) saturate(0); transform: rotate(-12deg); }
-  .seat-princess.exhausted > strong, .seat-princess.exhausted > span { color: #776f7b; }
-  .seat-princess.power-active .princess-card { filter: none; border-color: #fff4d0; box-shadow: 0 0 0 3px #b88cdf, 0 0 25px #ffe2a3; animation: active-princess-card .85s ease-in-out infinite alternate; }
-  .seat-princess.power-active > strong { color: #fff4d0; text-shadow: 0 0 8px #ffc75f; }
-  .local-princess { top: auto; bottom: 6px; left: 8px; z-index: 7; width: clamp(78px, 8cqw, 112px); }
-  .local-princess .princess-card { width: clamp(58px, min(6cqw, 9cqh), 88px); cursor: pointer; }
-  .local-princess > strong { font-size: clamp(10px, 1.4cqh, 12px); }
-  .local-princess > span { width: clamp(82px, 8cqw, 112px); font-size: clamp(9px, 1.2cqh, 11px); }
-  .local-princess.armed .princess-card { border-color: #7de2a7; box-shadow: 0 0 0 2px #7de2a7, 0 5px 12px rgba(0, 0, 0, .45); }
-  .local-princess .princess-card:disabled { cursor: default; opacity: 1; }
-  .lead-marker { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 999px; color: #211329; background: #ffc75f; font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 9px; text-transform: uppercase; }
-  .card-backs { display: flex; justify-content: center; height: clamp(52px, 8cqh, 70px); margin-left: clamp(45px, 5cqw, 66px); }
-  .card-backs i { width: clamp(34px, min(3.4cqw, 5.5cqh), 46px); height: clamp(50px, min(5.2cqw, 8cqh), 68px); margin-left: clamp(-28px, -2.2cqw, -19px); border: 1px solid #b88cdf; border-radius: 4px; background: repeating-linear-gradient(135deg, #251638 0 4px, #604077 4px 6px); box-shadow: 0 4px 9px rgba(0, 0, 0, .38); }
-  .card-backs i:first-child { margin-left: 0; }
-  .trick-counter { position: absolute; z-index: 8; top: 18px; right: -5px; }
-  .trick-counter summary { display: grid; place-items: center; width: clamp(25px, 3.5cqh, 32px); height: clamp(25px, 3.5cqh, 32px); border: 1px solid #ffc75f; border-radius: 50%; color: #211329; background: #ffc75f; box-shadow: 0 3px 9px rgba(0, 0, 0, .45); cursor: pointer; font-size: clamp(11px, 1.6cqh, 14px); font-weight: 700; list-style: none; }
-  .trick-counter summary::-webkit-details-marker { display: none; }
-  .trick-review { position: absolute; z-index: 9; top: 27px; left: 50%; display: none; gap: 3px; padding: 5px; border: 1px solid rgba(255, 226, 163, .6); border-radius: 6px; background: rgba(20, 13, 30, .96); box-shadow: 0 8px 24px rgba(0, 0, 0, .6); transform: translateX(-50%); }
-  .trick-counter[open] .trick-review, .trick-counter:hover .trick-review, .trick-counter:focus-within .trick-review { display: flex; }
-  .review-card { position: relative; display: block; width: clamp(34px, min(4cqw, 6cqh), 46px); aspect-ratio: 3 / 5; flex: 0 0 auto; overflow: hidden; border: 1px solid rgba(255, 226, 163, .6); border-radius: 4px; background-color: #150d1d; }
-  .review-card strong { position: absolute; top: 1px; left: 3px; color: #fff4d0; font-family: 'Cormorant Garamond', serif; font-size: 13px; text-shadow: 0 1px 2px #000; }
-  .local-seat { position: absolute; z-index: 3; inset: auto 8px 8px; }
-  .local-counter { top: 0; right: 8px; }
-  .local-counter .trick-review { top: auto; right: 0; bottom: 27px; left: auto; transform: none; }
-  .local-heading { display: flex; justify-content: center; gap: 14px; margin-bottom: 6px; color: #fff4d0; font-size: clamp(12px, 1.8cqh, 16px); }
-  .local-heading span { color: #b88cdf; }
-  .local-seat.action-active .local-heading { color: #ffc75f; text-shadow: 0 0 10px rgba(255, 199, 95, .6); }
-  .local-action-marker { margin-top: -2px; margin-bottom: -2px; }
-  .local-heading.local-leader { width: max-content; margin-right: auto; margin-left: auto; padding: 4px 9px; border: 1px solid #ffc75f; border-radius: 999px; color: #ffc75f; box-shadow: 0 0 14px rgba(255, 199, 95, .3); }
-  .local-heading.local-leader .lead-marker { color: #211329; }
   .power-controls { display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 3px; color: #fff4d0; font-size: clamp(10px, 1.5cqh, 13px); }
   .power-controls button { min-height: clamp(30px, 4.2cqh, 38px); padding: 0 10px; font-size: clamp(10px, 1.4cqh, 12px); }
   .power-choice { position: fixed; z-index: 30; top: 56%; left: 50%; width: min(90vw, 720px); max-height: 26vh; flex-wrap: wrap; overflow-y: auto; padding: 8px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 8px; background: rgba(20, 13, 30, .97); transform: translate(-50%, -50%); }
   .power-choice button.chosen { color: #211329; background: #ffc75f; }
   .power-prompt { margin: 0 0 3px; color: #ffc75f; font-size: clamp(10px, 1.5cqh, 13px); font-weight: 700; text-align: center; }
   .card-block-explanation { width: max-content; max-width: calc(100% - 150px); margin: 2px auto 0; color: #e8dcae; font-size: clamp(9px, 1.3cqh, 11px); line-height: 1.2; text-align: center; }
-  .card-art { position: absolute; inset: 0; opacity: .72; background-size: 400% 100%; background-position: calc(var(--suit-index) * 100% / 3) center; }
   .pass-controls { min-height: 37px; display: flex; justify-content: center; align-items: center; }
   .pass-submit { min-height: 32px; padding: 0 15px; font-size: 12px; }
   .pass-waiting, .pass-complete { margin: 0; color: #d9cedd; font-size: clamp(11px, 1.55cqh, 14px); text-align: center; }
   .pass-complete { color: #7de2a7; font-weight: 700; }
-  .live-trick { position: absolute; z-index: 4; top: 59%; left: 50%; display: flex; justify-content: center; align-items: flex-end; gap: clamp(6px, 1cqw, 12px); width: min(92%, 560px); color: #fff4d0; font-size: clamp(10px, 1.4cqh, 13px); pointer-events: none; transform: translateX(-50%); }
-  .trick-play { display: grid; justify-items: center; gap: 2px; }
-  .trick-card { position: relative; width: clamp(48px, min(6.5cqw, 10cqh), 78px); aspect-ratio: 3 / 5; overflow: hidden; border: 1px solid rgba(255, 226, 163, .7); border-radius: 6px; background-color: #150d1d; box-shadow: 0 9px 20px rgba(0, 0, 0, .52); animation: play-to-table .35s ease-out both; }
-  .trick-card.face-down { background: repeating-linear-gradient(135deg, #251638 0 7px, #604077 7px 10px); }
-  .live-trick.collecting .trick-play { animation: collect-trick 3s ease-in-out forwards; }
-  .live-trick.double-trick.collecting .trick-play { animation: none; }
-  @keyframes play-to-table { from { opacity: .3; transform: translate(var(--play-x), var(--play-y)) scale(1.15); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
-  @keyframes collect-trick {
-    0%, 62% { opacity: 1; transform: translate(0, 0) scale(1); }
-    100% { opacity: 0; transform: translate(var(--collect-x), var(--collect-y)) scale(.65); }
-  }
-  @keyframes princess-power-arrives { from { opacity: 0; transform: translate(-50%, -50%) scale(.55) rotate(-5deg); } to { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); } }
-  @keyframes power-sparkles { from { opacity: .55; transform: translateY(2px) scale(.92); } to { opacity: 1; transform: translateY(-3px) scale(1.08); } }
-  @keyframes active-princess-card { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
-  .round-results { position: absolute; z-index: 20; inset: 8% 12%; display: flex; flex-direction: column; align-items: center; overflow: auto; padding: 14px; border: 1px solid rgba(255, 226, 163, .65); border-radius: 12px; color: #fff4d0; background: #140d1e; box-shadow: 0 18px 60px rgba(0, 0, 0, .7); }
-  .round-results > * { flex-shrink: 0; }
-  .round-results h2 { margin: 0 0 8px; }
   .score-card-wrap { width: min(100%, 720px); margin-bottom: 9px; overflow: hidden; border: 1px solid rgba(255, 226, 163, .28); border-radius: 8px; }
   .score-card { width: 100%; table-layout: fixed; border-collapse: collapse; color: #f8edf8; font-size: 11px; text-align: center; }
   .score-card caption { padding: 5px; color: #ffc75f; background: rgba(82, 47, 100, .5); font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 700; }
@@ -1495,11 +1409,11 @@
   .score-card .round-score.pending { color: #756b7a; background: rgba(20, 13, 30, .35); }
   .score-card .score-total { color: #7de2a7; font-size: 14px; font-weight: 700; }
   .score-card tr.winner th, .score-card tr.winner .score-total { color: #ffc75f; }
-  .round-results ul { width: min(100%, 520px); margin: 0; padding: 0; list-style: none; }
-  .round-results li { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255, 226, 163, .15); font-size: 12px; }
-  .round-results li span { color: #d8c8dc; }
-  .round-results li b { color: #ffc75f; }
-  .round-results li.winner { margin: 2px -8px; padding: 7px 8px; border-radius: 8px; background: rgba(255, 199, 95, .14); }
+  .round-result-list { width: min(100%, 520px); margin: 0; padding: 0; list-style: none; }
+  .round-result-list li { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255, 226, 163, .15); font-size: 12px; }
+  .round-result-list li span { color: #d8c8dc; }
+  .round-result-list li b { color: #ffc75f; }
+  .round-result-list li.winner { margin: 2px -8px; padding: 7px 8px; border-radius: 8px; background: rgba(255, 199, 95, .14); }
   .victory { margin: 0 0 8px; color: #ffc75f; font-family: 'Cormorant Garamond', serif; font-size: clamp(22px, 4vw, 36px); font-weight: 700; }
   .result-actions { display: flex; gap: 8px; }
   .result-actions .secondary { min-height: 34px; margin-top: 5px; padding: 0 16px; font-size: 12px; }
@@ -1510,13 +1424,6 @@
   main.gameplay .copy { height: 100%; }
   main.gameplay .eyebrow, main.gameplay h1, main.gameplay .lede, main.gameplay .promise, main.gameplay footer { display: none; }
   :global(body:has(main.gameplay)) { height: 100dvh; overflow: hidden; }
-
-  .actions span {
-    max-width: 180px;
-    color: #9f93a5;
-    font-size: 13px;
-    line-height: 1.35;
-  }
 
   .atlas-card {
     position: relative;
@@ -1613,8 +1520,6 @@
   }
 
   @media (max-width: 760px) {
-    .live-trick.double-trick { width: 96%; gap: 2px; font-size: 8px; }
-    .live-trick.double-trick .trick-card { width: 36px; }
     main {
       width: min(100% - 28px, 520px);
     }
@@ -1648,24 +1553,6 @@
       line-height: 1.48;
     }
 
-    .actions {
-      margin-top: 23px;
-      gap: 12px;
-    }
-
-    .variant-choice { grid-template-columns: 1fr; }
-    .actions input { width: 118px; }
-    main.gameplay .local-princess { bottom: clamp(116px, 18cqh, 150px); left: 4px; width: 62px; }
-    main.gameplay .local-princess .princess-card { width: 52px; }
-    main.gameplay .local-princess > span { width: 64px; font-size: 8px; }
-    main.gameplay .local-seat { bottom: 2px; }
-    main.gameplay .round-results { inset: 8% 5%; }
-    main.gameplay .opponent-seat { width: 118px; min-height: 82px; }
-    main.gameplay .seat-princess { top: 28px; width: 52px; }
-    main.gameplay .seat-princess .princess-card { width: 42px; }
-    main.gameplay .seat-princess > span { width: 60px; font-size: 8px; }
-    main.gameplay .card-backs { height: 54px; margin-left: 42px; }
-    main.gameplay .card-backs i { width: 34px; height: 50px; margin-left: -21px; }
     main.gameplay .card-block-explanation { max-width: calc(100% - 84px); }
 
     .score-card th, .score-card td { padding: 5px 2px; }
@@ -1676,11 +1563,6 @@
       min-height: 44px;
       padding: 0 16px;
       font-size: 14px;
-    }
-
-    .actions span {
-      max-width: 155px;
-      font-size: 11px;
     }
 
     .atlas-card {
@@ -1726,10 +1608,4 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .princess-power-burst,
-    .power-sparkles,
-    .seat-princess.power-active .princess-card { animation: none; }
-    .trick-card { animation: none; }
-  }
 </style>
